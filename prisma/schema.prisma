@@ -1,0 +1,247 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+enum EsemenyTipus {
+  TELEPITES
+  KIVETEL
+  ETETES
+}
+
+enum Szerepkor {
+  OWNER
+  ADMIN
+  STAFF
+  OR
+  ANGLER
+}
+
+enum HalaszatSzerepkor {
+  OWNER
+  ADMIN
+  STAFF
+}
+
+enum ToTipus {
+  TO
+  TELELO
+}
+
+model Felhasznalo {
+  azonosito  Int      @id @default(autoincrement())
+  email      String   @unique @db.VarChar(255)
+  nev        String?  @db.VarChar(120)
+  jelszoHash String   @db.VarChar(255)
+  aktiv      Boolean  @default(true)
+  letrehozva DateTime @default(now())
+  frissitve  DateTime @updatedAt
+
+  // relációk
+  sessions       Session[]
+  tagsagok       ToTagsag[]
+  halaszatTagsag HalaszatTagsag[]
+
+  @@map("felhasznalok")
+}
+
+model Session {
+  azonosito     Int      @id @default(autoincrement())
+  felhasznaloId Int
+  tokenHash     String   @unique @db.VarChar(255)
+  lejar         DateTime
+  letrehozva    DateTime @default(now())
+
+  // reláció
+  felhasznalo Felhasznalo @relation(fields: [felhasznaloId], references: [azonosito], onDelete: Cascade)
+
+  @@index([felhasznaloId])
+  @@map("sessions")
+}
+
+model Halaszat {
+  azonosito  Int      @id @default(autoincrement())
+  nev        String   @db.VarChar(160)
+  slug       String   @unique @db.VarChar(190)
+  aktiv      Boolean  @default(true)
+  letrehozva DateTime @default(now())
+  frissitve  DateTime @updatedAt
+
+  // relációk
+  toak     To[]
+  tagsagok HalaszatTagsag[]
+
+  @@map("halaszatok")
+}
+
+model HalaszatTagsag {
+  azonosito     Int               @id @default(autoincrement())
+  halaszatId    Int
+  felhasznaloId Int
+  szerepkor     HalaszatSzerepkor @default(STAFF)
+  aktiv         Boolean           @default(true)
+  letrehozva    DateTime          @default(now())
+
+  // relációk
+  halaszat    Halaszat    @relation(fields: [halaszatId], references: [azonosito], onDelete: Cascade)
+  felhasznalo Felhasznalo @relation(fields: [felhasznaloId], references: [azonosito], onDelete: Cascade)
+
+  @@unique([halaszatId, felhasznaloId])
+  @@index([felhasznaloId])
+  @@index([halaszatId])
+  @@map("halaszat_tagsag")
+}
+
+model To {
+  azonosito  Int      @id @default(autoincrement())
+  nev        String
+  aktiv      Boolean  @default(true)
+  letrehozva DateTime @default(now())
+  frissitve  DateTime @updatedAt
+
+  // tenant + tó típus (átmenetileg nullable a halaszatId, hogy ne boruljon régi adatokkal)
+  tipus      ToTipus   @default(TO)
+  halaszatId Int?
+  halaszat   Halaszat? @relation(fields: [halaszatId], references: [azonosito], onDelete: Cascade)
+
+  // relációk
+  tagsagok ToTagsag[]
+
+  halAllomanyok  HalAllomany[]
+  telepitesek    Telepites[]
+  kivetelek      Kivetel[]
+  etetesek       Etetes[]
+  naploEsemenyek NaploEsemeny[]
+
+  @@index([halaszatId])
+  @@map("toak")
+}
+
+model ToTagsag {
+  azonosito     Int       @id @default(autoincrement())
+  felhasznaloId Int
+  toId          Int
+  szerepkor     Szerepkor @default(ANGLER)
+  aktiv         Boolean   @default(true)
+  letrehozva    DateTime  @default(now())
+
+  // relációk
+  felhasznalo Felhasznalo @relation(fields: [felhasznaloId], references: [azonosito], onDelete: Cascade)
+  to          To          @relation(fields: [toId], references: [azonosito], onDelete: Cascade)
+
+  @@unique([felhasznaloId, toId])
+  @@index([toId])
+  @@index([felhasznaloId])
+  @@map("to_tagsag")
+}
+
+model Halfaj {
+  azonosito  Int      @id @default(autoincrement())
+  nev        String   @unique
+  aktiv      Boolean  @default(true)
+  letrehozva DateTime @default(now())
+  frissitve  DateTime @updatedAt
+
+  // relációk
+  halAllomanyok  HalAllomany[]
+  telepitesek    Telepites[]
+  kivetelek      Kivetel[]
+  naploEsemenyek NaploEsemeny[]
+
+  @@map("halfajok")
+}
+
+model HalAllomany {
+  azonosito  Int      @id @default(autoincrement())
+  toId       Int
+  halfajId   Int
+  darab      Int      @default(0)
+  minTomegKg Decimal  @default(0.00) @db.Decimal(6, 2)
+  maxTomegKg Decimal  @default(0.00) @db.Decimal(6, 2)
+  frissitve  DateTime @updatedAt
+
+  // relációk
+  to     To     @relation(fields: [toId], references: [azonosito], onDelete: Cascade)
+  halfaj Halfaj @relation(fields: [halfajId], references: [azonosito], onDelete: Restrict)
+
+  @@unique([toId, halfajId])
+  @@index([toId])
+  @@index([halfajId])
+  @@map("hal_allomany")
+}
+
+model Telepites {
+  azonosito  Int      @id @default(autoincrement())
+  toId       Int
+  halfajId   Int
+  darab      Int
+  minTomegKg Decimal  @default(0.00) @db.Decimal(6, 2)
+  maxTomegKg Decimal  @default(0.00) @db.Decimal(6, 2)
+  forras     String?  @db.VarChar(255)
+  datum      DateTime @default(now())
+  megjegyzes String?  @db.Text
+
+  // relációk
+  to     To     @relation(fields: [toId], references: [azonosito], onDelete: Cascade)
+  halfaj Halfaj @relation(fields: [halfajId], references: [azonosito], onDelete: Restrict)
+
+  @@index([toId, datum])
+  @@index([halfajId, datum])
+  @@map("telepitesek")
+}
+
+model Kivetel {
+  azonosito  Int      @id @default(autoincrement())
+  toId       Int
+  halfajId   Int
+  darab      Int
+  ok         String?  @db.VarChar(120)
+  datum      DateTime @default(now())
+  megjegyzes String?  @db.Text
+
+  // relációk
+  to     To     @relation(fields: [toId], references: [azonosito], onDelete: Cascade)
+  halfaj Halfaj @relation(fields: [halfajId], references: [azonosito], onDelete: Restrict)
+
+  @@index([toId, datum])
+  @@index([halfajId, datum])
+  @@map("kivetelek")
+}
+
+model Etetes {
+  azonosito   Int      @id @default(autoincrement())
+  toId        Int
+  mennyisegKg Decimal  @db.Decimal(8, 2)
+  tipus       String?  @db.VarChar(120)
+  datum       DateTime @default(now())
+  megjegyzes  String?  @db.Text
+
+  // relációk
+  to To @relation(fields: [toId], references: [azonosito], onDelete: Cascade)
+
+  @@index([toId, datum])
+  @@map("etetesek")
+}
+
+model NaploEsemeny {
+  azonosito   Int          @id @default(autoincrement())
+  tipus       EsemenyTipus
+  toId        Int
+  halfajId    Int?
+  darab       Int?
+  mennyisegKg Decimal?     @db.Decimal(8, 2)
+  datum       DateTime     @default(now())
+  leiras      String?      @db.Text
+
+  // relációk
+  to     To      @relation(fields: [toId], references: [azonosito], onDelete: Cascade)
+  halfaj Halfaj? @relation(fields: [halfajId], references: [azonosito], onDelete: SetNull)
+
+  @@index([toId, datum])
+  @@index([tipus, datum])
+  @@map("naplo_esemenyek")
+}
