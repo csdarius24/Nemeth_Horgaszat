@@ -1,26 +1,24 @@
 import Link from "next/link";
 import HalaszatListaClient from "./HalaszatListaClient";
+import GlassCard from "@/components/ui/GlassCard";
 
 export default function HalaszatokPage() {
     return (
-        <main style={{ padding: 24, maxWidth: 900, margin: "0 auto" }}>
-            <header
-                style={{
-                    display: "flex",
-                    gap: 12,
-                    alignItems: "center",
-                    justifyContent: "space-between",
-                }}
-            >
-                <h1>Halászatok</h1>
-                <Link href="/halaszatok/uj">+ Új halászat</Link>
-            </header>
+        <div style={{ display: "grid", gap: 18 }}>
+            <div className="glass card" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
+                <div>
+                    <h1 className="h1">Halászatok</h1>
+                    <div className="muted" style={{ marginTop: 6 }}>
+                        Itt látod azokat a halászatokat, amelyekhez hozzáférésed van.
+                    </div>
+                </div>
 
-            <p style={{ opacity: 0.8 }}>
-                Itt látod azokat a halászatokat, amelyekhez hozzáférésed van.
-            </p>
+                <Link className="btn btn-primary" href="/halaszatok/uj">
+                    + Új halászat
+                </Link>
+            </div>
 
             <HalaszatListaClient />
-        </main>
+        </div>
     );
 }

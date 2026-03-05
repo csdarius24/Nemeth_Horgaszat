@@ -75,6 +75,8 @@ model Halaszat {
   toak     To[]
   tagsagok HalaszatTagsag[]
 
+  halfajok Halfaj[]
+
   @@map("halaszatok")
 }
 
@@ -141,10 +143,14 @@ model ToTagsag {
 
 model Halfaj {
   azonosito  Int      @id @default(autoincrement())
-  nev        String   @unique
+  halaszatId Int
+  nev        String   @db.VarChar(120)
   aktiv      Boolean  @default(true)
   letrehozva DateTime @default(now())
   frissitve  DateTime @updatedAt
+
+  // reláció
+  halaszat Halaszat @relation(fields: [halaszatId], references: [azonosito], onDelete: Cascade)
 
   // relációk
   halAllomanyok  HalAllomany[]
@@ -152,6 +158,9 @@ model Halfaj {
   kivetelek      Kivetel[]
   naploEsemenyek NaploEsemeny[]
 
+  // tenanton belül legyen egyedi a név
+  @@unique([halaszatId, nev])
+  @@index([halaszatId, aktiv])
   @@map("halfajok")
 }
 

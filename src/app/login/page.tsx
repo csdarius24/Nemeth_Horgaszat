@@ -4,6 +4,15 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 
+const inputStyle: React.CSSProperties = {
+    padding: 12,
+    borderRadius: 16,
+    border: "1px solid rgba(255,255,255,0.14)",
+    background: "rgba(0,0,0,0.16)",
+    color: "rgba(255,255,255,0.92)",
+    outline: "none",
+};
+
 export default function LoginPage() {
     const router = useRouter();
     const [email, setEmail] = useState("");
@@ -40,75 +49,80 @@ export default function LoginPage() {
     }
 
     return (
-        <main style={{ padding: 24, maxWidth: 520, margin: "0 auto" }}>
-            <h1>Bejelentkezés</h1>
-
-            <form onSubmit={onSubmit} style={{ marginTop: 16, display: "grid", gap: 12 }}>
-                <label style={{ display: "grid", gap: 6 }}>
-                    <span>Email</span>
-                    <input
-                        value={email}
-                        onChange={(e) => setEmail(e.target.value)}
-                        style={{ padding: 10, border: "1px solid #ccc", borderRadius: 8 }}
-                        autoComplete="email"
-                    />
-                </label>
-
-                <label style={{ display: "grid", gap: 6 }}>
-                    <span>Jelszó</span>
-                    <input
-                        type="password"
-                        value={password}
-                        onChange={(e) => setPassword(e.target.value)}
-                        style={{ padding: 10, border: "1px solid #ccc", borderRadius: 8 }}
-                        autoComplete="current-password"
-                    />
-                </label>
-
-                {hiba && (
-                    <div style={{ padding: 10, borderRadius: 8, background: "#ffe5e5" }}>
-                        {hiba}
+        <div
+            style={{
+                minHeight: "100vh",
+                display: "grid",
+                placeItems: "center",
+                padding: 18,
+            }}
+        >
+            <div style={{ width: "min(520px, 100%)", display: "grid", gap: 16 }}>
+                {/* Brand / header */}
+                <div className="glass card" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
+                    <div>
+                        <h1 className="h1">Bejelentkezés</h1>
+                        <div className="muted" style={{ marginTop: 6 }}>
+                            Lépj be a Németh Horgászat rendszerbe.
+                        </div>
                     </div>
-                )}
+                    <span className="badge">NH</span>
+                </div>
 
-                <button
-                    type="submit"
-                    disabled={loading}
-                    style={{
-                        padding: 12,
-                        borderRadius: 8,
-                        border: "none",
-                        background: "#4f46e5",
-                        color: "white",
-                        fontWeight: 600,
-                        cursor: "pointer",
-                    }}
-                >
-                    {loading ? "Beléptetés..." : "Belépés"}
-                </button>
-            </form>
+                {/* Form */}
+                <div className="glass card">
+                    <form onSubmit={onSubmit} style={{ display: "grid", gap: 12 }}>
+                        <label style={{ display: "grid", gap: 6 }}>
+                            <span className="muted">Email</span>
+                            <input
+                                value={email}
+                                onChange={(e) => setEmail(e.target.value)}
+                                autoComplete="email"
+                                style={inputStyle}
+                                placeholder="pl. sanyi@email.com"
+                            />
+                        </label>
 
-            {/* ---- REGISZTRÁCIÓ GOMB ---- */}
-            <div style={{ marginTop: 20, textAlign: "center" }}>
-                <p style={{ marginBottom: 10, opacity: 0.8 }}>
-                    Nincs még fiókod?
-                </p>
+                        <label style={{ display: "grid", gap: 6 }}>
+                            <span className="muted">Jelszó</span>
+                            <input
+                                type="password"
+                                value={password}
+                                onChange={(e) => setPassword(e.target.value)}
+                                autoComplete="current-password"
+                                style={inputStyle}
+                                placeholder="••••••••"
+                            />
+                        </label>
 
-                <Link
-                    href="/register"
-                    style={{
-                        display: "inline-block",
-                        padding: "10px 16px",
-                        borderRadius: 8,
-                        border: "1px solid #4f46e5",
-                        color: "#4f46e5",
-                        fontWeight: 600,
-                        textDecoration: "none",
-                    }}
-                >
-                    Regisztráció
-                </Link>
+                        {hiba && (
+                            <div
+                                className="glass"
+                                style={{
+                                    padding: 12,
+                                    borderRadius: 16,
+                                    border: "1px solid rgba(255,120,120,0.35)",
+                                    background: "rgba(120,20,20,0.22)",
+                                }}
+                            >
+                                <div style={{ fontWeight: 800, marginBottom: 6 }}>Hiba</div>
+                                <div className="muted">{hiba}</div>
+                            </div>
+                        )}
+
+                        <button type="submit" className="btn btn-primary" disabled={loading}>
+                            {loading ? "Beléptetés…" : "Belépés"}
+                        </button>
+                    </form>
+
+                    <div style={{ marginTop: 14, display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+                        <span className="muted">Nincs még fiókod?</span>
+                        <Link className="btn" href="/register">
+                            Regisztráció →
+                        </Link>
+                    </div>
+                </div>
             </div>
-        </main>
+        </div>
     );
 }

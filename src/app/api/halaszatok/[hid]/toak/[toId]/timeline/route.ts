@@ -1,0 +1,49 @@
+import { NextResponse } from "next/server";
+import { prisma } from "@/lib/prisma";
+import { requireHalaszatRole } from "@/lib/guards";
+import { szam } from "@/lib/utils/szam";
+import { assertToBelongsToTenant } from "@/lib/tenant/assertToBelongsToTenant";
+
+function jsonError(message: string, status = 400) {
+    return NextResponse.json({ error: message }, { status });
+}
+
+export async function GET(
+    req: Request,
+    context: { params: Promise<{ hid: string; toId: string }> }
+) {
+    const params = await context.params;
+    const halaszatId = szam(params.hid, 0);
+    const toId = szam(params.toId, 0);
+    if (!halaszatId) return jsonError("Hibás halászat azonosító.", 400);
+    if (!toId) return jsonError("Hibás tó azonosító.", 400);
+
+    const auth = await requireHalaszatRole(halaszatId, "STAFF");
+    if (!auth.ok) return jsonError(auth.error, auth.status);
+
+    const url = new URL(req.url);
+    const take = Math.min(Math.max(szam(url.searchParams.get("take") ?? "50", 50), 1), 200);
+
+    try {
+        const to = await assertToBelongsToTenant(toId, halaszatId);
+
+        const items = await prisma.naploEsemeny.findMany({
+            where: { toId: to.azonosito },
+            orderBy: { datum: "desc" },
+            take,
+            select: {
+                azonosito: true,
+                tipus: true,
+                datum: true,
+                leiras: true,
+                darab: true,
+                mennyisegKg: true,
+                halfaj: { select: { azonosito: true, nev: true } },
+            },
+        });
+
+        return NextResponse.json({ to: { azonosito: to.azonosito, nev: to.nev }, items });
+    } catch (err: any) {
+        return jsonError(err?.message ?? "Hiba történt a napló lekérésekor.", err?.status ?? 500);
+    }
+}
