@@ -9,10 +9,10 @@ function asInt(x: unknown) {
 
 export async function GET(
     _req: Request,
-    ctx: { params: Promise<{ id: string }> }
+    ctx: { params: Promise<{ hid: string }> }
 ) {
-    const { id } = await ctx.params;
-    const halaszatId = asInt(id);
+    const { hid } = await ctx.params;
+    const halaszatId = Number(hid);
 
     if (!halaszatId) {
         return NextResponse.json({ hiba: "Hibás halászat azonosító." }, { status: 400 });

@@ -136,7 +136,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 
                     <div style={{ flex: 1, height: 18 }} />
 
-                    
+
                 </div>
             </aside>
 
