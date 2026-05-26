@@ -2,8 +2,9 @@
 
 import React, { useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
+import HibabejelentesModal from "@/components/HibabejelentesModal";
 
-function Icon({ name }: { name: "home" | "users" | "fish" | "lake" | "settings" }) {
+function Icon({ name }: { name: "home" | "users" | "fish" | "lake" | "settings" | "alert"}) {
     const common = { width: 18, height: 18, fill: "none", stroke: "currentColor", strokeWidth: 2 };
     switch (name) {
         case "home":
@@ -44,6 +45,14 @@ function Icon({ name }: { name: "home" | "users" | "fish" | "lake" | "settings" 
                     <path d="M19.4 15a1.8 1.8 0 0 0 .36 1.98l.04.04-1.7 1.7-.04-.04A1.8 1.8 0 0 0 16 19.4a1.8 1.8 0 0 0-1 .2l-.06.02V22h-2v-2.38l-.06-.02a1.8 1.8 0 0 0-1-.2 1.8 1.8 0 0 0-1.98.36l-.04.04-1.7-1.7.04-.04A1.8 1.8 0 0 0 4.6 16a1.8 1.8 0 0 0-.2-1l-.02-.06H2v-2h2.38l.02-.06a1.8 1.8 0 0 0 .2-1 1.8 1.8 0 0 0-.36-1.98l-.04-.04 1.7-1.7.04.04A1.8 1.8 0 0 0 8 4.6a1.8 1.8 0 0 0 1-.2l.06-.02V2h2v2.38l.06.02a1.8 1.8 0 0 0 1 .2 1.8 1.8 0 0 0 1.98-.36l.04-.04 1.7 1.7-.04.04A1.8 1.8 0 0 0 19.4 8c.1.33.1.67 0 1l-.02.06H22v2h-2.62l.02.06c.1.33.1.67 0 1Z" />
                 </svg>
             );
+        case "alert":
+            return (
+                <svg {...common} viewBox="0 0 24 24">
+                    <path d="M12 9v4" />
+                    <path d="M12 17h.01" />
+                    <path d="M10.3 3.84 1.82 18A2 2 0 0 0 3.53 21h16.94a2 2 0 0 0 1.71-3L13.7 3.84a2 2 0 0 0-3.4 0Z" />
+                </svg>
+            );
     }
 }
 
@@ -76,8 +85,14 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 
     const base = hid ? `/halaszatok/${hid}` : "/halaszatok";
 
-    const [me, setMe] = useState<{ nev: string | null; email: string } | null>(null);
+    const [me, setMe] = useState<{
+        azonosito: number;
+        nev: string | null;
+        email: string;
+    } | null>(null);
+
     const [loggingOut, setLoggingOut] = useState(false);
+    const [hibaModalNyitva, setHibaModalNyitva] = useState(false);
 
     useEffect(() => {
         let mounted = true;
@@ -126,17 +141,20 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 
                     <NavItem href="/halaszatok" icon={<Icon name="home" />} active={pathname === "/halaszatok"} />
                     <NavItem href={base} icon={<Icon name="lake" />} active={isHalaszat && pathname === base} />
-
+                    <NavItem
+                        href={`${base}/hibabejelentesek`}
+                        icon={<Icon name="alert" />}
+                        active={pathname.includes("/hibabejelentesek")}
+                    />
                     {hid && (
                         <>
                             <NavItem href={`${base}/halfajok`} icon={<Icon name="fish" />} active={pathname.includes("/halfajok")} />
                             <NavItem href={`${base}/dolgozok`} icon={<Icon name="users" />} active={pathname.includes("/dolgozok")} />
+                            <NavItem href={`${base}/hibabejelentesek`} icon={<Icon name="alert" />} active={pathname.includes("/hibabejelentesek")} />
                         </>
                     )}
 
                     <div style={{ flex: 1, height: 18 }} />
-
-
                 </div>
             </aside>
 
@@ -150,7 +168,13 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                     <div className="spacer" />
 
                     <button className="iconbtn" title="Gyors művelet">＋</button>
-                    <button className="iconbtn" title="Értesítések">!</button>
+                    <button
+                        className="iconbtn"
+                        title="Hibabejelentés"
+                        onClick={() => setHibaModalNyitva(true)}
+                    >
+                        !
+                    </button>
 
                     <div
                         className="glass"
@@ -196,6 +220,13 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                 </div>
 
                 <div style={{ marginTop: 18 }}>{children}</div>
+
+                <HibabejelentesModal
+                    open={hibaModalNyitva}
+                    onClose={() => setHibaModalNyitva(false)}
+                    felhasznaloId={me?.azonosito ?? null}
+                    halaszatId={hid ? Number(hid) : null}
+                />
             </main>
         </div>
     );
