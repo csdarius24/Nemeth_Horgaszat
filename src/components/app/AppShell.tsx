@@ -3,8 +3,9 @@
 import React, { useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import HibabejelentesModal from "@/components/HibabejelentesModal";
+import KalkulatorModal from "@/components/app/KalkulatorModal";
 
-function Icon({ name }: { name: "home" | "users" | "fish" | "lake" | "settings" | "alert"}) {
+function Icon({ name }: { name: "home" | "users" | "fish" | "lake" | "settings" | "alert" | "calculator" | "calendar" }) {
     const common = { width: 18, height: 18, fill: "none", stroke: "currentColor", strokeWidth: 2 };
     switch (name) {
         case "home":
@@ -53,21 +54,33 @@ function Icon({ name }: { name: "home" | "users" | "fish" | "lake" | "settings" 
                     <path d="M10.3 3.84 1.82 18A2 2 0 0 0 3.53 21h16.94a2 2 0 0 0 1.71-3L13.7 3.84a2 2 0 0 0-3.4 0Z" />
                 </svg>
             );
+        case "calculator":
+            return (
+                <svg {...common} viewBox="0 0 24 24">
+                    <rect x="4" y="2" width="16" height="20" rx="3" />
+                    <path d="M8 6h8M8 10h2m4 0h2M8 14h2m4 0h2M8 18h2m4 0h2" />
+                </svg>
+            );
+        case "calendar":
+            return (
+                <svg {...common} viewBox="0 0 24 24">
+                    <rect x="3" y="4" width="18" height="18" rx="3" />
+                    <path d="M16 2v4M8 2v4M3 10h18" />
+                    <path d="M8 14h.01M12 14h.01M16 14h.01M8 18h.01M12 18h.01M16 18h.01" strokeWidth={2.5} strokeLinecap="round" />
+                </svg>
+            );
     }
 }
 
-function NavItem({ href, icon, active }: { href: string; icon: React.ReactNode; active: boolean }) {
+function NavItem({ href, icon, label, active }: { href: string; icon: React.ReactNode; label: string; active: boolean }) {
     return (
         <a
             href={href}
-            className="iconbtn"
-            style={{
-                background: active ? "rgba(255,255,255,0.18)" : undefined,
-                borderColor: active ? "rgba(255,255,255,0.24)" : undefined,
-            }}
-            title={href}
+            className={"sidebar-nav-item" + (active ? " sidebar-nav-item--active" : "")}
+            title={label}
         >
-            {icon}
+            <span className="sidebar-nav-icon">{icon}</span>
+            <span className="sidebar-nav-label">{label}</span>
         </a>
     );
 }
@@ -93,6 +106,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 
     const [loggingOut, setLoggingOut] = useState(false);
     const [hibaModalNyitva, setHibaModalNyitva] = useState(false);
+    const [kalkulatorNyitva, setKalkulatorNyitva] = useState(false);
 
     useEffect(() => {
         let mounted = true;
@@ -132,31 +146,65 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     return (
         <div className="container-app">
             <aside className="sidebar">
-                <div style={{ display: "grid", gap: 12, justifyItems: "center" }}>
-                    <div className="iconbtn" title="Németh Horgászat" style={{ background: "rgba(255,255,255,0.18)" }}>
-                        <span style={{ fontWeight: 800 }}>NH</span>
+                <div style={{ display: "flex", flexDirection: "column", gap: 4, height: "100%" }}>
+
+                    {/* Brand */}
+                    <div style={{ marginBottom: 8 }}>
+                        <div className="sidebar-nav-item" style={{ pointerEvents: "none" }}>
+                            <span className="sidebar-nav-icon">
+                                <div style={{
+                                    width: 34, height: 34, borderRadius: 12,
+                                    background: "rgba(255,255,255,0.18)",
+                                    display: "grid", placeItems: "center",
+                                    fontWeight: 800, fontSize: 13,
+                                }}>
+                                    NH
+                                </div>
+                            </span>
+                            <span className="sidebar-nav-label" style={{ fontWeight: 800, fontSize: 14 }}>
+                                Németh Horgászat
+                            </span>
+                        </div>
                     </div>
 
-                    <div style={{ height: 10 }} />
+                    {/* Fő navigáció */}
+                    <NavItem href="/halaszatok" icon={<Icon name="home" />} label="Halászatok" active={pathname === "/halaszatok"} />
+                    <NavItem href={base} icon={<Icon name="lake" />} label="Halászat" active={isHalaszat && pathname === base} />
 
-                    <NavItem href="/halaszatok" icon={<Icon name="home" />} active={pathname === "/halaszatok"} />
-                    <NavItem href={base} icon={<Icon name="lake" />} active={isHalaszat && pathname === base} />
-                    <NavItem
-                        href={`${base}/hibabejelentesek`}
-                        icon={<Icon name="alert" />}
-                        active={pathname.includes("/hibabejelentesek")}
-                    />
                     {hid && (
                         <>
-                            <NavItem href={`${base}/halfajok`} icon={<Icon name="fish" />} active={pathname.includes("/halfajok")} />
-                            <NavItem href={`${base}/dolgozok`} icon={<Icon name="users" />} active={pathname.includes("/dolgozok")} />
-                            <NavItem href={`${base}/hibabejelentesek`} icon={<Icon name="alert" />} active={pathname.includes("/hibabejelentesek")} />
+                            <NavItem href={`${base}/halfajok`}         icon={<Icon name="fish" />}       label="Halfajok"          active={pathname.includes("/halfajok")} />
+                            <NavItem href={`${base}/dolgozok`}         icon={<Icon name="users" />}      label="Dolgozók"          active={pathname.includes("/dolgozok")} />
+                            <NavItem href={`${base}/naptar`}           icon={<Icon name="calendar" />}   label="Naptár"            active={pathname.includes("/naptar")} />
+                            <NavItem href={`${base}/hibabejelentesek`} icon={<Icon name="alert" />}      label="Hibabejelentések"  active={pathname.includes("/hibabejelentesek")} />
                         </>
                     )}
 
-                    <div style={{ flex: 1, height: 18 }} />
+                    {/* Spacer */}
+                    <div style={{ flex: 1 }} />
+
+                    {/* Számológép */}
+                    <button
+                        className={"sidebar-nav-item" + (kalkulatorNyitva ? " sidebar-nav-item--active" : "")}
+                        title="Számológép"
+                        onClick={() => setKalkulatorNyitva((v) => !v)}
+                        style={{
+                            background: kalkulatorNyitva ? "rgba(208,138,91,0.22)" : undefined,
+                            borderColor: kalkulatorNyitva ? "rgba(208,138,91,0.55)" : undefined,
+                            color: kalkulatorNyitva ? "#d08a5b" : undefined,
+                        }}
+                    >
+                        <span className="sidebar-nav-icon"><Icon name="calculator" /></span>
+                        <span className="sidebar-nav-label">Számológép</span>
+                    </button>
+
                 </div>
             </aside>
+
+            <KalkulatorModal
+                open={kalkulatorNyitva}
+                onClose={() => setKalkulatorNyitva(false)}
+            />
 
             <main className="main">
                 <div className="topbar">
