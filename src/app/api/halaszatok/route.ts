@@ -1,19 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/guards";
-
-function slugify(input: string) {
-    return input
-        .toLowerCase()
-        .trim()
-        .replace(/[áàâä]/g, "a")
-        .replace(/[éèêë]/g, "e")
-        .replace(/[íìîï]/g, "i")
-        .replace(/[óòôöő]/g, "o")
-        .replace(/[úùûüű]/g, "u")
-        .replace(/[^a-z0-9]+/g, "-")
-        .replace(/^-+|-+$/g, "");
-}
+import { slugify } from "@/lib/utils/slug";
 
 export async function GET() {
     const user = await requireUser();

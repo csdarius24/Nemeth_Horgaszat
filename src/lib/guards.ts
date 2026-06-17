@@ -1,5 +1,6 @@
 import { getAuthUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { meetsToRole, meetsHalaszatRole } from "@/lib/roles";
 import type { Szerepkor, HalaszatSzerepkor } from "@prisma/client";
 
 export async function requireUser() {
@@ -9,15 +10,6 @@ export async function requireUser() {
 /* ------------------------------
    TÓ-SZINTŰ ROLE (régi / meglévő)
 --------------------------------- */
-
-// role sorrend (minRole logikához)
-const ROLE_RANK: Record<Szerepkor, number> = {
-    ANGLER: 1,
-    OR: 2,
-    STAFF: 3,
-    ADMIN: 4,
-    OWNER: 5,
-};
 
 export async function requireToRole(toId: number, minRole: Szerepkor = "ANGLER") {
     const user = await requireUser();
@@ -38,7 +30,7 @@ export async function requireToRole(toId: number, minRole: Szerepkor = "ANGLER")
         return { ok: false as const, status: 403 as const, error: "Nincs jogosultságod ehhez a tóhoz." };
     }
 
-    if (ROLE_RANK[tagsag.szerepkor] < ROLE_RANK[minRole]) {
+    if (!meetsToRole(tagsag.szerepkor, minRole)) {
         return { ok: false as const, status: 403 as const, error: "Nincs megfelelő jogosultságod ehhez a művelethez." };
     }
 
@@ -48,12 +40,6 @@ export async function requireToRole(toId: number, minRole: Szerepkor = "ANGLER")
 /* ------------------------------
    HALÁSZAT-SZINTŰ ROLE (TENANT)
 --------------------------------- */
-
-const HALASZAT_ROLE_RANK: Record<HalaszatSzerepkor, number> = {
-    STAFF: 1,
-    ADMIN: 2,
-    OWNER: 3,
-};
 
 export async function requireHalaszatRole(
     halaszatId: number,
@@ -78,7 +64,7 @@ export async function requireHalaszatRole(
         return { ok: false as const, status: 403 as const, error: "Nincs hozzáférésed ehhez a halászathoz." };
     }
 
-    if (HALASZAT_ROLE_RANK[tagsag.szerepkor] < HALASZAT_ROLE_RANK[minRole]) {
+    if (!meetsHalaszatRole(tagsag.szerepkor, minRole)) {
         return { ok: false as const, status: 403 as const, error: "Nincs megfelelő jogosultságod ehhez a művelethez." };
     }
 

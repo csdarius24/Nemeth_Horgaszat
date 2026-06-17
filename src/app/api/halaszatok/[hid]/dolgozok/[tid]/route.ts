@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireHalaszatRole } from "@/lib/guards";
-import type { HalaszatSzerepkor } from "@prisma/client";
+import { canManageTarget } from "@/lib/roles";
 
 type PatchBody = {
     role?: "ADMIN" | "STAFF"; // szerepkör módosítás (csak OWNER)
@@ -11,15 +11,6 @@ type PatchBody = {
 function szam(x: unknown, alap = 0) {
     const n = typeof x === "number" ? x : Number(x);
     return Number.isFinite(n) ? n : alap;
-}
-
-function canManageTarget(actorRole: HalaszatSzerepkor, targetRole: HalaszatSzerepkor) {
-    // OWNER-t senki nem piszkálja
-    if (targetRole === "OWNER") return false;
-
-    if (actorRole === "OWNER") return true;               // OWNER: STAFF+ADMIN
-    if (actorRole === "ADMIN") return targetRole === "STAFF"; // ADMIN: csak STAFF
-    return false;
 }
 
 export async function PATCH(req: Request, props: { params: Promise<{ hid: string; tid: string }> }) {

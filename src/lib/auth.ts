@@ -1,26 +1,12 @@
-import bcrypt from "bcryptjs";
-import crypto from "crypto";
 import { cookies } from "next/headers";
 import { prisma } from "@/lib/prisma";
+import { sha256, createSessionToken, hashPassword, verifyPassword } from "@/lib/password";
+
+// Visszafelé kompatibilis re-export: a hívók továbbra is a @/lib/auth-ból importálnak.
+export { hashPassword, verifyPassword, createSessionToken };
 
 const COOKIE_NAME = "nh_session";
 const SESSION_TTL_DAYS = 30;
-
-function sha256(input: string) {
-    return crypto.createHash("sha256").update(input).digest("hex");
-}
-
-export async function hashPassword(password: string) {
-    return bcrypt.hash(password, 12);
-}
-
-export async function verifyPassword(password: string, hash: string) {
-    return bcrypt.compare(password, hash);
-}
-
-export function createSessionToken() {
-    return crypto.randomBytes(32).toString("hex");
-}
 
 export async function createSession(felhasznaloId: number) {
     const token = createSessionToken()

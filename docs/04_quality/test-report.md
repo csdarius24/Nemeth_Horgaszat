@@ -6,42 +6,42 @@ forrása: `docs/01_product/scope-contract.md` (AC1–AC7).
 
 ## 1. Állapot — összefoglaló
 
-> **Az automata tesztek jelenleg NINCSENEK implementálva.** A `package.json` nem
-> tartalmaz teszt-runnert (a szkriptek: `dev`, `build`, `start`, `lint`), és nincs
-> teszt-keretrendszer (sem Vitest, sem Playwright) a függőségek között. Nincs
-> `*.test.ts` / `*.spec.ts` fájl, nincs CI által futtatott tesztlépés.
+> **Az első valós automata teszt-infrastruktúra elkészült (unit szint).**
+> Bevezetésre került a **Vitest**, `test` / `test:unit` / `test:watch` /
+> `test:coverage` szkriptekkel és `vitest.config.ts`-szel. Jelenleg **29 unit
+> teszt** fut, mind zöld (lásd 5. szakasz). Az **integration** és **e2e** réteg
+> továbbra is tervezett (lásd 3. szakasz).
 
-Ez a dokumentum ezért **baseline + terv**: rögzíti a jelenlegi kiindulási
-állapotot, és tervezett tesztmátrixot ad, amelyhez a bizonyítékok (eredmények,
-lefedettség, CI-log) később illesztendők.
+Frissítés dátuma: **2026-06-17**. Ettől kezdve a dokumentum nem csak terv: a unit
+réteg tényleges eredményt rögzít; a magasabb rétegekhez a bizonyítékok (CI-log,
+lefedettség, Playwright trace) később illesztendők.
 
 ## 2. Jelenlegi baseline
 
 | Tétel | Állapot |
 |---|---|
-| Teszt-keretrendszer | ❌ Nincs (Vitest/Playwright bevezetendő) |
-| Unit tesztek | ❌ Nincs |
-| Integration tesztek | ❌ Nincs |
-| E2E tesztek | ❌ Nincs |
-| Lefedettség mérés | ❌ Nincs |
-| CI tesztlépés | ❌ Nincs (nincs `.github/` pipeline) |
-| Statikus ellenőrzés | ⚠️ `npm run lint` (ESLint) elérhető; `tsc` típusellenőrzés a build során |
+| Teszt-keretrendszer | ✅ Vitest 3.2.6 (`vitest.config.ts`, node környezet) |
+| Unit tesztek | ✅ 29 teszt, 4 fájl (`tests/unit/`) |
+| Integration tesztek | ❌ Nincs (tervezett) |
+| E2E tesztek | ❌ Nincs (tervezett, Playwright) |
+| Lefedettség mérés | ✅ Elérhető (`npm run test:coverage`, `@vitest/coverage-v8`) |
+| CI tesztlépés | ❌ Nincs (nincs `.github/` pipeline — tervezett) |
+| Statikus ellenőrzés | ⚠️ `tsc --noEmit` zöld; `npm run lint` **pre-existing hibák miatt piros** (lásd 6.1) |
 | Kézi (manuális) ellenőrzés | ⚠️ Fejlesztés közben ad-hoc, nem dokumentált |
 
-**Jelenleg rendelkezésre álló minőségi jelek:** ESLint (`eslint.config.mjs`),
-TypeScript szigorú típusozás (`tsconfig.json`), és a séma-szintű megszorítások
-(egyedi kulcsok, FK-szabályok), amelyek futásidőben érvényesülnek. Ezek nem
-helyettesítik az automata teszteket, de csökkentik a hibafelületet.
+**Jelenleg rendelkezésre álló minőségi jelek:** Vitest unit tesztek, ESLint
+(`eslint.config.mjs`), TypeScript szigorú típusozás (`tsconfig.json`, `tsc
+--noEmit` zöld), és a séma-szintű megszorítások (egyedi kulcsok, FK-szabályok).
 
 ## 3. Tervezett tesztmátrix
 
 | ID | Réteg | Terület | Eset (összefoglaló) | Eszköz | Állapot |
 |---|---|---|---|---|---|
-| U-01 | Unit | `guards` rangsor | RBAC küszöb döntések (STAFF/ADMIN/OWNER) | Vitest | Tervezett |
-| U-02 | Unit | `auth` | jelszó hash/verify, token generálás | Vitest | Tervezett |
-| U-03 | Unit | `szam` | szám-parse + alapérték | Vitest | Tervezett |
-| U-04 | Unit | `slugify` | ékezet/ütközés-feloldás | Vitest | Tervezett |
-| U-05 | Unit | `canManageTarget` | dolgozó-kezelés szabályai | Vitest | Tervezett |
+| U-01 | Unit | `roles` rangsor | RBAC küszöb döntések (`meetsToRole`/`meetsHalaszatRole`) | Vitest | ✅ Kész |
+| U-02 | Unit | `password` | jelszó hash/verify, sha256, token generálás | Vitest | ✅ Kész |
+| U-03 | Unit | `szam` | szám-parse + vessző + alapérték | Vitest | ✅ Kész |
+| U-04 | Unit | `slugify` | ékezet/normalizálás/levágás | Vitest | ✅ Kész |
+| U-05 | Unit | `canManageTarget` | dolgozó-kezelés szabályai | Vitest | ✅ Kész |
 | I-01 | Integration | Auth | register/login/me/logout + hibák | Vitest+DB | Tervezett |
 | I-02 | Integration | Halászat | létrehozás + OWNER tagság | Vitest+DB | Tervezett |
 | I-03 | Integration | Tó | létrehozás/listázás, típus | Vitest+DB | Tervezett |
@@ -72,24 +72,82 @@ Minden elfogadási kritériumhoz tartozik legalább egy tervezett automata teszt
 A megvalósításkor ide kerül az eredmény (✅/❌), a futás dátuma és a bizonyíték
 hivatkozása.
 
-## 5. Eredmények
+## 5. Eredmények (unit réteg)
 
-> Nincs rögzíthető eredmény, amíg a tesztek nem készülnek el. A tesztek
-> bevezetése után ide kerül: futtatás dátuma, környezet (Node/DB verzió), összes
-> teszt / sikeres / bukott, lefedettségi százalék, és a fenti mátrix/táblázat
-> kitöltése tényleges állapottal.
+Tényleges futás — `npm run test` (Vitest 3.2.6, `environment: node`):
+
+```text
+ ✓ tests/unit/roles.test.ts    (10 tests)
+ ✓ tests/unit/slug.test.ts     ( 6 tests)
+ ✓ tests/unit/szam.test.ts     ( 6 tests)
+ ✓ tests/unit/password.test.ts ( 7 tests)
+
+ Test Files  4 passed (4)
+      Tests   29 passed (29)
+   Duration  ~1.7s
+```
+
+- **Típusellenőrzés:** `npx tsc --noEmit` → **0 hiba** (a kiemelések
+  típushelyesek).
+- **Futás dátuma:** 2026-06-17. **Környezet:** Node (lokális), DB **nem
+  szükséges** (a unit réteg tiszta logikát tesztel).
+
+### 5.1 Implementált teszt-fájlok és a tesztelt modulok
+
+| Teszt-fájl | Tesztelt modul | Esetek |
+|---|---|---|
+| `tests/unit/szam.test.ts` | `src/lib/utils/szam.ts` | szám/vessző/alapérték/NaN |
+| `tests/unit/slug.test.ts` | `src/lib/utils/slug.ts` (**kiemelt**) | ékezet, normalizálás, levágás, üres |
+| `tests/unit/roles.test.ts` | `src/lib/roles.ts` (**kiemelt**) | rangsorok, `meets*Role`, `canManageTarget` |
+| `tests/unit/password.test.ts` | `src/lib/password.ts` (**kiemelt**) | `sha256`, hash/verify, token |
+
+### 5.2 Viselkedés-megőrző kiemelések (refaktor)
+
+A tiszta logika unit-tesztelhetőségéért három apró, **viselkedést nem változtató**
+kiemelés történt; az eredeti hívási pontok importtal használják ezeket:
+
+- `slugify` → `src/lib/utils/slug.ts` (forrás: `app/api/halaszatok/route.ts`).
+- Rangsor + `canManageTarget` → `src/lib/roles.ts` (forrás: `lib/guards.ts` és
+  `app/api/halaszatok/[hid]/dolgozok/[tid]/route.ts`). A `guards.ts` mostantól a
+  `meetsToRole`/`meetsHalaszatRole` helpereket hívja (azonos `<` küszöblogika).
+- `hashPassword`/`verifyPassword`/`createSessionToken`/`sha256` →
+  `src/lib/password.ts` (forrás: `lib/auth.ts`, amely re-exportál a kompatibilitásért).
+
+A `tsc --noEmit` zöld, ami igazolja, hogy a kiemelések nem törték a típusokat.
+
+### 5.3 Ismert korlátok (mit NEM fed a unit réteg)
+
+- A `lib/auth.ts` `createSession`/`deleteSession`/`getAuthUser` függvényei
+  **Next `cookies()`-hoz és Prisma-hoz** kötöttek → unit szinten nem tesztelhetők
+  izoláltan; integration teszttel (I-01) fedendők.
+- A `lib/guards.ts` `require*` és a `lib/tenant/*` függvények **Prisma-hívásokat**
+  tartalmaznak; csak a kiemelt tiszta logikájuk (rangsor) van unit-tesztelve, a
+  DB-s ágak integration szinten jönnek (I-07, I-08).
+- Az API route handlerek (`src/app/api/**`) teljes viselkedése (státuszkódok,
+  tranzakciók) integration/e2e réteget igényel — lásd 3. szakasz.
 
 ## 6. TODO — jövőbeli bizonyítékok
 
-- [ ] Vitest + Playwright bevezetése; `test`, `test:e2e`, `coverage` szkriptek a
-      `package.json`-ba.
-- [ ] Teszt-adatbázis és seed/factory helperek beállítása (lásd
-      `testing-strategy.md` 8. szakasz).
-- [ ] **CI-log:** GitHub Actions futás linkje a tesztlépéssel (lint→typecheck→
-      unit/integration→e2e).
-- [ ] **Lefedettségi riport:** `@vitest/coverage-v8` kimenet csatolása; a célok
-      (`testing-strategy.md` 9.) teljesülésének igazolása.
-- [ ] **Playwright bizonyíték:** trace + screenshot a fő folyamatról (E-01) és a
-      negatív esetekről (E-02, E-03).
-- [ ] A 3. és 4. táblázat frissítése valós állapotra; a `docs/06_release/
-      acceptance-report.md` összekötése ezekkel az eredményekkel.
+### 6.1 Ismert hiányosság — `npm run lint` jelenleg piros (pre-existing)
+
+Az `npm run lint` **136 hibát** jelez, de ezek **mind a meglévő alkalmazáskódban**
+vannak (pl. `src/lib/tenantDb.ts`, több route handler `any` típusa,
+`components/app/AppShell.tsx` feltételes React hook-ok), **nem** az új teszt-setup
+okozza. Bizonyíték: az új/módosított fájlokra futtatott ESLint **0 hibát** ad
+(`npx eslint src/lib/roles.ts src/lib/password.ts src/lib/utils/slug.ts
+src/lib/auth.ts src/lib/guards.ts ... tests/unit/*.ts` → exit 0). Ez elfogadott
+ismert hiányosságként, de **később javítandó**, vagy a CI-ban átmenetileg külön
+kezelendő (pl. csak a változott fájlokra futó lint, amíg a meglévő hibák
+felszámolásra nem kerülnek).
+
+### 6.2 Hátralévő tételek
+
+- [x] Vitest bevezetése; `test` / `test:unit` / `test:coverage` szkriptek.
+- [x] Első valós unit tesztek (29) a tiszta logikára.
+- [ ] **Pre-existing lint hibák** felszámolása vagy CI-stratégia (6.1).
+- [ ] Playwright + integration réteg (teszt-DB, seed/factory — `testing-strategy.md` 8.).
+- [ ] **CI-log:** GitHub Actions (lint→typecheck→unit→integration→e2e).
+- [ ] **Lefedettségi riport** csatolása (`npm run test:coverage`), célok igazolása.
+- [ ] **Playwright bizonyíték:** trace + screenshot (E-01, E-02, E-03).
+- [ ] A 3./4. táblázat integration+e2e sorainak valós állapotra frissítése; a
+      `docs/06_release/acceptance-report.md` összekötése.
