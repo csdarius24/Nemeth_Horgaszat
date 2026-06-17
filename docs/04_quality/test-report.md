@@ -151,3 +151,34 @@ felszámolásra nem kerülnek).
 - [ ] **Playwright bizonyíték:** trace + screenshot (E-01, E-02, E-03).
 - [ ] A 3./4. táblázat integration+e2e sorainak valós állapotra frissítése; a
       `docs/06_release/acceptance-report.md` összekötése.
+
+## 7. CI (GitHub Actions)
+
+A folyamatos integráció a `.github/workflows/ci.yml`-ben van definiálva, és
+**push** illetve **pull_request** eseményre fut.
+
+**Jelenleg futó (blokkoló) lépések:**
+
+1. `actions/checkout` — forrás kivétele.
+2. `actions/setup-node` (Node 20, npm cache).
+3. `npm ci` — reprodukálható függőségtelepítés.
+4. `npx prisma generate` — Prisma kliens előállítása (a typecheckhez kell;
+   nem csatlakozik adatbázishoz).
+5. `npx tsc --noEmit` — típusellenőrzés.
+6. `npm run test` — Vitest unit tesztek (29 teszt).
+
+A CI tehát **typecheck + unit teszt** szinten véd; valódi adatbázis nem
+szükséges (a workflow csak egy placeholder `DATABASE_URL`-t állít be a Prisma
+sémához).
+
+**Ismert, nem-blokkoló hiányosság — lint:** az `npm run lint` szándékosan **nincs**
+a CI blokkoló lépései között, mert a repóban pre-existing ESLint hibák vannak a
+meglévő alkalmazáskódban (lásd 6.1). Ez **tudatos, dokumentált** döntés, nem
+elrejtett hiba: a lint visszakapcsolandó blokkoló lépésként, amint a meglévő
+lint-adósság rendezve van (vagy addig csak a változott fájlokra futtatva). A
+workflow `TODO` kommentje ugyanezt rögzíti.
+
+**Jövőbeli munka (a CI bővítése):** integration tesztek teszt-adatbázis
+szolgáltatással (pl. MySQL service container), Playwright e2e lépés, lefedettségi
+riport feltöltése, és — a lint-adósság felszámolása után — a lint blokkolóvá
+tétele. Lásd a 6.2 hátralévő tételeket.

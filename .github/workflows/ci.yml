@@ -1,0 +1,48 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  build-and-test:
+    name: Typecheck & Unit tests
+    runs-on: ubuntu-latest
+
+    # A Prisma datasource a DATABASE_URL env változót várja. A `prisma generate`
+    # nem csatlakozik adatbázishoz (csak a klienst állítja elő a sémából), de a
+    # placeholder elkerüli a hiányzó-env figyelmeztetéseket. A unit tesztek és a
+    # typecheck NEM igényelnek valódi adatbázist.
+    env:
+      DATABASE_URL: "mysql://ci:ci@localhost:3306/ci_placeholder"
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Generate Prisma client
+        run: npx prisma generate
+
+      - name: Typecheck
+        run: npx tsc --noEmit
+
+      - name: Unit tests
+        run: npm run test
+
+      # TODO: A lint (`npm run lint`) szándékosan NINCS blokkoló CI-lépésként.
+      # A repóban jelenleg pre-existing ESLint hibák vannak a meglévő
+      # alkalmazáskódban (pl. src/lib/tenantDb.ts, több route `any` típusa,
+      # components/app/AppShell.tsx feltételes React hook-ok) — ezek NEM az új
+      # teszt-setupból erednek (az új/módosított fájlok lint-tiszták).
+      # Részletek: docs/04_quality/test-report.md (6.1 és CI szakasz).
+      # A lint visszakapcsolandó blokkoló lépésként, amint a meglévő lint-adósság
+      # rendezve van (vagy addig csak a változott fájlokra futtatva).
