@@ -1,5 +1,4 @@
--- CreateEnum
-ALTER TABLE `takarmanyok` ENGINE=InnoDB;
+-- CreateTable
 CREATE TABLE IF NOT EXISTS `takarmanyok` (
     `azonosito` INTEGER NOT NULL AUTO_INCREMENT,
     `halaszatId` INTEGER NOT NULL,
