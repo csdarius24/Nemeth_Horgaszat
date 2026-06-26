@@ -30,6 +30,9 @@ A védett végpontok a `src/lib/guards.ts` helpereit használják:
 A `requireToRole` / `requireToAccess` (tó-szintű szerepkör) helperek léteznek, de
 a jelenlegi route-ok kizárólag `requireHalaszatRole`-t használnak.
 
+> A teljes, szerepkörönkénti jogosultsági mátrix (ki láthat/módosíthat mit) és az
+> ismert jogosultsági hiányosságok: [`docs/05_security_ops/role-matrix.md`](../05_security_ops/role-matrix.md).
+
 ### Tenant izoláció
 
 - Minden `/api/halaszatok/[hid]/...` végpont a `[hid]` (halaszatId) köré épül, és

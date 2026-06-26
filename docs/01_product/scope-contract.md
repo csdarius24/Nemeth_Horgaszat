@@ -40,7 +40,9 @@ megvalósított, SZD2-re tervezett.
 - **dashboard** (összesítő, döntéstámogató nézetek) [kész]
 - **hibabejelentések** (bug reports) [kész] — *ismert korlát: a végpontok
   jelenleg auth/RBAC guard nélkül futnak, lásd `docs/05_security_ops/threat-model.md`*
-- **szerepkör alapú jogosultságkezelés** (RBAC) [kész]
+- **szerepkör alapú jogosultságkezelés** (RBAC) [kész] — a részletes
+  szerepkör-/jogosultsági mátrixot lásd:
+  [`docs/05_security_ops/role-matrix.md`](../05_security_ops/role-matrix.md)
 
 > **Megjegyzés a takarmánykészletről:** a takarmány készletértéke jelenleg
 > **kézi** bevétel/felhasználás mozgásokkal változik. Az etetési művelethez való
