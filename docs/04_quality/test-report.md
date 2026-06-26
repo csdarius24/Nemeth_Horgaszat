@@ -8,25 +8,29 @@ forrása: `docs/01_product/scope-contract.md` (AC1–AC7).
 
 > **Az első valós automata teszt-infrastruktúra elkészült (unit szint).**
 > Bevezetésre került a **Vitest**, `test` / `test:unit` / `test:watch` /
-> `test:coverage` szkriptekkel és `vitest.config.ts`-szel. Jelenleg **29 unit
-> teszt** fut, mind zöld (lásd 5. szakasz). Az **integration** és **e2e** réteg
-> továbbra is tervezett (lásd 3. szakasz).
+> `test:coverage` szkriptekkel és `vitest.config.ts`-szel. Jelenleg **42 unit
+> teszt** fut **5 fájlban**, mind zöld (lásd 5. szakasz). Az **integration** és
+> **e2e** réteg továbbra is tervezett (lásd 3. szakasz).
 
-Frissítés dátuma: **2026-06-17**. Ettől kezdve a dokumentum nem csak terv: a unit
-réteg tényleges eredményt rögzít; a magasabb rétegekhez a bizonyítékok (CI-log,
-lefedettség, Playwright trace) később illesztendők.
+Frissítés dátuma: **2026-06-26** (korábbi baseline: 2026-06-17, 29 teszt). A unit
+teszt-szám az új tiszta helperekkel bővült: **29 → 34** (hibabejelentés-státusz
+jogosultság, `canUpdateHibabejelentesStatus`) **→ 42** (takarmány-készletlevonás,
+`szamitTakarmanyFelhasznalas`). A magasabb rétegekhez a bizonyítékok (CI-log,
+lefedettség, Playwright trace, endpoint-szintű integration) később illesztendők.
 
 ## 2. Jelenlegi baseline
 
 | Tétel | Állapot |
 |---|---|
 | Teszt-keretrendszer | ✅ Vitest 3.2.6 (`vitest.config.ts`, node környezet) |
-| Unit tesztek | ✅ 29 teszt, 4 fájl (`tests/unit/`) |
+| Unit tesztek | ✅ **42 teszt, 5 fájl** (`tests/unit/`) — korábban 29/4 |
 | Integration tesztek | ❌ Nincs (tervezett) |
 | E2E tesztek | ❌ Nincs (tervezett, Playwright) |
 | Lefedettség mérés | ✅ Elérhető (`npm run test:coverage`, `@vitest/coverage-v8`) |
 | CI tesztlépés | ❌ Nincs (nincs `.github/` pipeline — tervezett) |
 | Statikus ellenőrzés | ⚠️ `tsc --noEmit` zöld; `npm run lint` **pre-existing hibák miatt piros** (lásd 6.1) |
+| Production build | ✅ `npm run build` (Next.js) sikeres — 2026-06-26 |
+| Production DB migráció | ✅ `20260626100000_link_etetes_takarmany` **alkalmazva** (`prisma migrate deploy`, 2026-06-26, `srv1695.hstgr.io`) — lásd `verification-log.md` V-13 |
 | Kézi (manuális) ellenőrzés | ⚠️ Fejlesztés közben ad-hoc, nem dokumentált |
 
 **Jelenleg rendelkezésre álló minőségi jelek:** Vitest unit tesztek, ESLint
@@ -42,6 +46,8 @@ lefedettség, Playwright trace) később illesztendők.
 | U-03 | Unit | `szam` | szám-parse + vessző + alapérték | Vitest | ✅ Kész |
 | U-04 | Unit | `slugify` | ékezet/normalizálás/levágás | Vitest | ✅ Kész |
 | U-05 | Unit | `canManageTarget` | dolgozó-kezelés szabályai | Vitest | ✅ Kész |
+| U-06 | Unit | `canUpdateHibabejelentesStatus` | hibabejelentés-státusz jogosultság (tenant/ADMIN/bejelentő) | Vitest | ✅ Kész |
+| U-07 | Unit | `szamitTakarmanyFelhasznalas` / `ketTizedes` | takarmány-készletlevonás: elég/nincs elég/érvénytelen, 2-tizedes kerekítés | Vitest | ✅ Kész |
 | I-01 | Integration | Auth | register/login/me/logout + hibák | Vitest+DB | Tervezett |
 | I-02 | Integration | Halászat | létrehozás + OWNER tagság | Vitest+DB | Tervezett |
 | I-03 | Integration | Tó | létrehozás/listázás, típus | Vitest+DB | Tervezett |
@@ -51,6 +57,7 @@ lefedettség, Playwright trace) később illesztendők.
 | I-07 | Integration | RBAC negatív | 401/403 a védett végpontokon | Vitest+DB | Tervezett |
 | I-08 | Integration | Tenant-izoláció | idegen `[hid]`/`[toId]` → 403/404 | Vitest+DB | Tervezett |
 | I-09 | Integration | Takarmánykészlet | takarmány CRUD + mozgás → `keszlet` frissül + negatív-védelem (422) | Vitest+DB | Tervezett |
+| I-10 | Integration | Etetés↔takarmány levonás | `takarmanyId` nélkül: csak `Etetes`+napló (készlet változatlan); `takarmanyId`-vel: `Etetes`+`TakarmanyMozgas(FELHASZNALVA)`+csökkentett `keszlet`+napló egy tranzakcióban; idegen halászat takarmánya → 404; nincs elég készlet → 422 (atomi rollback) | Vitest+DB | Tervezett |
 | E-01 | E2E | Fő folyamat | regisztráció→halászat→tó→halfaj→telepítés→összesítő | Playwright | Tervezett |
 | E-02 | E2E | Jogosultság | STAFF nem fér ADMIN-művelethez | Playwright | Tervezett |
 | E-03 | E2E | Izoláció | „A" nem látja „B" adatát | Playwright | Tervezett |
@@ -75,23 +82,29 @@ hivatkozása.
 
 ## 5. Eredmények (unit réteg)
 
-Tényleges futás — `npm run test` (Vitest 3.2.6, `environment: node`):
+Legutóbbi tényleges futás — `npm run test` (Vitest 3.2.6, `environment: node`),
+**2026-06-26**:
 
 ```text
- ✓ tests/unit/roles.test.ts    (10 tests)
- ✓ tests/unit/slug.test.ts     ( 6 tests)
- ✓ tests/unit/szam.test.ts     ( 6 tests)
- ✓ tests/unit/password.test.ts ( 7 tests)
+ ✓ tests/unit/roles.test.ts            (15 tests)
+ ✓ tests/unit/slug.test.ts             ( 6 tests)
+ ✓ tests/unit/szam.test.ts             ( 6 tests)
+ ✓ tests/unit/password.test.ts         ( 7 tests)
+ ✓ tests/unit/takarmany-keszlet.test.ts ( 8 tests)
 
- Test Files  4 passed (4)
-      Tests   29 passed (29)
-   Duration  ~1.7s
+ Test Files  5 passed (5)
+      Tests   42 passed (42)
 ```
 
-- **Típusellenőrzés:** `npx tsc --noEmit` → **0 hiba** (a kiemelések
-  típushelyesek).
-- **Futás dátuma:** 2026-06-17. **Környezet:** Node (lokális), DB **nem
-  szükséges** (a unit réteg tiszta logikát tesztel).
+- **Típusellenőrzés:** `npx tsc --noEmit` → **exit 0** (0 típushiba).
+- **Production build:** `npm run build` (Next.js) → **sikeres** (2026-06-26).
+- **Környezet:** Node (lokális), DB **nem szükséges** a unit réteghez (tiszta
+  logika). Megjegyzés: a production DB-migráció külön, `prisma migrate deploy`-jal
+  alkalmazva (lásd `verification-log.md` V-13).
+
+> Korábbi baseline (2026-06-17): `Test Files 4 passed (4) / Tests 29 passed (29)`.
+> A növekmény: +5 teszt (`canUpdateHibabejelentesStatus`, a `roles.test.ts`-ben),
+> majd +8 teszt (`takarmany-keszlet.test.ts`).
 
 ### 5.1 Implementált teszt-fájlok és a tesztelt modulok
 
@@ -99,8 +112,9 @@ Tényleges futás — `npm run test` (Vitest 3.2.6, `environment: node`):
 |---|---|---|
 | `tests/unit/szam.test.ts` | `src/lib/utils/szam.ts` | szám/vessző/alapérték/NaN |
 | `tests/unit/slug.test.ts` | `src/lib/utils/slug.ts` (**kiemelt**) | ékezet, normalizálás, levágás, üres |
-| `tests/unit/roles.test.ts` | `src/lib/roles.ts` (**kiemelt**) | rangsorok, `meets*Role`, `canManageTarget` |
+| `tests/unit/roles.test.ts` | `src/lib/roles.ts` (**kiemelt**) | rangsorok, `meets*Role`, `canManageTarget`, `canUpdateHibabejelentesStatus` |
 | `tests/unit/password.test.ts` | `src/lib/password.ts` (**kiemelt**) | `sha256`, hash/verify, token |
+| `tests/unit/takarmany-keszlet.test.ts` | `src/lib/takarmany/keszlet.ts` | készletlevonás: elég/nincs elég/érvénytelen, `ketTizedes` kerekítés |
 
 ### 5.2 Viselkedés-megőrző kiemelések (refaktor)
 
@@ -145,6 +159,10 @@ felszámolásra nem kerülnek).
 
 - [x] Vitest bevezetése; `test` / `test:unit` / `test:coverage` szkriptek.
 - [x] Első valós unit tesztek (29) a tiszta logikára.
+- [x] Unit tesztek bővítése **42**-re (`canUpdateHibabejelentesStatus`,
+      `szamitTakarmanyFelhasznalas`) — 2026-06-26.
+- [x] Production DB-migráció (`20260626100000_link_etetes_takarmany`) alkalmazva +
+      `npm run build` zöld — 2026-06-26 (lásd `verification-log.md` V-13).
 - [ ] **Pre-existing lint hibák** felszámolása vagy CI-stratégia (6.1).
 - [ ] Playwright + integration réteg (teszt-DB, seed/factory — `testing-strategy.md` 8.).
 - [ ] **CI-log:** GitHub Actions (lint→typecheck→unit→integration→e2e).
@@ -166,7 +184,7 @@ A folyamatos integráció a `.github/workflows/ci.yml`-ben van definiálva, és
 4. `npx prisma generate` — Prisma kliens előállítása (a typecheckhez kell;
    nem csatlakozik adatbázishoz).
 5. `npx tsc --noEmit` — típusellenőrzés.
-6. `npm run test` — Vitest unit tesztek (29 teszt).
+6. `npm run test` — Vitest unit tesztek (42 teszt, 5 fájl).
 
 A CI tehát **typecheck + unit teszt** szinten véd; valódi adatbázis nem
 szükséges (a workflow csak egy placeholder `DATABASE_URL`-t állít be a Prisma

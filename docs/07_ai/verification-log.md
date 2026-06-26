@@ -147,6 +147,37 @@ felügyelt és igazolt legyen, ne vakon elfogadott. Kapcsolódó: `ai-manifest.m
 - **Bizonyíték:** `ai-manifest.md` 4. szakasz; `privacy.md` 5. szakasz;
   `.gitignore` (`.env*`).
 
+## V-13 — Etetés↔takarmány migráció production-be telepítve + build/teszt zöld
+
+- **Dátum:** 2026-06-26.
+- **AI kimenet:** az etetés↔takarmánykészlet összekötés (séma + migráció +
+  endpoint + UI + unit tesztek); a `20260626100000_link_etetes_takarmany`
+  migráció.
+- **Kockázat, ha téves:** nem alkalmazott vagy hibás migráció → futásidejű DB-hiba
+  productionben; törött build → sikertelen deploy; hamis „zöld" tesztjelzés.
+- **Ellenőrzés (pontos parancsok, tényleges futás):**
+  - `npx prisma migrate status` →
+    `Database "u625819054_horgaszat_v1" at "srv1695.hstgr.io:3306"`,
+    **pending migration:** `20260626100000_link_etetes_takarmany`.
+  - `npx prisma migrate deploy` → a `20260626100000_link_etetes_takarmany`
+    migráció **sikeresen alkalmazva** a production adatbázisra.
+  - `npx prisma generate` → **siker** (Prisma kliens előállítva).
+  - `npm run test` → **5 test file passed / 42 test passed**.
+  - `npx tsc --noEmit` → **exit 0** (0 típushiba).
+  - `npm run build` → **Next.js production build sikeres** (route-manifest
+    generálva, beleértve a `ƒ /api/halaszatok/[hid]/toak/[toId]/etetes` végpontot).
+- **Eredmény:** ✅ A production migráció alkalmazva; a unit + typecheck + build
+  bizonyíték zöld. A `szamitTakarmanyFelhasznalas` készletlevonási logika
+  unit-tesztelt (`tests/unit/takarmany-keszlet.test.ts`).
+- **Bizonyíték:** a fenti parancskimenetek; `docs/04_quality/test-report.md` 5.
+  szakasz; commit `4163f2f`.
+- **Hatókör-korlát (őszinte):** ez **unit + build + migráció** szintű bizonyíték.
+  **Endpoint-szintű integration teszt** az etetés-tranzakcióra (atomicitás,
+  `404`/`422`, visszafelé kompatibilis ág) **továbbra is tervezett** — lásd
+  `testing-strategy.md`. A párhuzamos etetések elleni **versenyhelyzet-védelem
+  (row-lock / optimista verziózás) nincs** implementálva. **CI-futás linkje
+  nincs ellenőrizve** ehhez a változáshoz (lásd V-04 TODO).
+
 ---
 
 ## Összegzés
@@ -165,6 +196,8 @@ felügyelt és igazolt legyen, ne vakon elfogadott. Kapcsolódó: `ai-manifest.m
 | V-10 | Nincs DB-függés | ✅ |
 | V-11 | Coverage szkript | ✅ (érték: TODO) |
 | V-12 | Nincs titok AI-ben | ✅ |
+| V-13 | Etetés↔takarmány migráció + build/teszt (2026-06-26) | ✅ unit+build+migráció (integration: tervezett) |
 
-A nyitott bizonyítékok (V-04 CI-futás link, V-11 lefedettségi érték) `TODO`-ként
-jelölve; ezek a megfelelő futások után pótolhatók.
+A nyitott bizonyítékok (V-04 CI-futás link, V-11 lefedettségi érték, V-13
+endpoint-szintű integration) `TODO`-ként/tervezettként jelölve; ezek a megfelelő
+futások után pótolhatók.

@@ -34,17 +34,20 @@ végpont-teszt nélkül · `TODO` = nincs még megvalósítva.
 | AC1 | Felhasználó létre tud hozni halászatot | PARTIAL | Kód-szintű review | `POST /api/halaszatok` halászatot + OWNER tagságot hoz létre tranzakcióban; `api-design.md`. A `slugify` unit-tesztelt. | Integration teszt (I-02): register→create→OWNER tagság. |
 | AC2 | A halászathoz tavak rendelhetők | PARTIAL | Kód-szintű review | `POST/GET /api/halaszatok/[hid]/toak` (ADMIN létrehoz, STAFF listáz), `TO`/`TELELO` típus. | Integration teszt (I-03). |
 | AC3 | A tavakhoz halfajok kezelhetők | PARTIAL | Kód-szintű review | `halfajok` CRUD: egyedi név (P2002→409), FK-védett törlés (P2003→409). | Integration teszt (I-04). |
-| AC4 | Telepítés/kivét után az állomány automatikusan frissül | PARTIAL | Kód-szintű review | `telepites`/`kivetel`/`attelepites` `prisma.$transaction`-ben frissíti a `HalAllomany`-t; kivétnél készlet-ellenőrzés. | Integration teszt (I-05, I-06): állomány-delta + edge case-ek. |
+| AC4 | Telepítés/kivét után az állomány automatikusan frissül | PARTIAL | Unit teszt + kód-szintű review | `telepites`/`kivetel`/`attelepites` `prisma.$transaction`-ben frissíti a `HalAllomany`-t; kivétnél készlet-ellenőrzés. **Bővült:** az etetés (`takarmanyId`-vel) most egy tranzakcióban vonja le a **takarmánykészletet** is (`Etetes`+`TakarmanyMozgas(FELHASZNALVA)`+`Takarmany.keszlet`); a levonási logika **unit-tesztelt** (`szamitTakarmanyFelhasznalas`, 8 teszt), és az engedélyező **production migráció alkalmazva** (`20260626100000_link_etetes_takarmany`, lásd `verification-log.md` V-13). | Integration teszt (I-05, I-06, I-10): állomány-/készlet-delta + edge case-ek (idegen takarmány → 404, nincs elég készlet → 422, atomicitás). |
 | AC5 | A jogosultsági rendszer megakadályozza az illetéktelen hozzáférést | PARTIAL | Unit teszt + kód-szintű review | RBAC: `requireHalaszatRole` + rangsor; **unit-tesztelt** `meetsToRole`/`meetsHalaszatRole`/`canManageTarget` + **új** `canUpdateHibabejelentesStatus` (15 teszt). A korábbi `hibabejelentesek` auth-rés **rendezve** (auth + RBAC kikényszerítve). | Végpont-szintű negatív integration teszt (I-07: 401/403), beleértve a hibabejelentés-végpontokat. |
-| AC6 | Az események naplózásra kerülnek | PARTIAL | Kód-szintű review | Minden művelet `NaploEsemeny`-t ír (telepítés/kivét/etetés/áttelepítés); `timeline`/`summary` visszaolvassa. | Integration teszt: napló-bejegyzés keletkezésének igazolása. **Caveat:** a napló nem rögzíti a cselekvő `felhasznaloId`-t (`threat-model.md` STRIDE-R). |
+| AC6 | Az események naplózásra kerülnek | PARTIAL | Kód-szintű review | Minden művelet `NaploEsemeny`-t ír (telepítés/kivét/etetés/áttelepítés); `timeline`/`summary` visszaolvassa. **Bővült:** a takarmányhoz kötött etetés naplósora rögzíti a felhasznált takarmányt és a maradék készletet, és a `TakarmanyMozgas` az etetéshez/tóhoz FK-val kötött (nyomon követhetőség). | Integration teszt: napló-bejegyzés keletkezésének igazolása. **Caveat:** a napló nem rögzíti a cselekvő `felhasznaloId`-t (`threat-model.md` STRIDE-R). |
 | AC7 | Több halászat adatai egymástól elkülönítve tárolódnak | PARTIAL | Kód-szintű review | Tenant-izoláció: `requireHalaszatRole` + `assertToBelongsToTenant` (idegen tó → 404). A `hibabejelentesek` végpontok izolációja **rendezve**: a listázás tenant-szűrt, a státuszváltás a bejelentés saját halászatára kötött (tenant-átlépés kizárva). | Integration teszt (I-08): idegen `[hid]`/`[toId]` → 403/404. |
 
 ## Megjegyzések a bizonyíték jellegéről
 
-- **Automatizált bizonyíték** jelenleg a unit rétegben áll rendelkezésre (29
-  teszt, mind zöld), amely az AC5 jogosultsági logikáját részben fedi
-  (`roles.ts`). A többi kritérium bizonyítéka **kód-szintű** (a forrás
-  átolvasása), nem automatizált végpont-teszt.
+- **Automatizált bizonyíték** jelenleg a unit rétegben áll rendelkezésre (**42
+  teszt, 5 fájl**, mind zöld — 2026-06-26), amely az AC5 jogosultsági logikáját
+  (`roles.ts`, beleértve a `canUpdateHibabejelentesStatus`-t) és az AC4
+  takarmány-készletlevonási logikáját (`szamitTakarmanyFelhasznalas`) részben
+  fedi. A többi kritérium és az **endpoint-szintű** viselkedés bizonyítéka
+  **kód-szintű** (a forrás átolvasása) + a production migráció/build tényleges
+  futása, **nem** automatizált végpont-teszt — az integration/e2e réteg tervezett.
 - **Nincs dokumentált, megismételhető manuális tesztkör** sem rögzítve; ennek
   hiányában a kritériumok nem kapnak `PASS`-t. Egy strukturált manuális
   átfutás (a `ux-flows.md` szerint) átmeneti bizonyítékként rögzíthető — **TODO.**
@@ -53,9 +56,18 @@ végpont-teszt nélkül · `TODO` = nincs még megvalósítva.
 
 ### Jelenlegi készültség
 A rendszer **funkcionálisan készen áll** az MVP-célokra, és **dokumentációs +
-unit-teszt + CI alapja erős**. A kiadás azonban **még nem teljes körűen
-verifikált**: az elfogadási kritériumok automatizált, végpont-szintű igazolása
-hiányzik. Állapot: **„demonstrálható MVP, verifikáció részleges".**
+unit-teszt + CI alapja erős**. A legutóbbi (2026-06-26) tényleges bizonyíték: a
+production DB-migráció (`20260626100000_link_etetes_takarmany`) **alkalmazva**, a
+**42/42 unit teszt zöld**, a `tsc --noEmit` **exit 0**, és a `npm run build`
+**sikeres** (lásd `verification-log.md` V-13 és `test-report.md` 5.). A kiadás
+azonban **még nem teljes körűen verifikált**: az elfogadási kritériumok
+automatizált, **végpont-szintű** igazolása (integration/e2e) hiányzik. Állapot:
+**„demonstrálható MVP, verifikáció részleges".**
+
+> **Versenyhelyzet (őszinte korlát):** a takarmány-készletlevonás egy
+> tranzakcióban történik, de **nincs** sor-szintű zár / optimista verziózás, így
+> párhuzamos etetések elméletileg túllevonhatnak (MySQL alapértelmezett
+> izolációval). MVP-szinten elfogadott, SZD2-ben kezelendő.
 
 ### Blokkoló hiányok (beadás előtt rendezendő)
 1. ~~**`hibabejelentesek` végpontok authorizációja**~~ — **megoldva (2026-06-26):**

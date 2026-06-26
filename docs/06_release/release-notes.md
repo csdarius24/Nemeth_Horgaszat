@@ -47,6 +47,12 @@ ismert korlátai átláthatóan dokumentáltak (lásd lentebb és a
 - Készletmozgások rögzítése: **bevétel** (+) / **felhasználás** (−); a
   `Takarmany.keszlet` tranzakcióban frissül, negatívba nem mehet.
 - Készlet- és megoszlás-diagramok, mozgásnapló a felületen.
+- **Etetés ↔ takarmánykészlet automatikus összekötése (új):** etetéskor
+  (`takarmanyId` megadva) egy tranzakcióban létrejön az `Etetes`, egy
+  `FELHASZNALVA` `TakarmanyMozgas` (tóhoz/etetéshez FK-val kötve), csökken a
+  `Takarmany.keszlet`, és naplóbejegyzés készül; `takarmanyId` nélkül a régi
+  viselkedés marad (készlet változatlan). Engedélyező migráció:
+  `20260626100000_link_etetes_takarmany` (productionben **alkalmazva**).
 
 ### Riport és napló (döntéstámogatás)
 - Tó-összefoglaló (`summary`), idővonal (`timeline`), halászat-szintű összesítő
@@ -61,10 +67,12 @@ ismert korlátai átláthatóan dokumentáltak (lásd lentebb és a
 
 | Tétel | Állapot | Hivatkozás |
 |---|---|---|
-| Unit tesztek | ✅ **29/29 zöld** (Vitest) | `docs/04_quality/test-report.md` 5. |
-| Típusellenőrzés | ✅ **`npx tsc --noEmit` exit 0** | `verification-log.md` V-02 |
+| Unit tesztek | ✅ **42/42 zöld** (Vitest, 5 fájl — 2026-06-26; korábban 29) | `docs/04_quality/test-report.md` 5. |
+| Típusellenőrzés | ✅ **`npx tsc --noEmit` exit 0** | `verification-log.md` V-02, V-13 |
+| Production build | ✅ **`npm run build` sikeres** (Next.js, 2026-06-26) | `verification-log.md` V-13 |
+| Production DB-migráció | ✅ **`20260626100000_link_etetes_takarmany` alkalmazva** (`prisma migrate deploy`, `srv1695.hstgr.io`, 2026-06-26) | `verification-log.md` V-13 |
 | CI workflow | ✅ Létezik (typecheck + unit teszt, push/PR) | `.github/workflows/ci.yml` |
-| Biztonsági dokumentáció | ✅ STRIDE threat-model, privacy, runbook, deployment | `docs/05_security_ops/` |
+| Biztonsági dokumentáció | ✅ STRIDE threat-model, privacy, runbook, deployment, role-matrix | `docs/05_security_ops/` |
 | AI verifikációs dokumentáció | ✅ Manifeszt, prompt-log, verification-log | `docs/07_ai/` |
 | Design dokumentáció | ✅ Data-model + API-design a tényleges kódból | `docs/03_design/` |
 
@@ -100,9 +108,13 @@ verzió nem tartalmaz:
 **Tervezett (SZD2, jelen kiadásban nincs megvalósítva):**
 
 - **halkeltetési modul** (jelenleg csak placeholder oldal),
-- az **etetés ↔ takarmánykészlet automatikus összekötése** (etetéskor automatikus
-  készletlevonás; jelenleg a takarmánymozgás kézi rögzítésű),
-- bővített döntéstámogatás (trendek, lehalászás-tervezés).
+- bővített döntéstámogatás (trendek, lehalászás-tervezés),
+- **endpoint-szintű integration/e2e tesztek** (az AC1–AC7 automatizált, végpont-
+  szintű igazolása), valamint a takarmány-készletlevonás **versenyhelyzet-védelme**
+  (sor-szintű zár / optimista verziózás).
+
+> Megjegyzés: az **etetés ↔ takarmánykészlet automatikus összekötése** időközben
+> **elkészült** és bekerült ebbe a kiadásba (lásd „Takarmánykészlet" fent).
 
 ## Kapcsolódó kiadási commitok (main)
 
@@ -114,6 +126,7 @@ verzió nem tartalmaz:
 | `be5269d` | Unit teszt-infrastruktúra (Vitest, 29 teszt) |
 | `72c10a2` | CI workflow (GitHub Actions) |
 | `8727284` | AI engineering dokumentáció |
+| `4163f2f` | Etetés↔takarmány automatikus levonás + migráció + bug report auth (unit tesztek: 42) |
 
 > Megjegyzés: a kiadáshoz ajánlott egy `v1.0` git tag létrehozása a végleges
 > beadáskor (jelenleg még nincs tag — **TODO**).
