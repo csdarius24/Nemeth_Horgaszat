@@ -40,3 +40,29 @@ export function canManageTarget(actorRole: HalaszatSzerepkor, targetRole: Halasz
     if (actorRole === "ADMIN") return targetRole === "STAFF";
     return false;
 }
+
+/**
+ * Tiszta döntés: módosíthatja-e a hívó egy hibabejelentés státuszát.
+ *
+ * Szabályok:
+ * - Ha a hibabejelentés **halászathoz kötött** (`bugHalaszatId != null`):
+ *   a hívónak ADMIN vagy OWNER szerepkörűnek kell lennie **abban** a halászatban
+ *   (`viewerRole` az adott halászatban érvényes szerepkör, vagy `null`, ha nem tag).
+ * - Ha a hibabejelentés **globális** (`bugHalaszatId == null`):
+ *   csak az **eredeti bejelentő** módosíthatja (`isReporter`).
+ *
+ * A `viewerRole` mindig a hibabejelentés saját halászatában érvényes szerepkör,
+ * így a függvény tenant-átlépést nem enged (idegen halászatban szerzett ADMIN
+ * nem ad jogot egy másik halászat bejelentéséhez).
+ */
+export function canUpdateHibabejelentesStatus(args: {
+    bugHalaszatId: number | null;
+    viewerRole: HalaszatSzerepkor | null;
+    isReporter: boolean;
+}): boolean {
+    const { bugHalaszatId, viewerRole, isReporter } = args;
+    if (bugHalaszatId != null) {
+        return viewerRole != null && meetsHalaszatRole(viewerRole, "ADMIN");
+    }
+    return isReporter;
+}

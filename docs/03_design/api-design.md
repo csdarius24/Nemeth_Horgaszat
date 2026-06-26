@@ -316,13 +316,30 @@ táblázatok az egyes végpontoknál pontosítják.
   tömegtartomány nullázódik); `Kivetel` rekord; `NaploEsemeny(KIVETEL)`.
 
 ### POST /api/halaszatok/[hid]/toak/[toId]/etetes
-- **Cél:** etetés rögzítése + napló.
-- **Jogosultság:** `requireHalaszatRole(hid, "STAFF")` + tenant-check.
-- **Request body:** `{ mennyisegKg: number (>0), datum?: string, tipus?: string, megjegyzes?: string }`
-- **Siker:** `201` `{ azonosito, toId, mennyisegKg, tipus, datum, megjegyzes }`.
-- **Hibák:** `400` mennyiség ≤ 0 / hibás dátum; `401/403`; `404`; `500` (`{ error }`).
-- **Mellékhatás (tranzakció):** `Etetes` rekord; `NaploEsemeny(ETETES)`. Készletet
-  nem módosít.
+- **Cél:** etetés rögzítése + napló; **opcionálisan** takarmánykészlet-levonás.
+- **Jogosultság:** `requireHalaszatRole(hid, "STAFF")` + tenant-check (a tó a
+  halászathoz tartozik). A szerepkör **változatlan** (STAFF) a takarmányos ágon is.
+- **Request body:** `{ mennyisegKg: number (>0), datum?: string, tipus?: string, megjegyzes?: string, takarmanyId?: number }`
+- **Viselkedés a `takarmanyId` szerint:**
+  - **Nincs `takarmanyId` (visszafelé kompatibilis):** csak `Etetes` +
+    `NaploEsemeny(ETETES)` jön létre, **a készlet nem változik** — pontosan a
+    korábbi viselkedés.
+  - **Van `takarmanyId`:** a végpont ellenőrzi, hogy a takarmány **ugyanahhoz a
+    halászathoz** tartozik (`404`, ha nem), és hogy a készlet ≥ `mennyisegKg`
+    (`422`, ha nincs elég). Siker esetén **egy tranzakcióban**: `Etetes` (a
+    `takarmanyId`-vel), `TakarmanyMozgas(FELHASZNALVA)` a `toId`/`etetesId`
+    kötéssel, a `Takarmany.keszlet` csökkentése `mennyisegKg`-mal, és
+    `NaploEsemeny(ETETES)`. Bármi hiba esetén **semmi nem marad félig** (atomi).
+- **Siker:** `201`
+  - takarmány nélkül: `{ azonosito, toId, mennyisegKg, tipus, datum, megjegyzes }` (változatlan);
+  - takarmánnyal: a fenti mezők + `{ takarmanyId, takarmanyNev, ujKeszlet, takarmanyMozgasId }`.
+- **Hibák:** `400` mennyiség ≤ 0 / hibás dátum / érvénytelen levonási mennyiség;
+  `401/403` jogosultság; `404` a tó vagy a takarmány nem a halászaté; `422` nincs
+  elég takarmánykészlet; `500` (`{ error }`).
+- **Megjegyzés (egységek):** **nincs mértékegység-konverzió** — etetésnél a
+  `mennyisegKg` a levont mennyiség, a takarmány saját egységében értve. A
+  készletszámítást a tiszta `szamitTakarmanyFelhasznalas` helper végzi
+  (unit-tesztelt, 2 tizedesre kerekít, negatívot tilt).
 
 ### POST /api/halaszatok/[hid]/toak/[toId]/attelepites
 - **Cél:** áttelepítés — állomány mozgatása forrás tóból (`[toId]`) cél tóba.
@@ -403,42 +420,50 @@ táblázatok az egyes végpontoknál pontosítják.
 
 ## Hibabejelentés végpontok
 
-> **Biztonsági megjegyzés / TODO:** az alábbi három végpont a jelenlegi kódban
-> **nem hív auth/RBAC guardot**. A `GET .../hibabejelentesek` bármely `[hid]`-re
-> visszaadja a bejelentéseket (a tartalmazott `felhasznalo` mezővel együtt), a
-> globális `POST` és `PATCH` pedig session és tenant-ellenőrzés nélkül fut. Ez
-> tenant-izolációs és jogosultsági rés. Release előtt rendezendő: a listázás
-> `requireHalaszatRole`-t, a státuszváltás megfelelő szerepkört igényeljen, és a
-> bejelentéshez a `felhasznaloId`/`halaszatId` szerveroldalról (sessionből)
-> származzon, ne a kérés törzséből.
+> **Biztonsági megjegyzés:** a három hibabejelentés-végpont **auth + RBAC
+> kikényszerítve** fut (2026-06-26 óta). A korábbi auth-hiányos állapot rendezve:
+> a listázás `requireHalaszatRole(STAFF)`-ot, a `POST` `requireUser`-t (és a
+> `felhasznaloId`-t **sessionből** veszi), a `PATCH` `requireUser` + a bejelentés
+> saját halászatára `requireHalaszatRole(ADMIN)`-t követel. Részletes mátrix:
+> [`docs/05_security_ops/role-matrix.md`](../05_security_ops/role-matrix.md) §2.5.
 
 ### GET /api/halaszatok/[hid]/hibabejelentesek
 - **Cél:** egy halászat hibabejelentéseinek listája (bejelentővel együtt).
-- **Jogosultság:** **nincs ellenőrzés** (csak a `hid` egész szám validáció). TODO.
+- **Jogosultság:** `requireHalaszatRole(hid, "STAFF")`. A lista csak az adott
+  `[hid]` halászat bejelentéseit tartalmazza (tenant-szűrt).
 - **Siker:** `200` `{ adatok: [Hibabejelentes + felhasznalo: { azonosito, nev, email }] }`.
-- **Hibák:** `400` érvénytelen halászat azonosító; `500` lekérési hiba (`{ hiba }`).
+- **Hibák:** `400` érvénytelen halászat azonosító; `401/403` jogosultság
+  (`{ hiba }`); `500` lekérési hiba (`{ hiba }`).
 
 ### POST /api/hibabejelentesek
 - **Cél:** új hibabejelentés rögzítése (globális, nem `[hid]` alatt).
-- **Jogosultság:** **nincs ellenőrzés**. A `felhasznaloId` és `halaszatId` a kérés
-  törzséből jön (csak ha `number`), egyébként `null`. TODO: sessionből kellene.
-- **Request body:** `{ targy: string (min. 3), leiras: string (min. 10), oldalUrl?: string, felhasznaloId?: number, halaszatId?: number }`
+- **Jogosultság:** `requireUser()` (bejelentkezés kötelező). A `felhasznaloId`
+  a **sessionből** származik — a kérés törzsében küldött `felhasznaloId`-t a
+  handler **figyelmen kívül hagyja**. Ha a `halaszatId` meg van adva, a
+  felhasználónak legalább `STAFF` tagsága kell legyen abban a halászatban
+  (`requireHalaszatRole(halaszatId, "STAFF")`); ha nincs megadva, globális
+  bejelentés készül `halaszatId: null` értékkel.
+- **Request body:** `{ targy: string (min. 3), leiras: string (min. 10), oldalUrl?: string, halaszatId?: number }` (a `felhasznaloId`-t a body-ból nem vesszük figyelembe).
 - **Siker:** `201` `{ siker: true, adat: Hibabejelentes (+ felhasznalo, halaszat) }`.
-- **Hibák:** `400` tárgy < 3 / leírás < 10; `500` mentési hiba (`{ hiba }`).
-- **Mellékhatás:** `Hibabejelentes` létrejön `statusz: UJ`-jal. A handler a kérés
-  törzsét és az eredményt `console.log`-gal naplózza (TODO: production­ben
-  eltávolítandó).
+- **Hibák:** `401` nincs bejelentkezés; `403` `halaszatId` megadva, de nincs STAFF
+  tagság; `400` tárgy < 3 / leírás < 10; `500` mentési hiba (`{ hiba }`).
+- **Mellékhatás:** `Hibabejelentes` létrejön `statusz: UJ`-jal, a session
+  felhasználóhoz kötve.
 
 ### PATCH /api/hibabejelentesek/[id]
 - **Cél:** hibabejelentés státuszának módosítása.
-- **Jogosultság:** **nincs ellenőrzés**. TODO: legalább halászat-szintű ADMIN/OWNER
-  kellene, tenant-ellenőrzéssel.
+- **Jogosultság:** `requireUser()`, majd a handler **betölti** a bejelentést. Ha a
+  bejelentés halászathoz kötött (`halaszatId != null`), a bejelentés **saját**
+  halászatában `ADMIN`/`OWNER` szükséges (`requireHalaszatRole(halaszatId,
+  "ADMIN")`) — így tenant-átlépés kizárt. Ha a bejelentés globális
+  (`halaszatId == null`), csak az **eredeti bejelentő** módosíthatja. A döntést a
+  `canUpdateHibabejelentesStatus` tiszta függvény kódolja.
 - **Request body:** `{ statusz: "UJ" | "FOLYAMATBAN" | "MEGOLDVA" | "ELUTASITVA" }`
   (kis/nagybetű-érzéketlen, `toUpperCase` után validálva).
 - **Siker:** `200` `{ siker: true, adat: Hibabejelentes }`.
-- **Hibák:** `400` érvénytelen azonosító vagy státusz; `500` frissítési hiba
-  (`{ hiba }`). Megjegyzés: nem létező `id` esetén a Prisma `update` dobhat, amit a
-  handler `500`-ként ad vissza (TODO: 404 lenne helyesebb).
+- **Hibák:** `401` nincs bejelentkezés; `400` érvénytelen azonosító vagy státusz;
+  `404` nincs ilyen bejelentés; `403` nincs jogosultság a módosításhoz; `500`
+  frissítési hiba (`{ hiba }`).
 
 ---
 
@@ -481,6 +506,6 @@ táblázatok az egyes végpontoknál pontosítják.
 | POST | `/api/halaszatok/[hid]/naptar` | STAFF |
 | PATCH | `/api/halaszatok/[hid]/naptar/[id]` | STAFF |
 | DELETE | `/api/halaszatok/[hid]/naptar/[id]` | STAFF |
-| GET | `/api/halaszatok/[hid]/hibabejelentesek` | **nincs (TODO)** |
-| POST | `/api/hibabejelentesek` | **nincs (TODO)** |
-| PATCH | `/api/hibabejelentesek/[id]` | **nincs (TODO)** |
+| GET | `/api/halaszatok/[hid]/hibabejelentesek` | STAFF |
+| POST | `/api/hibabejelentesek` | bejelentkezett (+ STAFF, ha `halaszatId` adott) |
+| PATCH | `/api/hibabejelentesek/[id]` | ADMIN a bejelentés halászatában (globálisnál a bejelentő) |

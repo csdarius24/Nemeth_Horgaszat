@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { requireHalaszatRole } from "@/lib/guards";
 
 export async function GET(
     _req: NextRequest,
@@ -14,6 +15,12 @@ export async function GET(
                 { hiba: "Érvénytelen halászat azonosító." },
                 { status: 400 }
             );
+        }
+
+        // Auth + RBAC: csak a halászat aktív tagja (STAFF vagy magasabb) listázhat.
+        const auth = await requireHalaszatRole(halaszatId, "STAFF");
+        if (!auth.ok) {
+            return NextResponse.json({ hiba: auth.error }, { status: auth.status });
         }
 
         const lista = await prisma.hibabejelentes.findMany({

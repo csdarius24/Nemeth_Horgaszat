@@ -1,7 +1,14 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import GlassModal from "@/components/ui/GlassModal";
+
+type TakarmanyOpcio = {
+    azonosito: number;
+    nev: string;
+    egyseg: string;
+    keszlet: number;
+};
 
 export default function EtetesModal({
                                         open,
@@ -22,6 +29,40 @@ export default function EtetesModal({
     const [saving, setSaving] = useState(false);
     const [err, setErr] = useState<string | null>(null);
 
+    // Opcionális takarmány-kötés: ha választunk, az etetés levon a készletből.
+    const [takarmanyok, setTakarmanyok] = useState<TakarmanyOpcio[]>([]);
+    const [takarmanyId, setTakarmanyId] = useState<number | null>(null);
+
+    useEffect(() => {
+        if (!open) return;
+        let aktiv = true;
+        (async () => {
+            try {
+                const res = await fetch(`/api/halaszatok/${hid}/takarmanyok?active=1`);
+                const json = await res.json().catch(() => ({}));
+                if (!aktiv) return;
+                if (res.ok && Array.isArray(json?.items)) {
+                    setTakarmanyok(
+                        json.items.map((t: any) => ({
+                            azonosito: t.azonosito,
+                            nev: t.nev,
+                            egyseg: t.egyseg,
+                            keszlet: Number(t.keszlet),
+                        }))
+                    );
+                }
+            } catch {
+                // a takarmánylista opcionális — hiba esetén marad a sima etetés
+            }
+        })();
+        return () => {
+            aktiv = false;
+        };
+    }, [open, hid]);
+
+    const valasztott = takarmanyok.find((t) => t.azonosito === takarmanyId) ?? null;
+    const nincsEleg = valasztott != null && mennyisegKg > valasztott.keszlet;
+
     async function submit() {
         setSaving(true);
         setErr(null);
@@ -33,6 +74,7 @@ export default function EtetesModal({
                     mennyisegKg,
                     takarmanyTipus: tipus,
                     megjegyzes: megjegyzes || null,
+                    ...(takarmanyId != null ? { takarmanyId } : {}),
                 }),
             });
             const json = await res.json().catch(() => ({}));
@@ -59,7 +101,7 @@ export default function EtetesModal({
                     <button className="btn" onClick={onCloseAction} disabled={saving}>
                         Mégse
                     </button>
-                    <button className="btn btn-primary" onClick={submit} disabled={saving}>
+                    <button className="btn btn-primary" onClick={submit} disabled={saving || nincsEleg}>
                         {saving ? "Mentés…" : "Mentés"}
                     </button>
                 </div>
@@ -81,6 +123,50 @@ export default function EtetesModal({
                     <span className="muted">Típus</span>
                     <input value={tipus} onChange={(e) => setTipus(e.target.value)} style={inputStyle} />
                 </label>
+
+                <label style={{ display: "grid", gap: 6 }}>
+                    <span className="muted">Takarmány a készletből (opcionális)</span>
+                    <select
+                        value={takarmanyId ?? ""}
+                        onChange={(e) => setTakarmanyId(e.target.value ? Number(e.target.value) : null)}
+                        style={inputStyle}
+                    >
+                        <option value="">Nincs — csak etetés rögzítése (nem von le készletet)</option>
+                        {takarmanyok.map((t) => (
+                            <option key={t.azonosito} value={t.azonosito}>
+                                {t.nev} — készlet: {t.keszlet} {t.egyseg}
+                            </option>
+                        ))}
+                    </select>
+                </label>
+
+                {valasztott ? (
+                    <div
+                        className="glass"
+                        style={{
+                            padding: 12,
+                            borderRadius: 16,
+                            border: nincsEleg
+                                ? "1px solid rgba(255,120,120,0.35)"
+                                : "1px solid rgba(208,138,91,0.35)",
+                            background: nincsEleg ? "rgba(120,20,20,0.18)" : "rgba(208,138,91,0.12)",
+                        }}
+                    >
+                        <div className="muted" style={{ fontSize: 13 }}>
+                            Jelenlegi készlet: <strong>{valasztott.keszlet} {valasztott.egyseg}</strong>
+                        </div>
+                        {nincsEleg ? (
+                            <div style={{ color: "#ffb3b3", fontSize: 13, marginTop: 4 }}>
+                                Nincs elég készlet ehhez a mennyiséghez.
+                            </div>
+                        ) : (
+                            <div className="muted" style={{ fontSize: 13, marginTop: 4 }}>
+                                A mentés <strong>{mennyisegKg} {valasztott.egyseg}</strong>-ot levon a készletből
+                                (marad: {Math.round((valasztott.keszlet - mennyisegKg) * 100) / 100} {valasztott.egyseg}).
+                            </div>
+                        )}
+                    </div>
+                ) : null}
 
                 <label style={{ display: "grid", gap: 6 }}>
                     <span className="muted">Megjegyzés (opcionális)</span>

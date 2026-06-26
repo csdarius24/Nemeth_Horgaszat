@@ -5,6 +5,7 @@ import {
     meetsToRole,
     meetsHalaszatRole,
     canManageTarget,
+    canUpdateHibabejelentesStatus,
 } from "@/lib/roles";
 
 describe("szerepkör rangsorok", () => {
@@ -66,5 +67,35 @@ describe("canManageTarget()", () => {
     it("STAFF senkit nem kezelhet", () => {
         expect(canManageTarget("STAFF", "STAFF")).toBe(false);
         expect(canManageTarget("STAFF", "ADMIN")).toBe(false);
+    });
+});
+
+describe("canUpdateHibabejelentesStatus()", () => {
+    describe("halászathoz kötött bejelentés (bugHalaszatId != null)", () => {
+        it("ADMIN és OWNER módosíthat", () => {
+            expect(canUpdateHibabejelentesStatus({ bugHalaszatId: 1, viewerRole: "ADMIN", isReporter: false })).toBe(true);
+            expect(canUpdateHibabejelentesStatus({ bugHalaszatId: 1, viewerRole: "OWNER", isReporter: false })).toBe(true);
+        });
+
+        it("STAFF nem módosíthat, akkor sem, ha ő a bejelentő", () => {
+            expect(canUpdateHibabejelentesStatus({ bugHalaszatId: 1, viewerRole: "STAFF", isReporter: false })).toBe(false);
+            expect(canUpdateHibabejelentesStatus({ bugHalaszatId: 1, viewerRole: "STAFF", isReporter: true })).toBe(false);
+        });
+
+        it("nem-tag (viewerRole null) nem módosíthat — tenant-átlépés kizárva", () => {
+            expect(canUpdateHibabejelentesStatus({ bugHalaszatId: 1, viewerRole: null, isReporter: false })).toBe(false);
+            expect(canUpdateHibabejelentesStatus({ bugHalaszatId: 1, viewerRole: null, isReporter: true })).toBe(false);
+        });
+    });
+
+    describe("globális bejelentés (bugHalaszatId == null)", () => {
+        it("csak az eredeti bejelentő módosíthat", () => {
+            expect(canUpdateHibabejelentesStatus({ bugHalaszatId: null, viewerRole: null, isReporter: true })).toBe(true);
+        });
+
+        it("nem a bejelentő nem módosíthat, magas szerepkörrel sem", () => {
+            expect(canUpdateHibabejelentesStatus({ bugHalaszatId: null, viewerRole: null, isReporter: false })).toBe(false);
+            expect(canUpdateHibabejelentesStatus({ bugHalaszatId: null, viewerRole: "OWNER", isReporter: false })).toBe(false);
+        });
     });
 });

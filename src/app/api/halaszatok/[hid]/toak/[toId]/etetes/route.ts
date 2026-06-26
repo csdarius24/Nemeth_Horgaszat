@@ -3,6 +3,7 @@ import { requireHalaszatRole } from "@/lib/guards";
 import { szam } from "@/lib/utils/szam";
 import { db } from "@/lib/prisma";
 import { assertToBelongsToTenant } from "@/lib/tenant/assertToBelongsToTenant";
+import { szamitTakarmanyFelhasznalas } from "@/lib/takarmany/keszlet";
 
 function jsonError(message: string, status = 400) {
     return NextResponse.json({ error: message }, { status });
@@ -33,18 +34,87 @@ export async function POST(
     const tipus = typeof body?.tipus === "string" ? body.tipus.trim() : null;
     const megjegyzes = typeof body?.megjegyzes === "string" ? body.megjegyzes.trim() : null;
 
+    // Opcionális: ha takarmanyId jön, automatikus készletlevonást is végzünk.
+    // null/hiányzó esetén a viselkedés pontosan a régi (csak Etetes + NaploEsemeny).
+    const takarmanyId = body?.takarmanyId != null ? szam(body.takarmanyId, 0) : 0;
+
     try {
         // tenant-check: a tó ehhez a halászathoz tartozik
         const to = await assertToBelongsToTenant(toId, halaszatId);
 
-        const created = await db.$transaction(async (tx) => {
+        // ── Visszafelé kompatibilis ág: nincs takarmány ────────────────────────
+        if (!takarmanyId) {
+            const created = await db.$transaction(async (tx) => {
+                const etetes = await tx.etetes.create({
+                    data: {
+                        toId: to.azonosito,
+                        mennyisegKg, // Decimal mező: number is OK Prisma-ban
+                        tipus,
+                        datum,
+                        megjegyzes,
+                    },
+                    select: {
+                        azonosito: true,
+                        toId: true,
+                        mennyisegKg: true,
+                        tipus: true,
+                        datum: true,
+                        megjegyzes: true,
+                    },
+                });
+
+                await tx.naploEsemeny.create({
+                    data: {
+                        tipus: "ETETES",
+                        toId: to.azonosito,
+                        mennyisegKg,
+                        datum,
+                        leiras: [
+                            `Etetés: ${to.nev}`,
+                            `${mennyisegKg} kg`,
+                            tipus ? `típus: ${tipus}` : null,
+                            megjegyzes ? `megj.: ${megjegyzes}` : null,
+                        ].filter(Boolean).join(" • "),
+                    },
+                });
+
+                return etetes;
+            });
+
+            return NextResponse.json(created, { status: 201 });
+        }
+
+        // ── Takarmányhoz kötött ág: automatikus készletlevonás ─────────────────
+
+        // a takarmány ugyanahhoz a halászathoz tartozzon (tenant-izoláció)
+        const takarmany = await db.takarmany.findFirst({
+            where: { azonosito: takarmanyId, halaszatId },
+            select: { azonosito: true, nev: true, egyseg: true, keszlet: true },
+        });
+        if (!takarmany) return jsonError("A takarmány nem található ennél a halászatnál.", 404);
+
+        // készlet-ellenőrzés tiszta helperrel (mennyisegKg = levont mennyiség)
+        const szamitas = szamitTakarmanyFelhasznalas(Number(takarmany.keszlet), mennyisegKg);
+        if (!szamitas.ok) {
+            if (szamitas.hiba === "nincs_eleg_keszlet") {
+                return jsonError(
+                    `Nincs elég takarmánykészlet. Jelenlegi készlet: ${Number(takarmany.keszlet)} ${takarmany.egyseg}, igényelt: ${mennyisegKg}.`,
+                    422
+                );
+            }
+            return jsonError("Érvénytelen mennyiség a készletlevonáshoz.", 400);
+        }
+        const ujKeszlet = szamitas.ujKeszlet;
+
+        const eredmeny = await db.$transaction(async (tx) => {
             const etetes = await tx.etetes.create({
                 data: {
                     toId: to.azonosito,
-                    mennyisegKg, // Decimal mező: number is OK Prisma-ban
+                    mennyisegKg,
                     tipus,
                     datum,
                     megjegyzes,
+                    takarmanyId: takarmany.azonosito,
                 },
                 select: {
                     azonosito: true,
@@ -53,7 +123,27 @@ export async function POST(
                     tipus: true,
                     datum: true,
                     megjegyzes: true,
+                    takarmanyId: true,
                 },
+            });
+
+            const mozgas = await tx.takarmanyMozgas.create({
+                data: {
+                    takarmanyId: takarmany.azonosito,
+                    halaszatId,
+                    tipus: "FELHASZNALVA",
+                    mennyiseg: mennyisegKg,
+                    datum,
+                    megjegyzes: megjegyzes ?? `Etetés (${to.nev})`,
+                    toId: to.azonosito,
+                    etetesId: etetes.azonosito,
+                },
+                select: { azonosito: true },
+            });
+
+            await tx.takarmany.update({
+                where: { azonosito: takarmany.azonosito },
+                data: { keszlet: ujKeszlet },
             });
 
             await tx.naploEsemeny.create({
@@ -65,16 +155,25 @@ export async function POST(
                     leiras: [
                         `Etetés: ${to.nev}`,
                         `${mennyisegKg} kg`,
-                        tipus ? `típus: ${tipus}` : null,
+                        `takarmány: ${takarmany.nev} (−${mennyisegKg} ${takarmany.egyseg}, maradt: ${ujKeszlet})`,
                         megjegyzes ? `megj.: ${megjegyzes}` : null,
                     ].filter(Boolean).join(" • "),
                 },
             });
 
-            return etetes;
+            return { etetes, mozgasId: mozgas.azonosito };
         });
 
-        return NextResponse.json(created, { status: 201 });
+        return NextResponse.json(
+            {
+                ...eredmeny.etetes,
+                takarmanyId: takarmany.azonosito,
+                takarmanyNev: takarmany.nev,
+                ujKeszlet,
+                takarmanyMozgasId: eredmeny.mozgasId,
+            },
+            { status: 201 }
+        );
     } catch (err: any) {
         return jsonError(err?.message ?? "Hiba történt az etetés rögzítésekor.", err?.status ?? 500);
     }

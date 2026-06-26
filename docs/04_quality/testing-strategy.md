@@ -60,6 +60,8 @@ A `src/lib/**` tiszta logikája DB nélkül tesztelhető:
 | `src/lib/utils/szam.ts` — `szam()` | Számokká alakítás; érvénytelen bemenetnél az alapérték; nem-szám stringek kezelése. |
 | `halaszatok/route.ts` — `slugify` (kiemelendő/tesztelhető) | Ékezet-eltávolítás, kisbetűsítés, ütközés-feloldó utótag logikája. |
 | `dolgozok/[tid]/route.ts` — `canManageTarget` | OWNER-t senki; ADMIN csak STAFF-ot; OWNER STAFF+ADMIN-t. |
+| `src/lib/roles.ts` — `canUpdateHibabejelentesStatus` ✅ **implementálva** | Halászathoz kötött bejelentés: ADMIN/OWNER igen, STAFF/nem-tag nem (tenant-átlépés kizárva); globális bejelentés: csak a bejelentő. (`tests/unit/roles.test.ts`) |
+| `src/lib/takarmany/keszlet.ts` — `szamitTakarmanyFelhasznalas` / `ketTizedes` ✅ **implementálva** | Készletlevonás etetéskor: elegendő készlet → új készlet; pontos kimerítés (0 marad); float-drift kerekítés; nincs elég készlet → `nincs_eleg_keszlet`; nulla/negatív/nem-véges → `ervenytelen_mennyiseg`. (`tests/unit/takarmany-keszlet.test.ts`) |
 
 > Ahol a logika jelenleg handleren belül inline (pl. `slugify`, `canManageTarget`,
 > jelszó-generátor), a unit-tesztelhetőség érdekében megfontolandó tiszta
@@ -85,6 +87,14 @@ tranzakciós és tenant-logikán:
   tenanton belül (P2002 → 409); mozgás (bevétel/felhasználás) rögzítésekor a
   `keszlet` tranzakcióban frissül; felhasználás a készlet alá → 422; FK-védett
   törlés (mozgással → 409 + inaktiválás javaslat).
+- **Etetés + automatikus készletlevonás (tervezett integration):** `POST
+  .../toak/[toId]/etetes` `takarmanyId` nélkül → csak `Etetes` + `NaploEsemeny`,
+  készlet változatlan (visszafelé kompatibilitás); `takarmanyId`-vel → `Etetes` +
+  `TakarmanyMozgas(FELHASZNALVA)` + csökkentett `keszlet` + `NaploEsemeny` egy
+  tranzakcióban; idegen halászat takarmányára → `404`; nincs elég készlet → `422`
+  és **nincs** részleges készletmódosítás (atomicitás). A tiszta levonási logika
+  (`szamitTakarmanyFelhasznalas`) már unit-tesztelt; az endpoint-szintű
+  (tranzakciós/atomicitási) ellenőrzés **tervezett** integration coverage.
 - **Összesítő/summary/timeline:** aggregált értékek és paraméter-korlátok
   (`days`, `take`, `events`) helyessége.
 
@@ -113,10 +123,14 @@ A negatív tesztek elsőrendűek a thesis védhetősége szempontjából:
   (`assertToBelongsToTenant`). Kivét/áttelepítés tenant-idegen tóra → elutasítás.
 - **Üzleti szabály:** kivét több darabra, mint a készlet → 400; áttelepítés
   cél=forrás → 400.
-- **Ismert hiányok regresszióként:** a `threat-model.md`-ben jelölt
-  hibabejelentés-végpont auth-hiányra teszt írandó, amely a jövőbeli javítás után
-  elvárja a 401/403-at (jelenleg dokumentáltan átmegy auth nélkül — a teszt a
-  célállapotot rögzíti, TODO-val jelölve).
+- **Hibabejelentés-végpontok jogosultsága (auth-rés rendezve):** a három végpont
+  auth + RBAC kikényszerítést kapott (lásd `threat-model.md` 6/3 és
+  `role-matrix.md` §2.5). Integration teszttel igazolandó: `GET .../hibabejelentesek`
+  bejelentkezés nélkül `401`, nem-tagként `403`; `POST /api/hibabejelentesek` a
+  `felhasznaloId`-t sessionből veszi (body-beli érték hatástalan) és idegen
+  `halaszatId`-re `403`; `PATCH /api/hibabejelentesek/[id]` nem létező id → `404`,
+  STAFF/idegen-tenant → `403`, nem létező jogosultság globálisra (nem bejelentő) →
+  `403`. A tiszta döntéslogika (`canUpdateHibabejelentesStatus`) már unit-tesztelt.
 
 ## 8. Teszt-adat stratégia
 

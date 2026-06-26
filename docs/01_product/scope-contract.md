@@ -44,10 +44,11 @@ megvalósított, SZD2-re tervezett.
   szerepkör-/jogosultsági mátrixot lásd:
   [`docs/05_security_ops/role-matrix.md`](../05_security_ops/role-matrix.md)
 
-> **Megjegyzés a takarmánykészletről:** a takarmány készletértéke jelenleg
-> **kézi** bevétel/felhasználás mozgásokkal változik. Az etetési művelethez való
-> **automatikus** készletlevonás (etetés → takarmány csökken) **[tervezett]**
-> (SZD2), még nincs megvalósítva.
+> **Megjegyzés a takarmánykészletről:** a takarmány készletértéke **kézi**
+> bevétel/felhasználás mozgásokkal **és** etetéskor **automatikusan** is változik.
+> Az etetési művelethez kötött **automatikus** készletlevonás (etetés → takarmány
+> csökken, ha `takarmanyId` meg van adva) **[kész]**; a `takarmanyId` nélküli
+> etetés továbbra is támogatott (készlet változatlan).
 
 > **Kiegészítő, már megvalósított modulok** (nem részei a szűk MVP-magnak, de a
 > kódban jelen vannak): havi **naptár** bejegyzésekkel, beépített
@@ -138,7 +139,7 @@ Tó szint:
 - aktuális készlet követése takarmányonként
 - készletmozgások rögzítése: **bevétel** (+) és **felhasználás** (−)
 - készlet- és megoszlás-diagramok (dashboard)
-- *[tervezett, SZD2]* automatikus készletlevonás az etetési művelethez kötve
+- **[kész]** automatikus készletlevonás az etetési művelethez kötve (`takarmanyId`)
 
 ## Művelet-idővonal és naplózás
 
@@ -157,8 +158,9 @@ A jelenlegi verzió **nem** tartalmaz (lásd a fenti „Out of Scope" listát is
 - automatikus vízminőség mérést
 - komplex gépi tanulás alapú előrejelzést / automatizált biológiai előrejelzést
 
-A **halkeltetési modul** és az **etetés↔takarmány automatikus összekötése**
-**tervezett** (SZD2), jelenleg nem része a megvalósított MVP-nek.
+A **halkeltetési modul** **tervezett** (SZD2), jelenleg nem része a megvalósított
+MVP-nek. (Az **etetés↔takarmány automatikus összekötése** időközben elkészült —
+lásd fent, „Takarmánykészlet".)
 
 ---
 

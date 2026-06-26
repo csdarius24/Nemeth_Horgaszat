@@ -82,12 +82,14 @@ telepítés / kivét / etetés / áttelepítés tranzakciós műveletek auditnap
 takarmánykészlet-nyilvántartás mozgásrögzítéssel; összesítő dashboard;
 szerepkör alapú hozzáférés.
 
-A **továbblépés SZD2-ben** (jelenleg **tervezett**, nem megvalósított):
+Időközben **megvalósult**:
 
-- **Takarmány ↔ etetés összekötése:** az etetési művelet automatikusan vonja le
-  a felhasznált takarmányt a készletből (jelenleg a takarmánymozgás kézi
-  rögzítésű, az etetés és a takarmánykészlet még nincs automatikusan
-  összekötve). *Tervezett.*
+- **Takarmány ↔ etetés összekötése:** az etetési művelet (`takarmanyId` megadva)
+  automatikusan levonja a felhasznált takarmányt a készletből, és nyomon
+  követhető `FELHASZNALVA` mozgást rögzít — egy tranzakcióban. A `takarmanyId`
+  nélküli etetés továbbra is támogatott (a készlet ilyenkor nem változik). ✅
+
+A **továbblépés SZD2-ben** (jelenleg **tervezett**, nem megvalósított):
 - **Halkeltetési modul:** ikráztatás / lárva- és ivadéknevelés nyilvántartása
   (jelenleg csak placeholder oldal létezik). *Tervezett.*
 - **Bővített döntéstámogatás:** trendek, előrejelző-jellegű összesítések,

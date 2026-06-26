@@ -122,11 +122,12 @@ model To {
   // relációk
   tagsagok ToTagsag[]
 
-  halAllomanyok  HalAllomany[]
-  telepitesek    Telepites[]
-  kivetelek      Kivetel[]
-  etetesek       Etetes[]
-  naploEsemenyek NaploEsemeny[]
+  halAllomanyok     HalAllomany[]
+  telepitesek       Telepites[]
+  kivetelek         Kivetel[]
+  etetesek          Etetes[]
+  naploEsemenyek    NaploEsemeny[]
+  takarmanyMozgasok TakarmanyMozgas[]
 
   @@index([halaszatId])
   @@map("toak")
@@ -238,10 +239,17 @@ model Etetes {
   datum       DateTime @default(now())
   megjegyzes  String?  @db.Text
 
+  // opcionális kötés a felhasznált takarmányhoz (automatikus készletlevonáshoz).
+  // nullable: a takarmányhoz nem kötött (régi / kézi) etetések továbbra is érvényesek.
+  takarmanyId Int?
+
   // relációk
-  to To @relation(fields: [toId], references: [azonosito], onDelete: Cascade)
+  to        To                @relation(fields: [toId], references: [azonosito], onDelete: Cascade)
+  takarmany Takarmany?        @relation(fields: [takarmanyId], references: [azonosito], onDelete: SetNull)
+  mozgasok  TakarmanyMozgas[]
 
   @@index([toId, datum])
+  @@index([takarmanyId])
   @@map("etetesek")
 }
 
@@ -300,6 +308,7 @@ model Takarmany {
 
   halaszat Halaszat          @relation(fields: [halaszatId], references: [azonosito], onDelete: Cascade)
   mozgasok TakarmanyMozgas[]
+  etetesek Etetes[]
 
   @@unique([halaszatId, nev])
   @@index([halaszatId, aktiv])
@@ -316,11 +325,20 @@ model TakarmanyMozgas {
   megjegyzes  String?              @db.Text
   letrehozva  DateTime             @default(now())
 
+  // opcionális visszakötés ahhoz, ami a mozgást kiváltotta (nyomon követhetőség).
+  // nullable: a kézi (etetéshez nem kötött) mozgások továbbra is érvényesek.
+  toId        Int?
+  etetesId    Int?
+
   takarmany Takarmany @relation(fields: [takarmanyId], references: [azonosito], onDelete: Cascade)
   halaszat  Halaszat  @relation(fields: [halaszatId], references: [azonosito], onDelete: Cascade)
+  to        To?       @relation(fields: [toId], references: [azonosito], onDelete: SetNull)
+  etetes    Etetes?   @relation(fields: [etetesId], references: [azonosito], onDelete: SetNull)
 
   @@index([takarmanyId, datum])
   @@index([halaszatId, datum])
+  @@index([toId])
+  @@index([etetesId])
   @@map("takarmany_mozgasok")
 }
 

@@ -52,8 +52,8 @@ milyen védelem van, és mi a maradék (reziduális) kockázat.
 - Tenant-hatókörös végpontok: `/api/halaszatok/[hid]/**` — IDOR/tenant-átlépés
   veszélye, ha a `[hid]`/`[toId]` ellenőrzése hiányos.
 - Hibabejelentés végpontok: `GET /api/halaszatok/[hid]/hibabejelentesek`,
-  `POST /api/hibabejelentesek`, `PATCH /api/hibabejelentesek/[id]` — jelenleg
-  **auth nélkül** (lásd 6. és 7. szakasz).
+  `POST /api/hibabejelentesek`, `PATCH /api/hibabejelentesek/[id]` — **auth + RBAC
+  kikényszerítve** (korábban auth nélkül futottak; rendezve, lásd 6/3).
 - Felhasználói szabad szöveg (megjegyzések, hibabejelentés tárgy/leírás) — tárolt
   XSS kockázat a megjelenítésnél.
 
@@ -75,9 +75,10 @@ milyen védelem van, és mi a maradék (reziduális) kockázat.
 - **Védelem:** Prisma paraméteres lekérdezések; írási műveletek
   `prisma.$transaction`-ben (telepítés/kivét/etetés/áttelepítés atomi);
   tenant-szűrés módosítás előtt (`findFirst({ where: { azonosito, halaszatId } })`).
-- **Reziduális kockázat:** a hibabejelentés `POST` a `felhasznaloId`/`halaszatId`
-  mezőt a **kérés törzséből** veszi (nem sessionből) → hamisítható szerző/tenant.
-  Nincs szervezett bemenet-validációs réteg (pl. zod); a mezők kézi parse-olással.
+- **Reziduális kockázat:** ~~a hibabejelentés `POST` a `felhasznaloId`/`halaszatId`
+  mezőt a kérés törzséből veszi~~ **(megoldva — a `felhasznaloId` mostantól
+  sessionből származik, `halaszatId`-hez STAFF tagság kell).** Továbbra is nincs
+  szervezett bemenet-validációs réteg (pl. zod); a mezők kézi parse-olással.
 
 ### R — Repudiation (letagadhatóság)
 - **Fenyegetés:** felhasználó letagadja a műveletét (pl. nagy kivét).
@@ -96,10 +97,12 @@ milyen védelem van, és mi a maradék (reziduális) kockázat.
   - A Prisma kliens **minden lekérdezést logol** (`log: ["query"]` a
     `src/lib/prisma.ts`-ben) — production­ben ez érzékeny paramétereket írhat a
     szerverlogba (ismert hiány, lásd 6.).
-  - A hibabejelentés `POST` handler `console.log`-olja a kérés törzsét és az
-    eredményt.
-  - `GET .../hibabejelentesek` auth nélkül adja vissza a bejelentéseket a
-    bejelentő nevével/emailjével együtt.
+  - ~~A hibabejelentés `POST` handler `console.log`-olja a kérés törzsét és az
+    eredményt.~~ **(megoldva — a `console.log`-ok eltávolítva; csak `console.error`
+    maradt váratlan szerverhibára.)**
+  - ~~`GET .../hibabejelentesek` auth nélkül adja vissza a bejelentéseket a
+    bejelentő nevével/emailjével együtt.~~ **(megoldva — `requireHalaszatRole(STAFF)`
+    + halászatra szűrt lista.)**
 
 ### D — Denial of Service (szolgáltatásmegtagadás)
 - **Fenyegetés:** auth végpontok terheléses elárasztása; költséges aggregációk
@@ -117,8 +120,10 @@ milyen védelem van, és mi a maradék (reziduális) kockázat.
   (telepítés, kivét, áttelepítés, halfaj-/tó-/dolgozó-kezelés); a dolgozó-kezelés
   külön szabályokkal (ADMIN csak STAFF-ot vehet fel; szerepkört csak OWNER vált;
   saját magát nem módosíthatja). Tenant-átlépés ellen `assertToBelongsToTenant`.
-- **Reziduális kockázat:** a hibabejelentés-végpontok auth nélkül futnak → bárki
-  módosíthat státuszt vagy listázhat (lásd 7. szakasz).
+- **Reziduális kockázat:** ~~a hibabejelentés-végpontok auth nélkül futnak → bárki
+  módosíthat státuszt vagy listázhat~~ **(megoldva — auth + RBAC kikényszerítve;
+  a státuszváltás a bejelentés saját halászatában ADMIN/OWNER-höz kötött,
+  tenant-átlépés kizárva).**
 
 ## 6. Ismert hiányosságok (current known gaps)
 
@@ -133,12 +138,16 @@ A feladat által kiemelt, kódban visszaigazolt hiányok — release előtt rend
    sebezhetőség, de növeli a hibakezelési hibák esélyét a kliensen, és nehezíti az
    egységes biztonsági naplózást. *Javaslat:* egységes hibaformátum + opcionális
    hibakód.
-3. **Hibabejelentés-végpontok jogosultsági felülvizsgálata szükséges.** A kódban a
-   `GET /api/halaszatok/[hid]/hibabejelentesek`, `POST /api/hibabejelentesek` és
-   `PATCH /api/hibabejelentesek/[id]` **nem hív auth/RBAC guardot**, és a POST a
-   szerzőt/tenantot a kérés törzséből veszi. *Javaslat:* listázás és
-   státuszváltás megfelelő halászat-szintű szerepkörhöz kötése; a `felhasznaloId`/
-   `halaszatId` sessionből származzon; tenant-ellenőrzés a `[id]`-re.
+3. ~~**Hibabejelentés-végpontok jogosultsági felülvizsgálata szükséges.**~~
+   **Megoldva (2026-06-26).** A `GET /api/halaszatok/[hid]/hibabejelentesek`
+   mostantól `requireHalaszatRole(STAFF)`-ot követel és csak az adott halászat
+   bejelentéseit adja vissza; a `POST /api/hibabejelentesek` `requireUser`-t
+   követel, a `felhasznaloId` a **sessionből** jön (a body mezőjét figyelmen kívül
+   hagyja), és `halaszatId` megadásakor STAFF tagságot ellenőriz; a
+   `PATCH /api/hibabejelentesek/[id]` betölti a bejelentést (`404`, ha nincs), és a
+   bejelentés **saját** halászatára követel ADMIN/OWNER-t (globálisnál csak a
+   bejelentő). A döntés a unit-tesztelt `canUpdateHibabejelentesStatus`-ban
+   (`src/lib/roles.ts`). Lásd `docs/05_security_ops/role-matrix.md` §2.5.
 4. **Query logging ne szivárogtasson production­ben.** A `src/lib/prisma.ts`
    `log: ["query"]` beállítása minden lekérdezést (paraméterekkel) a logba ír.
    *Javaslat:* a log szint kötése `NODE_ENV`-hez (prod: csak `error`/`warn`),
@@ -150,9 +159,9 @@ A feladat által kiemelt, kódban visszaigazolt hiányok — release előtt rend
 |---|---|---|---|
 | Jelszó brute-force | S, D | bcrypt cost 12, egységes hibaüzenet | **Magas** — nincs rate limit |
 | Session-eltérítés | S, I | HttpOnly, `secure` (prod), hashelt token DB-ben | Közepes — `sameSite: lax`, nincs explicit CSRF token |
-| Tenant-átlépés (IDOR) | E, I | `requireHalaszatRole` + `assertToBelongsToTenant` | Alacsony a fő API-n; **Magas** a hibabejelentéseknél |
-| Jogosulatlan státuszváltás (hibabejelentés) | E, T | — (nincs guard) | **Magas** — auth hiányzik |
-| Érzékeny adat logban | I | szűkített `select` | **Közepes** — query log + `console.log` |
+| Tenant-átlépés (IDOR) | E, I | `requireHalaszatRole` + `assertToBelongsToTenant` (a hibabejelentéseken is) | Alacsony a fő API-n; **Alacsony** a hibabejelentéseknél (rendezve) |
+| Jogosulatlan státuszváltás (hibabejelentés) | E, T | `requireUser` + a bejelentés saját halászatára `requireHalaszatRole(ADMIN)` (globálisnál a bejelentő) | **Alacsony** — auth + RBAC kikényszerítve |
+| Érzékeny adat logban | I | szűkített `select`; `console.log` eltávolítva a hibabejelentés-handlerekből | **Közepes** — még megvan a Prisma query log (prod) |
 | Napló-letagadás | R | `NaploEsemeny` időbélyeggel | Közepes — nincs cselekvő-azonosító |
 | Tárolt XSS szabad szövegből | T, I | React alapból escapel | Alacsony–közepes — felülvizsgálandó a megjelenítés |
 | DB titok kiszivárgása | I | `.env*` gitignore | Alacsony — kézi titokkezelés, lásd `deployment.md` |
@@ -161,7 +170,8 @@ A feladat által kiemelt, kódban visszaigazolt hiányok — release előtt rend
 
 A rendszer alapvető védelmi mechanizmusai (hashelt jelszó, hashelt session-token,
 kétszintű RBAC, tenant-izoláció a fő API-n, tranzakciós írás, auditnapló) jelen
-vannak és helyesek. A legfontosabb, release előtt kezelendő tételek prioritás
-szerint: **(1)** hibabejelentés-végpontok jogosultságolása, **(2)** login rate
-limiting, **(3)** production query/console logging visszafogása, **(4)** napló
-cselekvő-azonosító, **(5)** egységes hibaformátum és bemenet-validáció.
+vannak és helyesek. A korábbi 1. prioritású tétel — a **hibabejelentés-végpontok
+jogosultságolása** — **megoldva** (lásd 6/3). A hátralévő, release előtt kezelendő
+tételek prioritás szerint: **(1)** login rate limiting, **(2)** production
+query/console logging visszafogása (Prisma query log), **(3)** napló
+cselekvő-azonosító, **(4)** egységes hibaformátum és bemenet-validáció.

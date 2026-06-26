@@ -113,6 +113,7 @@ A cellák a **ténylegesen kikényszerített** minimum-szerepkört tükrözik. A
 | Kivét rögzítése | ❌ | ✅ | ✅ | `requireHalaszatRole(ADMIN)` · `POST .../toak/[toId]/kivetel` |
 | Áttelepítés rögzítése | ❌ | ✅ | ✅ | `requireHalaszatRole(ADMIN)` + tenant-check **mindkét** tóra · `POST .../toak/[toId]/attelepites` |
 | Etetés rögzítése | ✅ | ✅ | ✅ | `requireHalaszatRole(STAFF)` · `POST .../toak/[toId]/etetes` |
+| Etetés takarmány-levonással | ✅ | ✅ | ✅ | `requireHalaszatRole(STAFF)` · `POST .../toak/[toId]/etetes` `takarmanyId`-vel — **azonos szerepkör** (STAFF); a takarmány ugyanahhoz a halászathoz kell tartozzon, és a készlet ≥ `mennyisegKg` (`422`, ha nincs elég) |
 
 ### 2.3 Takarmánykészlet (feed inventory)
 
@@ -136,18 +137,24 @@ A cellák a **ténylegesen kikényszerített** minimum-szerepkört tükrözik. A
 | Naptár megtekintése | ✅ | ✅ | ✅ | `requireHalaszatRole(STAFF)` · `GET .../naptar` |
 | Naptárbejegyzés létrehozása / szerkesztése / törlése | ✅ | ✅ | ✅ | `requireHalaszatRole(STAFF)` · `POST/PATCH/DELETE .../naptar[/id]` |
 
-### 2.5 Hibabejelentések (bug reports) — ⚠️ **nincs kikényszerítés**
+### 2.5 Hibabejelentések (bug reports) — ✅ **auth + RBAC kikényszerítve**
 
-A hibabejelentés-végpontok **jelenleg nem hívnak auth/RBAC guardot**. A cellák a
-*célállapotot* nem tükrözik — a tényleges viselkedés: **bárki** (akár
-bejelentkezés nélkül) elérheti. Részletek lentebb, „Ismert jogosultsági
-hiányosságok".
+A hibabejelentés-végpontok mostantól **bejelentkezést követelnek**, és a
+szerző/tenant a **sessionből** származik (nem a kérés törzséből). A korábbi
+„nincs guard" hiányosság lezárva.
 
-| Művelet | STAFF | ADMIN | OWNER | Tényleges állapot · végpont |
-|---|:--:|:--:|:--:|---|
-| Hibabejelentés létrehozása | ⚠️ | ⚠️ | ⚠️ | **Nincs guard** · `POST /api/hibabejelentesek` — a `felhasznaloId`/`halaszatId` a **kérés törzséből** jön |
-| Hibabejelentések listázása | ⚠️ | ⚠️ | ⚠️ | **Nincs guard** · `GET /api/halaszatok/[hid]/hibabejelentesek` — bejelentővel (név/email) együtt |
-| Hibabejelentés lezárása / státusz-frissítése | ⚠️ | ⚠️ | ⚠️ | **Nincs guard** · `PATCH /api/hibabejelentesek/[id]` — szerepkör-ellenőrzés nélkül |
+| Művelet | STAFF | ADMIN | OWNER | Bejelentő | Guard / végpont |
+|---|:--:|:--:|:--:|:--:|---|
+| Hibabejelentés létrehozása | ✅ | ✅ | ✅ | ✅ | `requireUser` · `POST /api/hibabejelentesek` — a `felhasznaloId` a **sessionből**; ha `halaszatId` meg van adva, `requireHalaszatRole(STAFF)` kell rá; ha nincs, globális bejelentés `halaszatId: null` |
+| Hibabejelentések listázása | ✅ | ✅ | ✅ | — | `requireHalaszatRole(STAFF)` · `GET /api/halaszatok/[hid]/hibabejelentesek` — csak az adott halászat bejelentései |
+| Hibabejelentés lezárása / státusz-frissítése | ❌ | ✅ | ✅ | ⚠️ | `requireUser` + `requireHalaszatRole(ADMIN)` a bejelentés **saját** halászatára · `PATCH /api/hibabejelentesek/[id]` — globális (`halaszatId: null`) bejelentést **csak az eredeti bejelentő** módosíthat |
+
+> A státusz-módosítás döntését a `canUpdateHibabejelentesStatus(...)` tiszta
+> függvény kódolja (`src/lib/roles.ts`), és unit-tesztelt: halászathoz kötött
+> bejelentésnél ADMIN/OWNER a saját halászatban (tenant-átlépés kizárva),
+> globális bejelentésnél csak a bejelentő. A „Bejelentő" oszlop ⚠️-je azt jelzi,
+> hogy a bejelentő önmagában **csak globális** bejelentést módosíthat; halászathoz
+> kötöttnél a szerepkör dönt.
 
 ### 2.6 Jövőbeli / tervezett képességek
 
@@ -155,7 +162,7 @@ hiányosságok".
 |---|:--:|---|
 | Halkeltetési modul | 🟡 | Csak placeholder oldal; SZD2-re tervezett. |
 | Szabály-alapú döntéstámogatás | 🟡 | Bővített, szabály-alapú javaslatok; nincs implementálva. |
-| Etetés → takarmánykészlet automatikus levonása | 🟡 | Jelenleg a takarmánymozgás kézi; az `Etetes` és a `TakarmanyMozgas` között nincs adatkapcsolat. |
+| Etetés → takarmánykészlet automatikus levonása | ✅ | **Megvalósítva:** etetéskor (`takarmanyId` megadva) `FELHASZNALVA` mozgás + készletcsökkentés egy tranzakcióban; az `Etetes` és a `TakarmanyMozgas` FK-val kötött (`etetesId`/`toId`). `takarmanyId` nélkül a kézi mozgás marad. |
 
 ---
 
@@ -177,17 +184,23 @@ ténylegesen így működik:
 
 ## 4. Ismert jogosultsági hiányosságok (Known authorization gaps)
 
-1. **A hibabejelentés-végpontok nem rendelkeznek auth/RBAC védelemmel.**
-   A `GET /api/halaszatok/[hid]/hibabejelentesek`, `POST /api/hibabejelentesek`
-   és `PATCH /api/hibabejelentesek/[id]` egyike sem hív guardot — kódszinten
-   ellenőrizve nincs `requireUser`/`requireHalaszatRole` hívás ezekben a
-   handlerekben.
-2. **`POST /api/hibabejelentesek` megbízik a kérés törzsében.** A `felhasznaloId`
-   és a `halaszatId` a **request body**-ból származik (csak `typeof === "number"`
-   szűréssel), nem a sessionből → a **szerző és a tenant hamisítható**.
-3. **`PATCH /api/hibabejelentesek/[id]` szerepkör-ellenőrzés nélkül módosít
-   státuszt.** Bárki átállíthatja egy bejelentés státuszát (`UJ` →
-   `MEGOLDVA`/`ELUTASITVA` stb.) auth és tenant-ellenőrzés nélkül.
+> **Lezárva (2026-06-26):** az 1–3. pont megoldva a hibabejelentés-végpontok
+> jogosultságolásával (lásd §2.5). A korábbi (sebezhető) állapot leírása alább
+> áthúzva, a megoldás dőlten.
+
+1. ~~**A hibabejelentés-végpontok nem rendelkeznek auth/RBAC védelemmel.**~~
+   *Megoldva:* a `GET .../hibabejelentesek` `requireHalaszatRole(STAFF)`-ot, a
+   `POST /api/hibabejelentesek` `requireUser`-t, a `PATCH .../[id]` `requireUser`
+   + (halászathoz kötött bejelentésnél) `requireHalaszatRole(ADMIN)`-t hív.
+2. ~~**`POST /api/hibabejelentesek` megbízik a kérés törzsében.**~~
+   *Megoldva:* a `felhasznaloId` a **sessionből** származik; a body `felhasznaloId`
+   mezőjét a handler figyelmen kívül hagyja. Ha `halaszatId` meg van adva, STAFF
+   tagság szükséges hozzá; egyébként globális bejelentés `halaszatId: null`.
+3. ~~**`PATCH /api/hibabejelentesek/[id]` szerepkör-ellenőrzés nélkül módosít
+   státuszt.**~~ *Megoldva:* a handler előbb betölti a bejelentést (`404`, ha
+   nincs), majd a bejelentés **saját** halászatában követel ADMIN/OWNER-t
+   (tenant-átlépés kizárva); globális bejelentésnél csak az eredeti bejelentő
+   módosíthat. A döntés a unit-tesztelt `canUpdateHibabejelentesStatus`-ban.
 4. **A tó-szintű `ToTagsag` létezik, de nem az elsődleges kikényszerítési modell.**
    A `Szerepkor` enum (OWNER/ADMIN/STAFF/OR/ANGLER), a `ToTagsag` tábla és a
    `requireToRole`/`meetsToRole` logika a kódban van, de **egyetlen API route sem
@@ -202,13 +215,12 @@ ténylegesen így működik:
 
 ## 5. SZD2 megerősítési terv (Hardening plan)
 
-1. **A hibabejelentés-végpontok biztonságossá tétele.**
-   - Listázás (`GET .../hibabejelentesek`): `requireHalaszatRole(STAFF)` vagy
-     magasabb, tenant-szűréssel.
-   - Létrehozás (`POST /api/hibabejelentesek`): a `felhasznaloId`/`halaszatId`
-     **sessionből** származzon, ne a kérés törzséből.
-   - Státuszváltás (`PATCH .../[id]`): megfelelő szerepkör (pl. ADMIN/OWNER) +
-     tenant-ellenőrzés a `[id]`-re; nem létező `id` → `404`.
+1. ~~**A hibabejelentés-végpontok biztonságossá tétele.**~~ ✅ **Kész**
+   (2026-06-26): listázás `requireHalaszatRole(STAFF)` + tenant-szűrés;
+   létrehozás `requireUser` + sessionből származó `felhasznaloId` (és STAFF
+   tagság, ha `halaszatId` adott); státuszváltás `requireUser` + a bejelentés
+   saját halászatára `requireHalaszatRole(ADMIN)`, nem létező `id` → `404`,
+   globálisnál csak a bejelentő. Unit-teszt: `canUpdateHibabejelentesStatus`.
 2. **Döntés a tó-szintű RBAC sorsáról.** El kell dönteni, hogy a `ToTagsag` /
    `Szerepkor` (tó-szintű, 5 fokozatú) modell **marad** (és akkor a route-ok
    ténylegesen kikényszerítik, finomhangolt tavankénti hozzáféréssel), vagy

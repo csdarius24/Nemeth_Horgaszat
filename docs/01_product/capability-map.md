@@ -55,7 +55,7 @@ Jelölés: **[kész]** = megvalósítva · **[tervezett]** = SZD2-re tervezett.
 - Takarmányfajták kezelése (név, egység, szín)
 - Aktuális készlet követése
 - Készletmozgások: bevétel (+) / felhasználás (−)
-- *[tervezett]* automatikus levonás etetéshez kötve
+- **[kész]** automatikus levonás etetéshez kötve (`takarmanyId`)
 
 ## Reporting (döntéstámogatás) [kész]
 

@@ -26,10 +26,22 @@ A modell három fő rétegre bontható:
 > takarmányfajta aktuális készletét tartja nyilván, a `TakarmanyMozgas` pedig a
 > készletet módosító egyedi mozgásokat (`BEVETEL` / `FELHASZNALVA`). A
 > készletérték a mozgások hatására **dinamikusan változik** (a mozgás rögzítése
-> és a `Takarmany.keszlet` frissítése egy tranzakcióban történik). **Megjegyzés:**
-> a mozgások jelenleg **kézi** rögzítésűek; az etetési művelethez (`Etetes`)
-> kötött **automatikus** levonás **tervezett** (SZD2), még nincs megvalósítva —
-> a `TakarmanyMozgas` és az `Etetes` között jelenleg nincs adatkapcsolat.
+> és a `Takarmany.keszlet` frissítése egy tranzakcióban történik).
+>
+> **Kétféle készletmozgás:**
+> - **Kézi** mozgás — a `POST .../takarmanyok/[id]/mozgasok` végponton rögzített
+>   bevétel/felhasználás (a `toId`/`etetesId` ilyenkor `null`).
+> - **Automatikus** felhasználás — etetéskor (`POST .../toak/[toId]/etetes`), ha a
+>   kérés tartalmaz `takarmanyId`-t: a rendszer egy `FELHASZNALVA` típusú
+>   `TakarmanyMozgas`-t hoz létre, levonja a `mennyisegKg`-ot a készletből, és a
+>   mozgást a tóhoz (`toId`) és az etetéshez (`etetesId`) köti. Mindez **egy
+>   tranzakcióban** az `Etetes` és a `NaploEsemeny` létrehozásával együtt.
+>
+> Az `Etetes.takarmanyId`, a `TakarmanyMozgas.toId` és a `TakarmanyMozgas.etetesId`
+> **nullable** — a takarmányhoz nem kötött (régi vagy kézi) etetések és mozgások
+> továbbra is érvényesek. **Nincs mértékegység-konverzió:** etetésnél a
+> `mennyisegKg` értéke a levont mennyiség, ugyanabban az egységben, mint a
+> takarmány készlete.
 
 Az elsődleges kulcsok mindenhol `azonosito Int @id @default(autoincrement())`.
 A pénz/tömeg jellegű mezők `Decimal` típusúak (`@db.Decimal`), a darabszámok
@@ -54,6 +66,8 @@ erDiagram
     Halaszat |o--o{ Hibabejelentes : "hibabejelentesek"
 
     Takarmany ||--o{ TakarmanyMozgas : "mozgasok"
+    Takarmany |o--o{ Etetes : "etetesek"
+    Etetes |o--o{ TakarmanyMozgas : "mozgasok"
 
     To ||--o{ ToTagsag : "tagsagok"
     To ||--o{ HalAllomany : "halAllomanyok"
@@ -61,6 +75,7 @@ erDiagram
     To ||--o{ Kivetel : "kivetelek"
     To ||--o{ Etetes : "etetesek"
     To ||--o{ NaploEsemeny : "naploEsemenyek"
+    To |o--o{ TakarmanyMozgas : "takarmanyMozgasok"
 
     Halfaj ||--o{ HalAllomany : "halAllomanyok"
     Halfaj ||--o{ Telepites : "telepitesek"
@@ -156,6 +171,7 @@ erDiagram
     Etetes {
         int azonosito PK
         int toId FK
+        int takarmanyId FK "nullable"
         decimal mennyisegKg
         string tipus
         datetime datum
@@ -186,6 +202,8 @@ erDiagram
         int azonosito PK
         int takarmanyId FK
         int halaszatId FK
+        int toId FK "nullable"
+        int etetesId FK "nullable"
         enum tipus "TakarmanyMozgasTipus"
         decimal mennyiseg
         datetime datum
@@ -321,9 +339,15 @@ erDiagram
 ### Etetes (`etetesek`)
 - **Cél:** egy etetési esemény rekordja.
 - **Fontos mezők:** `mennyisegKg` (`Decimal(8,2)`, kötelező), `tipus` (opcionális
-  takarmány típus), `datum`, `megjegyzes`.
-- **Indexek:** `@@index([toId, datum])`.
-- **Relációk:** `to` (Cascade). Halfajhoz nem kötődik.
+  szabad szöveges takarmány típus), `datum`, `megjegyzes`, `takarmanyId`
+  (**opcionális** — a felhasznált takarmány a készletből).
+- **Indexek:** `@@index([toId, datum])`, `@@index([takarmanyId])`.
+- **Relációk:** `to` (Cascade), `takarmany` (opcionális, **SetNull**),
+  `TakarmanyMozgas[]` (a kiváltott készletmozgás[ok]). Halfajhoz nem kötődik.
+- **Megjegyzés:** ha `takarmanyId` ki van töltve, az etetés rögzítésekor egy
+  `FELHASZNALVA` típusú `TakarmanyMozgas` keletkezik és a `Takarmany.keszlet`
+  csökken `mennyisegKg`-mal (egy tranzakcióban). A takarmány törlése a
+  `takarmanyId`-t `null`-ra állítja (az etetésrekord megmarad).
 
 ### Takarmany (`takarmanyok`)
 - **Cél:** egy halászathoz tartozó takarmányfajta és annak **aktuális** készlete
@@ -341,13 +365,16 @@ erDiagram
 - **Cél:** egy takarmánykészlet-mozgás (bevétel vagy felhasználás) rekordja.
 - **Fontos mezők:** `tipus` (`TakarmanyMozgasTipus`: `BEVETEL` / `FELHASZNALVA`),
   `mennyiseg` (`Decimal(10,2)`, kötelező, pozitív), `datum`, `megjegyzes`
-  (opcionális), `takarmanyId`, `halaszatId`.
-- **Indexek:** `@@index([takarmanyId, datum])`, `@@index([halaszatId, datum])`.
-- **Relációk:** `takarmany` (Cascade), `halaszat` (Cascade).
+  (opcionális), `takarmanyId`, `halaszatId`, `toId` (**opcionális** — melyik tóhoz
+  kötődő felhasználás), `etetesId` (**opcionális** — melyik etetés váltotta ki).
+- **Indexek:** `@@index([takarmanyId, datum])`, `@@index([halaszatId, datum])`,
+  `@@index([toId])`, `@@index([etetesId])`.
+- **Relációk:** `takarmany` (Cascade), `halaszat` (Cascade), `to` (opcionális,
+  **SetNull**), `etetes` (opcionális, **SetNull**).
 - **Megjegyzés:** a mozgás létrehozása és a `Takarmany.keszlet` frissítése egy
-  `prisma.$transaction`-ben történik; a készlet nem mehet negatívba. **Jelenleg
-  kézi rögzítésű** — az `Etetes`-hez kötött automatikus levonás **tervezett**
-  (SZD2), nincs FK-kapcsolat az `Etetes` és a `TakarmanyMozgas` között.
+  `prisma.$transaction`-ben történik; a készlet nem mehet negatívba. Kétféle
+  forrás: **kézi** (a mozgás-végpont, `toId`/`etetesId` = `null`) és
+  **automatikus** (etetéskor, `tipus = FELHASZNALVA`, `toId`/`etetesId` kitöltve).
 
 ### NaploEsemeny (`naplo_esemenyek`)
 - **Cél:** auditnapló; minden fontos művelet (telepítés, kivét, etetés,
@@ -396,9 +423,12 @@ A referenciális akciók a `schema.prisma` `onDelete` beállításaiból szárma
 | `Kivetel.to` | Cascade | Tó törlésekor a kivétel-rekordok törlődnek. |
 | `Kivetel.halfaj` | **Restrict** | Halfaj nem törölhető, amíg kivételben szerepel. |
 | `Etetes.to` | Cascade | Tó törlésekor az etetés-rekordok törlődnek. |
+| `Etetes.takarmany` | **SetNull** | Takarmány törlésekor az `Etetes.takarmanyId` nullára áll, az etetés megmarad. |
 | `Takarmany.halaszat` | Cascade | Halászat törlésekor a takarmányok törlődnek. |
 | `TakarmanyMozgas.takarmany` | Cascade | Takarmány törlésekor a mozgásai törlődnek. |
 | `TakarmanyMozgas.halaszat` | Cascade | Halászat törlésekor a takarmánymozgások törlődnek. |
+| `TakarmanyMozgas.to` | **SetNull** | Tó törlésekor a mozgás `toId`-ja nullára áll, a mozgás megmarad. |
+| `TakarmanyMozgas.etetes` | **SetNull** | Etetés törlésekor a mozgás `etetesId`-ja nullára áll, a mozgás megmarad. |
 | `NaploEsemeny.to` | Cascade | Tó törlésekor a naplóesemények törlődnek. |
 | `NaploEsemeny.halfaj` | **SetNull** | Halfaj törlésekor a `halfajId` nullára áll, a napló megmarad. |
 | `NaptarBejegyzes.halaszat` | Cascade | Halászat törlésekor a naptárbejegyzések törlődnek. |

@@ -1,10 +1,19 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { requireUser, requireHalaszatRole } from "@/lib/guards";
 
 export async function POST(req: NextRequest) {
     try {
+        // Auth: bejelentkezés kötelező.
+        const user = await requireUser();
+        if (!user) {
+            return NextResponse.json(
+                { hiba: "Bejelentkezés szükséges." },
+                { status: 401 }
+            );
+        }
+
         const body = await req.json();
-        console.log("HIBABEJELENTES BODY:", body);
 
         const targy = String(body?.targy ?? "").trim();
         const leiras = String(body?.leiras ?? "").trim();
@@ -13,13 +22,23 @@ export async function POST(req: NextRequest) {
                 ? String(body.oldalUrl).trim()
                 : null;
 
-        const felhasznaloIdRaw = body?.felhasznaloId;
-        const halaszatIdRaw = body?.halaszatId;
+        // A bejelentő MINDIG a session felhasználó — a kérés törzsében küldött
+        // felhasznaloId-t szándékosan figyelmen kívül hagyjuk (nem megbízható).
+        const felhasznaloId = user.azonosito;
 
-        const felhasznaloId =
-            typeof felhasznaloIdRaw === "number" ? felhasznaloIdRaw : null;
+        // halaszatId opcionális: ha megadták, a felhasználónak legalább STAFF
+        // tagnak kell lennie abban a halászatban; ha nincs megadva, globális
+        // (felhasználó-szintű) bejelentés készül halaszatId = null értékkel.
+        const halaszatIdRaw = body?.halaszatId;
         const halaszatId =
             typeof halaszatIdRaw === "number" ? halaszatIdRaw : null;
+
+        if (halaszatId != null) {
+            const auth = await requireHalaszatRole(halaszatId, "STAFF");
+            if (!auth.ok) {
+                return NextResponse.json({ hiba: auth.error }, { status: auth.status });
+            }
+        }
 
         if (targy.length < 3) {
             return NextResponse.json(
@@ -60,8 +79,6 @@ export async function POST(req: NextRequest) {
                 },
             },
         });
-
-        console.log("HIBABEJELENTES MENTVE:", ujHibabejelentes);
 
         return NextResponse.json(
             {
