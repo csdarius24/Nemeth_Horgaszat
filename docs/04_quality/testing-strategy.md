@@ -81,6 +81,10 @@ tranzakciós és tenant-logikán:
   készlet-ellenőrzés (nincs elég → 400) (AC4, AC6).
 - **Áttelepítés:** forrás csökken, cél nő (upsert), két naplóesemény, tenant-check
   mindkét tóra (AC4, AC6).
+- **Takarmánykészlet:** takarmány létrehozás/átnevezés/inaktiválás; egyedi név
+  tenanton belül (P2002 → 409); mozgás (bevétel/felhasználás) rögzítésekor a
+  `keszlet` tranzakcióban frissül; felhasználás a készlet alá → 422; FK-védett
+  törlés (mozgással → 409 + inaktiválás javaslat).
 - **Összesítő/summary/timeline:** aggregált értékek és paraméter-korlátok
   (`days`, `take`, `events`) helyessége.
 

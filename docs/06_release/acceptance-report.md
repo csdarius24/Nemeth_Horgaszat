@@ -10,6 +10,17 @@ funkciók kódszinten megvalósultak, de a végpont-szintű automatizált
 `PARTIAL` = implementálva, kód-szintű/manuális bizonyítékkal, de automatizált
 végpont-teszt nélkül · `TODO` = nincs még megvalósítva.
 
+> **Megjegyzés a tézis-irányról (témavezetői reframing).** A projekt a
+> témavezetői visszajelzés nyomán **halgazdálkodási műveleteket támogató MVP**-ként
+> pozícionált (munkacím: „Halgazdálkodási műveleteket támogató webalkalmazás
+> fejlesztése többtavas horgászatok számára"). Az alábbi AC1–AC7 a
+> `scope-contract.md` eredeti elfogadási kritériumait értékeli. Az időközben
+> megvalósított **takarmánykészlet (feed inventory)** modul a reframed scope
+> része, de önálló AC nem tartozik hozzá; verifikációja az `I-09` integration
+> teszttel **tervezett** (lásd `docs/04_quality/test-report.md`). Az
+> **etetés↔takarmány automatikus összekötése** és a **halkeltetési modul**
+> **tervezett** (SZD2), nem része ennek a kiadásnak.
+
 ## Elfogadási kritériumok
 
 | # | Kritérium | Státusz | Ellenőrzés módja | Bizonyíték | Hátralévő hiány |

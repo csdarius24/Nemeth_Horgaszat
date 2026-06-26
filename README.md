@@ -1,23 +1,38 @@
 # Németh Horgászat
 
-Több-bérlős (multi-tenant) halgazdasági és horgászati nyilvántartó rendszer.
+Több-bérlős (multi-tenant) **halgazdálkodási műveleteket támogató** webalkalmazás
+többtavas horgászatok / halgazdaságok számára.
+
+> **Szakdolgozati munkacím:** „Halgazdálkodási műveleteket támogató
+> webalkalmazás fejlesztése többtavas horgászatok számára"
 
 ## Projekt célja
 
-A rendszer célja magyarországi halgazdaságok és horgásztavak digitális nyilvántartásának támogatása.
+A rendszer célja a magyarországi halgazdaságok napi **halgazdálkodási
+műveleteinek** digitalizálása és **nyomon követhető**, tóra bontott
+nyilvántartása — nem pusztán általános adatrögzítés, hanem a műveletek
+(telepítés, kivét, etetés, áttelepítés, takarmánymozgás) auditálható kezelése.
 
 A platform lehetővé teszi:
 
-- halászatok kezelését
-- tavak kezelését
-- telelő tavak kezelését
+- halászatok (tenantok) kezelését
+- tavak és telelő tavak kezelését
 - halfajok nyilvántartását
-- halállomány követését
+- halállomány követését (fajonként/tavanként)
 - telepítések kezelését
 - kivételek rögzítését
 - etetések naplózását
-- eseménynapló vezetését
+- **takarmánykészlet nyilvántartását** (bevétel/felhasználás mozgásokkal)
+- tó-szintű **művelet-idővonal** és eseménynapló vezetését
+- döntéstámogató **dashboard** nézeteket
+- hibabejelentések kezelését
 - szerepkör alapú jogosultságkezelést
+
+> **Tervezett (SZD2, még nem megvalósított):** halkeltetési modul; az etetés és a
+> takarmánykészlet automatikus összekötése (etetéskor automatikus
+> készletlevonás). A részletes tézis-irányt és az MVP-határt lásd:
+> [docs/01_product/vision.md](docs/01_product/vision.md) és
+> [docs/01_product/scope-contract.md](docs/01_product/scope-contract.md).
 
 ## Technológiai stack
 
@@ -67,9 +82,23 @@ Halállomány csökkentése.
 
 Etetési események nyilvántartása.
 
-### Naplózás
+### Takarmánykészlet
 
-Minden esemény auditálható módon naplózásra kerül.
+Takarmányfajták és aktuális készlet nyilvántartása. A készlet **bevétel** (+) és
+**felhasználás** (−) mozgásokkal változik; készlet- és megoszlás-diagramok
+segítik az áttekintést.
+
+> Tervezett (SZD2): az etetési művelethez kötött **automatikus** készletlevonás.
+
+### Művelet-idővonal és naplózás
+
+Minden fontos művelet (telepítés, kivét, etetés, áttelepítés) auditálható módon
+naplózásra kerül, és tó-szinten idővonalon visszakereshető.
+
+### Halkeltetés *(tervezett — SZD2)*
+
+Ikráztatás / ivadéknevelés nyilvántartása. Jelenleg csak placeholder oldal; a
+funkció SZD2-re tervezett.
 
 ## Jogosultsági rendszer
 

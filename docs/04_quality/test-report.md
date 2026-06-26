@@ -50,6 +50,7 @@ lefedettség, Playwright trace) később illesztendők.
 | I-06 | Integration | Áttelepítés | forrás/cél + két napló + tenant-check | Vitest+DB | Tervezett |
 | I-07 | Integration | RBAC negatív | 401/403 a védett végpontokon | Vitest+DB | Tervezett |
 | I-08 | Integration | Tenant-izoláció | idegen `[hid]`/`[toId]` → 403/404 | Vitest+DB | Tervezett |
+| I-09 | Integration | Takarmánykészlet | takarmány CRUD + mozgás → `keszlet` frissül + negatív-védelem (422) | Vitest+DB | Tervezett |
 | E-01 | E2E | Fő folyamat | regisztráció→halászat→tó→halfaj→telepítés→összesítő | Playwright | Tervezett |
 | E-02 | E2E | Jogosultság | STAFF nem fér ADMIN-művelethez | Playwright | Tervezett |
 | E-03 | E2E | Izoláció | „A" nem látja „B" adatát | Playwright | Tervezett |

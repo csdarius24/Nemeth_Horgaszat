@@ -18,8 +18,18 @@ A modell három fő rétegre bontható:
 2. **Tenant és törzsadatok** — `Halaszat`, `To`, `Halfaj`. A halászat a tenant
    gyökér; a tavak és halfajok hozzá tartoznak.
 3. **Készlet, műveletek és napló** — `HalAllomany` (aktuális készlet),
-   `Telepites`, `Kivetel`, `Etetes` (műveleti rekordok), `NaploEsemeny`
+   `Telepites`, `Kivetel`, `Etetes` (műveleti rekordok), `Takarmany` +
+   `TakarmanyMozgas` (takarmánykészlet és mozgásai), `NaploEsemeny`
    (auditnapló), `NaptarBejegyzes` (naptár), `Hibabejelentes` (hibabejelentések).
+
+> **Takarmánykészlet (feed inventory).** A `Takarmany` egy halászathoz tartozó
+> takarmányfajta aktuális készletét tartja nyilván, a `TakarmanyMozgas` pedig a
+> készletet módosító egyedi mozgásokat (`BEVETEL` / `FELHASZNALVA`). A
+> készletérték a mozgások hatására **dinamikusan változik** (a mozgás rögzítése
+> és a `Takarmany.keszlet` frissítése egy tranzakcióban történik). **Megjegyzés:**
+> a mozgások jelenleg **kézi** rögzítésűek; az etetési művelethez (`Etetes`)
+> kötött **automatikus** levonás **tervezett** (SZD2), még nincs megvalósítva —
+> a `TakarmanyMozgas` és az `Etetes` között jelenleg nincs adatkapcsolat.
 
 Az elsődleges kulcsok mindenhol `azonosito Int @id @default(autoincrement())`.
 A pénz/tömeg jellegű mezők `Decimal` típusúak (`@db.Decimal`), a darabszámok
@@ -38,8 +48,12 @@ erDiagram
     Halaszat ||--o{ HalaszatTagsag : "tagsagok"
     Halaszat |o--o{ To : "toak"
     Halaszat ||--o{ Halfaj : "halfajok"
+    Halaszat ||--o{ Takarmany : "takarmanyok"
+    Halaszat ||--o{ TakarmanyMozgas : "takarmanyMozgasok"
     Halaszat ||--o{ NaptarBejegyzes : "naptarBejegyzesek"
     Halaszat |o--o{ Hibabejelentes : "hibabejelentesek"
+
+    Takarmany ||--o{ TakarmanyMozgas : "mozgasok"
 
     To ||--o{ ToTagsag : "tagsagok"
     To ||--o{ HalAllomany : "halAllomanyok"
@@ -157,6 +171,27 @@ erDiagram
         datetime datum
         string leiras
     }
+    Takarmany {
+        int azonosito PK
+        int halaszatId FK
+        string nev
+        string egyseg
+        decimal keszlet
+        string szin "nullable"
+        bool aktiv
+        datetime letrehozva
+        datetime frissitve
+    }
+    TakarmanyMozgas {
+        int azonosito PK
+        int takarmanyId FK
+        int halaszatId FK
+        enum tipus "TakarmanyMozgasTipus"
+        decimal mennyiseg
+        datetime datum
+        string megjegyzes "nullable"
+        datetime letrehozva
+    }
     NaptarBejegyzes {
         int azonosito PK
         int halaszatId FK
@@ -188,6 +223,7 @@ erDiagram
 | `Szerepkor` | `OWNER`, `ADMIN`, `STAFF`, `OR`, `ANGLER` | `ToTagsag.szerepkor` — tó-szintű szerepkör (5 fokozat). |
 | `HalaszatSzerepkor` | `OWNER`, `ADMIN`, `STAFF` | `HalaszatTagsag.szerepkor` — halászat (tenant) szintű szerepkör. |
 | `ToTipus` | `TO`, `TELELO` | `To.tipus` — normál tó vagy telelő tó. |
+| `TakarmanyMozgasTipus` | `BEVETEL`, `FELHASZNALVA` | `TakarmanyMozgas.tipus` — készletnövelő (bevétel) vagy készletcsökkentő (felhasználás) mozgás. |
 | `HibabejelentesStatusz` | `UJ`, `FOLYAMATBAN`, `MEGOLDVA`, `ELUTASITVA` | `Hibabejelentes.statusz` — a hibabejelentés állapota (alapérték `UJ`). |
 
 > Megjegyzés: a `Szerepkor` (tó-szintű, 5 fokozatú) enum és a `ToTagsag` modell
@@ -289,6 +325,30 @@ erDiagram
 - **Indexek:** `@@index([toId, datum])`.
 - **Relációk:** `to` (Cascade). Halfajhoz nem kötődik.
 
+### Takarmany (`takarmanyok`)
+- **Cél:** egy halászathoz tartozó takarmányfajta és annak **aktuális** készlete
+  (feed inventory).
+- **Fontos mezők:** `nev`, `egyseg` (mértékegység, pl. `kg`/`zsák`), `keszlet`
+  (`Decimal(10,2)`, aktuális készlet, alap `0`), `szin` (opcionális UI színkód),
+  `aktiv` (archiváláshoz), `halaszatId`.
+- **Megszorítások:** `@@unique([halaszatId, nev])` — a név tenanton belül egyedi.
+- **Indexek:** `@@index([halaszatId, aktiv])`.
+- **Relációk:** `halaszat` (Cascade), `TakarmanyMozgas[]`.
+- **Megjegyzés:** a `keszlet` denormalizált összesítő, amelyet a mozgások
+  rögzítése tranzakcióban tart szinkronban.
+
+### TakarmanyMozgas (`takarmany_mozgasok`)
+- **Cél:** egy takarmánykészlet-mozgás (bevétel vagy felhasználás) rekordja.
+- **Fontos mezők:** `tipus` (`TakarmanyMozgasTipus`: `BEVETEL` / `FELHASZNALVA`),
+  `mennyiseg` (`Decimal(10,2)`, kötelező, pozitív), `datum`, `megjegyzes`
+  (opcionális), `takarmanyId`, `halaszatId`.
+- **Indexek:** `@@index([takarmanyId, datum])`, `@@index([halaszatId, datum])`.
+- **Relációk:** `takarmany` (Cascade), `halaszat` (Cascade).
+- **Megjegyzés:** a mozgás létrehozása és a `Takarmany.keszlet` frissítése egy
+  `prisma.$transaction`-ben történik; a készlet nem mehet negatívba. **Jelenleg
+  kézi rögzítésű** — az `Etetes`-hez kötött automatikus levonás **tervezett**
+  (SZD2), nincs FK-kapcsolat az `Etetes` és a `TakarmanyMozgas` között.
+
 ### NaploEsemeny (`naplo_esemenyek`)
 - **Cél:** auditnapló; minden fontos művelet (telepítés, kivét, etetés,
   áttelepítés) ide is bejegyződik, ember által olvasható `leiras` szöveggel.
@@ -336,6 +396,9 @@ A referenciális akciók a `schema.prisma` `onDelete` beállításaiból szárma
 | `Kivetel.to` | Cascade | Tó törlésekor a kivétel-rekordok törlődnek. |
 | `Kivetel.halfaj` | **Restrict** | Halfaj nem törölhető, amíg kivételben szerepel. |
 | `Etetes.to` | Cascade | Tó törlésekor az etetés-rekordok törlődnek. |
+| `Takarmany.halaszat` | Cascade | Halászat törlésekor a takarmányok törlődnek. |
+| `TakarmanyMozgas.takarmany` | Cascade | Takarmány törlésekor a mozgásai törlődnek. |
+| `TakarmanyMozgas.halaszat` | Cascade | Halászat törlésekor a takarmánymozgások törlődnek. |
 | `NaploEsemeny.to` | Cascade | Tó törlésekor a naplóesemények törlődnek. |
 | `NaploEsemeny.halfaj` | **SetNull** | Halfaj törlésekor a `halfajId` nullára áll, a napló megmarad. |
 | `NaptarBejegyzes.halaszat` | Cascade | Halászat törlésekor a naptárbejegyzések törlődnek. |

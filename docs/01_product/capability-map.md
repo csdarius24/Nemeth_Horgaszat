@@ -1,5 +1,8 @@
 # Capability Map
 
+A képességtérkép a **halgazdálkodási műveletek** támogatása köré szerveződik.
+Jelölés: **[kész]** = megvalósítva · **[tervezett]** = SZD2-re tervezett.
+
 ## Tenant Management
 
 - Halászat létrehozása
@@ -29,31 +32,45 @@
 - Tömeg kategóriák
 - Készletváltozások
 
-## Operations
+## Operations (halgazdálkodási műveletek)
 
-### Telepítés
+### Telepítés [kész]
 
 - Új halállomány felvétele
 
-### Kivétel
+### Kivétel [kész]
 
 - Halállomány csökkentése
 
-### Etetés
+### Etetés [kész]
 
 - Etetési események
 
-### Áttelepítés
+### Áttelepítés [kész]
 
 - Tavak közötti mozgatás
 
-## Reporting
+## Feed Inventory (takarmánykészlet) [kész]
+
+- Takarmányfajták kezelése (név, egység, szín)
+- Aktuális készlet követése
+- Készletmozgások: bevétel (+) / felhasználás (−)
+- *[tervezett]* automatikus levonás etetéshez kötve
+
+## Reporting (döntéstámogatás) [kész]
 
 - Állomány összesítések
 - Etetési összesítések
-- Timeline nézet
+- Takarmánykészlet-megoszlás
+- Timeline (tó-szintű művelet-idővonal) nézet
+- Halászat-szintű dashboard
 
-## Audit
+## Audit [kész]
 
 - Naplózás
 - Eseménykövetés
+
+## Hatchery (halkeltetés) [tervezett]
+
+- Ikráztatás, lárva- és ivadéknevelés nyilvántartása
+- Jelenleg csak placeholder oldal; a funkció SZD2-re tervezett

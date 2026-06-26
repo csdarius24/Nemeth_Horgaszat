@@ -1,7 +1,9 @@
 # Release Notes — v1.0 (Thesis Release)
 
-**Projekt:** Németh Horgászat — több-bérlős (multi-tenant) halgazdasági és
-horgászati nyilvántartó rendszer
+**Projekt:** Németh Horgászat — több-bérlős (multi-tenant), **halgazdálkodási
+műveleteket támogató** webalkalmazás többtavas horgászatok számára
+**Szakdolgozati munkacím:** „Halgazdálkodási műveleteket támogató webalkalmazás
+fejlesztése többtavas horgászatok számára"
 **Verzió:** v1.0 (szakdolgozati kiadás)
 **Dátum:** 2026-06-17
 **Fejlesztő:** Csóka Dániel Dárius
@@ -40,13 +42,20 @@ ismert korlátai átláthatóan dokumentáltak (lásd lentebb és a
 - **Áttelepítés:** forrás→cél mozgatás, mindkét tóra tenant-ellenőrzéssel, két
   naplóeseménnyel.
 
-### Riport és napló
+### Takarmánykészlet (feed inventory)
+- Takarmányfajták nyilvántartása (név, egység, szín), aktuális készlettel.
+- Készletmozgások rögzítése: **bevétel** (+) / **felhasználás** (−); a
+  `Takarmany.keszlet` tranzakcióban frissül, negatívba nem mehet.
+- Készlet- és megoszlás-diagramok, mozgásnapló a felületen.
+
+### Riport és napló (döntéstámogatás)
 - Tó-összefoglaló (`summary`), idővonal (`timeline`), halászat-szintű összesítő
   (`osszesito`) aggregációkkal és paraméter-korlátokkal.
 - Auditnapló (`NaploEsemeny`) minden fontos műveletnél.
 
 ### Kiegészítő modulok
-- Naptár (havi bejegyzések), hibabejelentés státuszkövetéssel.
+- Naptár (havi bejegyzések), hibabejelentés státuszkövetéssel, beépített
+  számológép segédeszköz.
 
 ## Minőségi bizonyíték
 
@@ -79,14 +88,21 @@ ismert korlátai átláthatóan dokumentáltak (lásd lentebb és a
 
 ## Nem célok (a v1.0 nem tartalmazza)
 
-A `scope-contract.md` „Non Goals" szakasza szerint a jelenlegi verzió nem
-tartalmaz:
+A `scope-contract.md` „Out of Scope" / „Non Goals" szakasza szerint a jelenlegi
+verzió nem tartalmaz:
 
 - online fizetést,
 - mobil alkalmazást,
-- IoT szenzor integrációt,
+- IoT (vízminőség-) szenzor integrációt,
 - automatikus vízminőség mérést,
-- gépi tanulás alapú előrejelzést.
+- komplex gépi tanulás alapú / automatizált biológiai előrejelzést.
+
+**Tervezett (SZD2, jelen kiadásban nincs megvalósítva):**
+
+- **halkeltetési modul** (jelenleg csak placeholder oldal),
+- az **etetés ↔ takarmánykészlet automatikus összekötése** (etetéskor automatikus
+  készletlevonás; jelenleg a takarmánymozgás kézi rögzítésű),
+- bővített döntéstámogatás (trendek, lehalászás-tervezés).
 
 ## Kapcsolódó kiadási commitok (main)
 

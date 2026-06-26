@@ -4,9 +4,64 @@
 
 Németh Horgászat
 
+## Tézis-scope — munkacím
+
+> **„Halgazdálkodási műveleteket támogató webalkalmazás fejlesztése többtavas
+> horgászatok számára"**
+
 ## Projekt típusa
 
-Több-bérlős (multi-tenant) webalkalmazás halgazdaságok és horgászati szervezetek nyilvántartási feladatainak támogatására.
+Több-bérlős (multi-tenant) webalkalmazás **halgazdálkodási műveletek**
+támogatására és nyomon követésére többtavas horgászatok / halgazdaságok számára.
+A fókusz — a témavezetői visszajelzés nyomán — a napi műveletek (telepítés,
+kivét, etetés, áttelepítés, takarmánymozgás) auditálható, tóra bontott
+nyilvántartása.
+
+---
+
+# MVP-határ (In Scope / Out of Scope)
+
+Ez a szakasz a tézis MVP-jének éles határát rögzíti. A jelölés:
+**[kész]** = megvalósítva a kódbázisban · **[tervezett]** = még nem
+megvalósított, SZD2-re tervezett.
+
+## In Scope (a tézis MVP része)
+
+- **több-bérlős (multi-user) halgazdálkodás-kezelés** [kész]
+- **tavak** (normál és telelő) [kész]
+- **halfajok** [kész]
+- **halállomány** (fajonkénti/tavankénti készlet) [kész]
+- **telepítés** (stocking) [kész]
+- **kivét** (removal) [kész]
+- **etetés** (feeding) [kész]
+- **takarmánykészlet** (feed inventory) — készlet + bevétel/felhasználás
+  mozgások [kész]
+- **művelet-idővonal** (operation timeline) — tó-szintű naplóesemények [kész]
+- **dashboard** (összesítő, döntéstámogató nézetek) [kész]
+- **hibabejelentések** (bug reports) [kész] — *ismert korlát: a végpontok
+  jelenleg auth/RBAC guard nélkül futnak, lásd `docs/05_security_ops/threat-model.md`*
+- **szerepkör alapú jogosultságkezelés** (RBAC) [kész]
+
+> **Megjegyzés a takarmánykészletről:** a takarmány készletértéke jelenleg
+> **kézi** bevétel/felhasználás mozgásokkal változik. Az etetési művelethez való
+> **automatikus** készletlevonás (etetés → takarmány csökken) **[tervezett]**
+> (SZD2), még nincs megvalósítva.
+
+> **Kiegészítő, már megvalósított modulok** (nem részei a szűk MVP-magnak, de a
+> kódban jelen vannak): havi **naptár** bejegyzésekkel, beépített
+> **számológép** segédeszköz a felületen.
+
+## Out of Scope (a tézis MVP-n kívül)
+
+- mobil alkalmazás
+- IoT vízminőség-szenzorok
+- online fizetés
+- komplex gépi tanulás
+- automatizált biológiai előrejelzés
+
+> **Halkeltetési modul** (ikráztatás / ivadéknevelés): a felületen szerepel egy
+> placeholder oldal, de a funkció **[tervezett]**, SZD2-re — jelenleg **nincs**
+> megvalósítva.
 
 ---
 
@@ -75,22 +130,33 @@ Tó szint:
 - etetések naplózása
 - összesítések készítése
 
-## Naplózás
+## Takarmánykészlet (feed inventory) [kész]
 
-- események rögzítése
-- audit célú visszakereshetőség
+- takarmányfajták nyilvántartása (név, egység, szín)
+- aktuális készlet követése takarmányonként
+- készletmozgások rögzítése: **bevétel** (+) és **felhasználás** (−)
+- készlet- és megoszlás-diagramok (dashboard)
+- *[tervezett, SZD2]* automatikus készletlevonás az etetési művelethez kötve
+
+## Művelet-idővonal és naplózás
+
+- események rögzítése (telepítés / kivét / etetés / áttelepítés)
+- tó-szintű idővonal és audit célú visszakereshetőség
 
 ---
 
 # Non Goals
 
-A jelenlegi verzió nem tartalmaz:
+A jelenlegi verzió **nem** tartalmaz (lásd a fenti „Out of Scope" listát is):
 
 - online fizetést
 - mobil alkalmazást
-- IoT szenzor integrációt
+- IoT (vízminőség-) szenzor integrációt
 - automatikus vízminőség mérést
-- gépi tanulás alapú előrejelzést
+- komplex gépi tanulás alapú előrejelzést / automatizált biológiai előrejelzést
+
+A **halkeltetési modul** és az **etetés↔takarmány automatikus összekötése**
+**tervezett** (SZD2), jelenleg nem része a megvalósított MVP-nek.
 
 ---
 

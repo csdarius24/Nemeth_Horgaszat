@@ -208,6 +208,67 @@ táblázatok az egyes végpontoknál pontosítják.
 
 ---
 
+## Takarmány (feed inventory) végpontok
+
+### GET /api/halaszatok/[hid]/takarmanyok
+- **Cél:** a halászat takarmányfajtáinak listája (aktuális készlettel).
+- **Jogosultság:** `requireHalaszatRole(hid, "STAFF")`.
+- **Query:** `active` — `0` esetén az inaktívak is megjelennek (alapból csak aktívak).
+- **Siker:** `200` `{ items: [{ azonosito, nev, egyseg, keszlet, szin, aktiv }], viewerRole }`.
+- **Hibák:** `400` hibás azonosító; `401/403` jogosultság (`{ error }`).
+
+### POST /api/halaszatok/[hid]/takarmanyok
+- **Cél:** új takarmányfajta létrehozása (kezdő készlet `0`).
+- **Jogosultság:** `requireHalaszatRole(hid, "ADMIN")`.
+- **Request body:** `{ nev: string, egyseg: string, szin?: string }`
+- **Siker:** `201` `{ ok: true, item: { azonosito, nev, egyseg, keszlet, szin, aktiv } }`.
+- **Hibák:** `400` üres név / üres egység; `409` ilyen nevű takarmány már létezik
+  (`P2002`); `500` egyéb (`{ error }`).
+- **Mellékhatás:** `Takarmany` létrejön `keszlet: 0`, `aktiv: true` értékkel.
+
+### PATCH /api/halaszatok/[hid]/takarmanyok/[id]
+- **Cél:** takarmány módosítása (név / egység / szín / `aktiv` flag).
+- **Jogosultság:** `requireHalaszatRole(hid, "ADMIN")`; tenantra szűrve
+  (`azonosito, halaszatId`).
+- **Request body:** `{ nev?: string, egyseg?: string, szin?: string | null, aktiv?: boolean }` (legalább egy mező).
+- **Siker:** `200` `{ ok: true, item: { azonosito, nev, egyseg, keszlet, szin, aktiv } }`.
+- **Hibák:** `400` hibás azonosító / üres mező / nincs frissítendő mező; `404` nem
+  található; `409` névütközés (`P2002`); `500` egyéb (`{ error }`).
+- **Megjegyzés:** a `keszlet` ezen a végponton **nem** módosítható; a készlet
+  kizárólag a mozgás-végponton keresztül változik.
+
+### DELETE /api/halaszatok/[hid]/takarmanyok/[id]
+- **Cél:** takarmány **kemény** törlése.
+- **Jogosultság:** `requireHalaszatRole(hid, "ADMIN")`; tenantra szűrve.
+- **Siker:** `200` `{ ok: true }`.
+- **Hibák:** `404` nem található; `409` `{ error, inaktivalhatjuk: true }` ha a
+  takarmányhoz mozgás kötődik (idegen kulcs sértés, `P2003`/`P2014`) — ilyenkor
+  inaktiválás javasolt; `500` egyéb.
+- **Mellékhatás:** `Takarmany` törlése, ha nincs FK-hivatkozás.
+
+### GET /api/halaszatok/[hid]/takarmanyok/[id]/mozgasok
+- **Cél:** egy takarmány készletmozgásainak listája (legújabb elöl).
+- **Jogosultság:** `requireHalaszatRole(hid, "STAFF")` + a takarmány tenantra szűrve.
+- **Query:** `limit` (alap 50, max 200).
+- **Siker:** `200` `{ mozgasok: [{ azonosito, tipus, mennyiseg, datum, megjegyzes }] }`.
+- **Hibák:** `400` hibás azonosító; `401/403` jogosultság (`{ error }`).
+
+### POST /api/halaszatok/[hid]/takarmanyok/[id]/mozgasok
+- **Cél:** készletmozgás rögzítése (bevétel vagy felhasználás) + a készlet frissítése.
+- **Jogosultság:** `requireHalaszatRole(hid, "STAFF")` + a takarmány tenantra szűrve.
+- **Request body:** `{ tipus: "BEVETEL" | "FELHASZNALVA", mennyiseg: number (>0), datum?: string, megjegyzes?: string }`
+- **Siker:** `201` `{ ok: true, mozgas: {...}, ujKeszlet: number }`.
+- **Hibák:** `400` érvénytelen típus / nem pozitív mennyiség / hibás dátum; `404`
+  nem található takarmány; `422` ha a felhasználás a készletet negatívba vinné;
+  `401/403`; `500` (`{ error }`).
+- **Mellékhatás (tranzakció):** `TakarmanyMozgas` rekord létrejön, és a
+  `Takarmany.keszlet` a mozgás előjelével (bevétel `+`, felhasználás `−`)
+  frissül. A készlet nem mehet 0 alá.
+- **Megjegyzés:** az etetési művelethez (`/etetes`) kötött **automatikus**
+  felhasználás-mozgás **tervezett** (SZD2); jelenleg a mozgás kézi rögzítésű.
+
+---
+
 ## Tó és műveleti végpontok
 
 ### GET /api/halaszatok/[hid]/toak
@@ -397,6 +458,12 @@ táblázatok az egyes végpontoknál pontosítják.
 | POST | `/api/halaszatok/[hid]/halfajok` | ADMIN |
 | PATCH | `/api/halaszatok/[hid]/halfajok/[id]` | ADMIN |
 | DELETE | `/api/halaszatok/[hid]/halfajok/[id]` | ADMIN |
+| GET | `/api/halaszatok/[hid]/takarmanyok` | STAFF |
+| POST | `/api/halaszatok/[hid]/takarmanyok` | ADMIN |
+| PATCH | `/api/halaszatok/[hid]/takarmanyok/[id]` | ADMIN |
+| DELETE | `/api/halaszatok/[hid]/takarmanyok/[id]` | ADMIN |
+| GET | `/api/halaszatok/[hid]/takarmanyok/[id]/mozgasok` | STAFF |
+| POST | `/api/halaszatok/[hid]/takarmanyok/[id]/mozgasok` | STAFF |
 | GET | `/api/halaszatok/[hid]/toak` | STAFF |
 | POST | `/api/halaszatok/[hid]/toak` | ADMIN |
 | GET | `/api/halaszatok/[hid]/toak/[toId]` | STAFF |
