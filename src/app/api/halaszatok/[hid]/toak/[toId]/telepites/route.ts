@@ -86,6 +86,8 @@ export async function POST(
                     halfajId,
                     darab,
                     leiras: `Telepítés • darab: ${darab}`,
+                    // actor: ki rögzítette (sessionből, NEM a kérés törzséből)
+                    felhasznaloId: auth.user.azonosito,
                 },
             });
 

@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { requireHalaszatRole } from "@/lib/guards";
 import { szam } from "@/lib/utils/szam";
 import { assertToBelongsToTenant } from "@/lib/tenant/assertToBelongsToTenant";
+import { rogzitoMegjelenites } from "@/lib/audit/rogzito";
 
 function jsonError(message: string, status = 400) {
     return NextResponse.json({ error: message }, { status });
@@ -27,7 +28,7 @@ export async function GET(
     try {
         const to = await assertToBelongsToTenant(toId, halaszatId);
 
-        const items = await prisma.naploEsemeny.findMany({
+        const nyersItems = await prisma.naploEsemeny.findMany({
             where: { toId: to.azonosito },
             orderBy: { datum: "desc" },
             take,
@@ -39,8 +40,16 @@ export async function GET(
                 darab: true,
                 mennyisegKg: true,
                 halfaj: { select: { azonosito: true, nev: true } },
+                felhasznaloId: true,
+                felhasznalo: { select: { nev: true, email: true } },
             },
         });
+
+        // actor megjelenítése: rogzitoNev (backward-compatible bővítés)
+        const items = nyersItems.map(({ felhasznalo, ...it }) => ({
+            ...it,
+            rogzitoNev: rogzitoMegjelenites(felhasznalo),
+        }));
 
         return NextResponse.json({ to: { azonosito: to.azonosito, nev: to.nev }, items });
     } catch (err: any) {

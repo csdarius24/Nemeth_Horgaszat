@@ -33,6 +33,17 @@ a jelenlegi route-ok kizárólag `requireHalaszatRole`-t használnak.
 > A teljes, szerepkörönkénti jogosultsági mátrix (ki láthat/módosíthat mit) és az
 > ismert jogosultsági hiányosságok: [`docs/05_security_ops/role-matrix.md`](../05_security_ops/role-matrix.md).
 
+### Actor / nyomon követhetőség (Sprint 1)
+
+A műveleti írások **actort** rögzítenek: a `NaploEsemeny` és a `TakarmanyMozgas`
+`felhasznaloId` mezője a **session** felhasználójából származik (`auth.user`),
+**nem** a kérés törzséből — így hamisíthatatlan „ki végezte/rögzítette". Érintett
+írási végpontok: `telepites`, `kivetel`, `attelepites`, `etetes` (napló + a
+`FELHASZNALVA` takarmánymozgás), és a takarmány-`mozgasok` (kézi bevétel/felhasználás).
+Az actor **opcionális** (nullable) a régi sorok és a rendszer-események miatt. A
+megjelenítés a read-végpontokon `rogzitoNev` (név → email → `null`). **Nincs még**
+művelet-szerkesztés/érvénytelenítés és verziózott előzmény (következő lépés).
+
 ### Tenant izoláció
 
 - Minden `/api/halaszatok/[hid]/...` végpont a `[hid]` (halaszatId) köré épül, és
@@ -253,22 +264,25 @@ táblázatok az egyes végpontoknál pontosítják.
 - **Cél:** egy takarmány készletmozgásainak listája (legújabb elöl).
 - **Jogosultság:** `requireHalaszatRole(hid, "STAFF")` + a takarmány tenantra szűrve.
 - **Query:** `limit` (alap 50, max 200).
-- **Siker:** `200` `{ mozgasok: [{ azonosito, tipus, mennyiseg, datum, megjegyzes }] }`.
+- **Siker:** `200` `{ mozgasok: [{ azonosito, tipus, mennyiseg, datum, megjegyzes, felhasznaloId, rogzitoNev }] }`.
+  A `rogzitoNev` (opcionális, `string | null`) a mozgás rögzítőjének neve (ki adta
+  hozzá / ki használta fel).
 - **Hibák:** `400` hibás azonosító; `401/403` jogosultság (`{ error }`).
 
 ### POST /api/halaszatok/[hid]/takarmanyok/[id]/mozgasok
 - **Cél:** készletmozgás rögzítése (bevétel vagy felhasználás) + a készlet frissítése.
 - **Jogosultság:** `requireHalaszatRole(hid, "STAFF")` + a takarmány tenantra szűrve.
 - **Request body:** `{ tipus: "BEVETEL" | "FELHASZNALVA", mennyiseg: number (>0), datum?: string, megjegyzes?: string }`
-- **Siker:** `201` `{ ok: true, mozgas: {...}, ujKeszlet: number }`.
+- **Siker:** `201` `{ ok: true, mozgas: { azonosito, tipus, mennyiseg, datum, megjegyzes, felhasznaloId }, ujKeszlet: number }`.
 - **Hibák:** `400` érvénytelen típus / nem pozitív mennyiség / hibás dátum; `404`
   nem található takarmány; `422` ha a felhasználás a készletet negatívba vinné;
   `401/403`; `500` (`{ error }`).
-- **Mellékhatás (tranzakció):** `TakarmanyMozgas` rekord létrejön, és a
-  `Takarmany.keszlet` a mozgás előjelével (bevétel `+`, felhasználás `−`)
-  frissül. A készlet nem mehet 0 alá.
+- **Mellékhatás (tranzakció):** `TakarmanyMozgas` rekord létrejön (a `felhasznaloId`
+  a **sessionből**), és a `Takarmany.keszlet` a mozgás előjelével (bevétel `+`,
+  felhasználás `−`) frissül. A készlet nem mehet 0 alá.
 - **Megjegyzés:** az etetési művelethez (`/etetes`) kötött **automatikus**
-  felhasználás-mozgás **tervezett** (SZD2); jelenleg a mozgás kézi rögzítésű.
+  felhasználás-mozgás **megvalósult** (a `takarmanyId`-vel küldött etetés
+  `FELHASZNALVA` mozgást hoz létre); ez a végpont a **kézi** bevétel/felhasználás.
 
 ---
 
@@ -365,7 +379,9 @@ táblázatok az egyes végpontoknál pontosítják.
 - **Cél:** a tó naplóeseményeinek listája (legújabb elöl).
 - **Jogosultság:** `requireHalaszatRole(hid, "STAFF")` + tenant-check.
 - **Query:** `take` (1–200, alap 50).
-- **Siker:** `200` `{ to: { azonosito, nev }, items: [{ azonosito, tipus, datum, leiras, darab, mennyisegKg, halfaj }] }`.
+- **Siker:** `200` `{ to: { azonosito, nev }, items: [{ azonosito, tipus, datum, leiras, darab, mennyisegKg, halfaj, felhasznaloId, rogzitoNev }] }`.
+  A `rogzitoNev` (opcionális, `string | null`) az esemény rögzítőjének megjelenítő
+  neve (név → email → `null`) — backward-compatible bővítés.
 - **Hibák:** `400`; `401/403`; `404`; `500` (`{ error }`).
 
 ---

@@ -23,6 +23,7 @@ type Mozgas = {
     mennyiseg: number;
     datum: string;
     megjegyzes: string | null;
+    rogzitoNev?: string | null;
 };
 
 // ─── Konstansok ───────────────────────────────────────────────────────────────
@@ -688,7 +689,7 @@ function MozgasokModal({ hid, takarmany, onBezar }: {
                         <table style={{ width: "100%", borderCollapse: "collapse" }}>
                             <thead>
                                 <tr style={{ borderBottom: "1px solid rgba(255,255,255,0.08)" }}>
-                                    {["Dátum", "Típus", "Mennyiség", "Megjegyzés"].map((h) => (
+                                    {["Dátum", "Típus", "Mennyiség", "Megjegyzés", "Rögzítette"].map((h) => (
                                         <th key={h} style={{ padding: "8px 12px", textAlign: "left", fontSize: 11, opacity: 0.55, fontWeight: 600 }}>{h}</th>
                                     ))}
                                 </tr>
@@ -715,6 +716,7 @@ function MozgasokModal({ hid, takarmany, onBezar }: {
                                             </span>
                                         </td>
                                         <td style={{ padding: "8px 12px", fontSize: 12, opacity: 0.65 }}>{m.megjegyzes ?? "—"}</td>
+                                        <td style={{ padding: "8px 12px", fontSize: 12, opacity: 0.65 }}>{m.rogzitoNev ?? "—"}</td>
                                     </tr>
                                 ))}
                             </tbody>

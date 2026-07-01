@@ -103,6 +103,8 @@ export async function POST(
                     darab,
                     datum,
                     leiras,
+                    // actor: ki rögzítette (sessionből, NEM a kérés törzséből)
+                    felhasznaloId: auth.user.azonosito,
                 },
             });
 

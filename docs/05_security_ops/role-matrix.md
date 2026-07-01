@@ -137,6 +137,15 @@ A cellák a **ténylegesen kikényszerített** minimum-szerepkört tükrözik. A
 | Naptár megtekintése | ✅ | ✅ | ✅ | `requireHalaszatRole(STAFF)` · `GET .../naptar` |
 | Naptárbejegyzés létrehozása / szerkesztése / törlése | ✅ | ✅ | ✅ | `requireHalaszatRole(STAFF)` · `POST/PATCH/DELETE .../naptar[/id]` |
 
+> **Actor / nyomon követhetőség (Sprint 1, 2026-06-26).** A műveleti írások
+> (telepítés/kivét/etetés/áttelepítés) és a takarmánymozgások mostantól rögzítik a
+> **cselekvő `felhasznaloId`-ját a sessionből** (nem a kérés törzséből). A
+> megtekintő végpontok az actort `rogzitoNev`-ként adják vissza: a **tó-idővonal**
+> (`GET .../timeline`) és a **takarmánymozgás-előzmény** (`GET
+> .../takarmanyok/[id]/mozgasok`) — bármely tag (STAFF+) látja, „ki rögzítette".
+> A megjelenítés **olvasás**; magát az actort a szerver írja, a kliens nem
+> állíthatja be. Még **nincs** művelet-szerkesztés/érvénytelenítés audit + verziózás.
+
 ### 2.5 Hibabejelentések (bug reports) — ✅ **auth + RBAC kikényszerítve**
 
 A hibabejelentés-végpontok mostantól **bejelentkezést követelnek**, és a

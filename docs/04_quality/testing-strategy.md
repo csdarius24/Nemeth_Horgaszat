@@ -62,6 +62,7 @@ A `src/lib/**` tiszta logikája DB nélkül tesztelhető:
 | `dolgozok/[tid]/route.ts` — `canManageTarget` | OWNER-t senki; ADMIN csak STAFF-ot; OWNER STAFF+ADMIN-t. |
 | `src/lib/roles.ts` — `canUpdateHibabejelentesStatus` ✅ **implementálva** | Halászathoz kötött bejelentés: ADMIN/OWNER igen, STAFF/nem-tag nem (tenant-átlépés kizárva); globális bejelentés: csak a bejelentő. (`tests/unit/roles.test.ts`) |
 | `src/lib/takarmany/keszlet.ts` — `szamitTakarmanyFelhasznalas` / `ketTizedes` ✅ **implementálva** | Készletlevonás etetéskor: elegendő készlet → új készlet; pontos kimerítés (0 marad); float-drift kerekítés; nincs elég készlet → `nincs_eleg_keszlet`; nulla/negatív/nem-véges → `ervenytelen_mennyiseg`. (`tests/unit/takarmany-keszlet.test.ts`) |
+| `src/lib/audit/rogzito.ts` — `rogzitoMegjelenites` ✅ **implementálva** | Actor-megjelenítés a naplóhoz/mozgáshoz: név → email → null; trim; nincs actor → null. (`tests/unit/rogzito.test.ts`) |
 
 > Ahol a logika jelenleg handleren belül inline (pl. `slugify`, `canManageTarget`,
 > jelszó-generátor), a unit-tesztelhetőség érdekében megfontolandó tiszta

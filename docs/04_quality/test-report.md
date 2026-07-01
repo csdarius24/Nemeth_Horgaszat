@@ -7,7 +7,7 @@ forrása: `docs/01_product/scope-contract.md` (AC1–AC7).
 ## 1. Állapot — összefoglaló
 
 > **Unit szint zöld; integrációs infrastruktúra elkészült (de teszt-DB hiányában
-> nem futtatva).** Jelenleg **46 unit teszt** fut **6 fájlban**, mind zöld (lásd 5.
+> nem futtatva).** Jelenleg **52 unit teszt** fut **7 fájlban**, mind zöld (lásd 5.
 > szakasz). Elkészült az **első DB-backed integrációs/workflow teszt-réteg** is
 > (takarmány-etetés workflow + jogosultság), biztonságos teszt-DB kezeléssel és
 > production-guarddal — ez **dedikált teszt-adatbázist igényel**, ezért jelenleg
@@ -25,7 +25,7 @@ lefedettség, Playwright trace, endpoint-szintű integration) később illeszten
 | Tétel | Állapot |
 |---|---|
 | Teszt-keretrendszer | ✅ Vitest 3.2.6 (`vitest.config.ts`, node környezet) |
-| Unit tesztek | ✅ **46 teszt, 6 fájl** (`tests/unit/`) — korábban 42/5 |
+| Unit tesztek | ✅ **52 teszt, 7 fájl** (`tests/unit/`) — korábban 46/6 |
 | Integration tesztek | ⚠️ **Infrastruktúra kész** (`tests/integration/`), de teszt-DB hiányában **nem futtatva** (biztonságos skip) — lásd 8. |
 | E2E tesztek | ❌ Nincs (tervezett, Playwright) |
 | Lefedettség mérés | ✅ Elérhető (`npm run test:coverage`, `@vitest/coverage-v8`) |
@@ -94,9 +94,10 @@ Legutóbbi tényleges futás — `npm run test` (Vitest 3.2.6, `environment: nod
  ✓ tests/unit/password.test.ts          ( 7 tests)
  ✓ tests/unit/takarmany-keszlet.test.ts ( 8 tests)
  ✓ tests/unit/test-db-guard.test.ts     ( 4 tests)
+ ✓ tests/unit/rogzito.test.ts           ( 6 tests)
 
- Test Files  6 passed (6)
-      Tests   46 passed (46)
+ Test Files  7 passed (7)
+      Tests   52 passed (52)
 ```
 
 - **Típusellenőrzés:** `npx tsc --noEmit` → **exit 0** (0 típushiba).
@@ -121,6 +122,7 @@ Legutóbbi tényleges futás — `npm run test` (Vitest 3.2.6, `environment: nod
 | `tests/unit/password.test.ts` | `src/lib/password.ts` (**kiemelt**) | `sha256`, hash/verify, token |
 | `tests/unit/takarmany-keszlet.test.ts` | `src/lib/takarmany/keszlet.ts` | készletlevonás: elég/nincs elég/érvénytelen, `ketTizedes` kerekítés |
 | `tests/unit/test-db-guard.test.ts` | `tests/integration/helpers/testDb.ts` (`ellenorizNemProduction`) | production-guard: production host/DB → dob; biztonságos teszt-URL → átengedi |
+| `tests/unit/rogzito.test.ts` | `src/lib/audit/rogzito.ts` (`rogzitoMegjelenites`) | actor-megjelenítés: név → email → null; trim; nincs actor → null |
 
 ### 5.2 Viselkedés-megőrző kiemelések (refaktor)
 
@@ -190,7 +192,7 @@ A folyamatos integráció a `.github/workflows/ci.yml`-ben van definiálva, és
 4. `npx prisma generate` — Prisma kliens előállítása (a typecheckhez kell;
    nem csatlakozik adatbázishoz).
 5. `npx tsc --noEmit` — típusellenőrzés.
-6. `npm run test` — Vitest unit tesztek (46 teszt, 6 fájl).
+6. `npm run test` — Vitest unit tesztek (52 teszt, 7 fájl).
 
 A CI tehát **typecheck + unit teszt** szinten véd; valódi adatbázis nem
 szükséges (a workflow csak egy placeholder `DATABASE_URL`-t állít be a Prisma
@@ -219,7 +221,7 @@ tétele. Lásd a 6.2 hátralévő tételeket.
 | Integrációs infrastruktúra | ✅ Kész (`tests/integration/`, `vitest.integration.config.ts`) |
 | Production-guard (host/DB ellenőrzés) | ✅ Kész + **unit-tesztelt** (`tests/unit/test-db-guard.test.ts`) |
 | Teszt-DB kezelő (csak `TEST_DATABASE_URL`/`DATABASE_URL_TEST`) | ✅ Kész (`tests/integration/helpers/testDb.ts`) |
-| Workflow A — takarmány-etetés levonás | ✅ Megírva (`feed-workflow.test.ts`) — futtatás: teszt-DB-vel |
+| Workflow A — takarmány-etetés levonás (+ **actor** assert) | ✅ Megírva (`feed-workflow.test.ts`) — a `TakarmanyMozgas`/`NaploEsemeny` `felhasznaloId`-ját is ellenőrzi; futtatás: teszt-DB-vel |
 | Backward-compat C — etetés takarmány nélkül | ✅ Megírva (`feed-workflow.test.ts`) |
 | Workflow B — jogosultság/tenant-izoláció | ✅ Megírva (`authorization.test.ts`) |
 | **Tényleges futtatás** | ⚠️ **SKIPPED** — nincs `TEST_DATABASE_URL` beállítva (5 teszt kihagyva, 0 DB-kapcsolat) |

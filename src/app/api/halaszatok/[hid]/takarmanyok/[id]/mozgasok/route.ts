@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireHalaszatRole } from "@/lib/guards";
 import { szam } from "@/lib/utils/szam";
+import { rogzitoMegjelenites } from "@/lib/audit/rogzito";
 
 function jsonError(msg: string, status = 400) {
     return NextResponse.json({ error: msg }, { status });
@@ -23,12 +24,22 @@ export async function GET(
     const url = new URL(req.url);
     const limit = Math.min(szam(url.searchParams.get("limit") ?? "50", 50), 200);
 
-    const mozgasok = await prisma.takarmanyMozgas.findMany({
+    const nyersMozgasok = await prisma.takarmanyMozgas.findMany({
         where: { takarmanyId, halaszatId },
         orderBy: { datum: "desc" },
         take: limit,
-        select: { azonosito: true, tipus: true, mennyiseg: true, datum: true, megjegyzes: true },
+        select: {
+            azonosito: true, tipus: true, mennyiseg: true, datum: true, megjegyzes: true,
+            felhasznaloId: true,
+            felhasznalo: { select: { nev: true, email: true } },
+        },
     });
+
+    // actor megjelenítése: rogzitoNev (backward-compatible bővítés — nincs mező eltávolítva)
+    const mozgasok = nyersMozgasok.map(({ felhasznalo, ...m }) => ({
+        ...m,
+        rogzitoNev: rogzitoMegjelenites(felhasznalo),
+    }));
 
     return NextResponse.json({ mozgasok });
 }
@@ -69,8 +80,9 @@ export async function POST(
 
     const [mozgas] = await prisma.$transaction([
         prisma.takarmanyMozgas.create({
-            data: { takarmanyId, halaszatId, tipus, mennyiseg, datum, megjegyzes },
-            select: { azonosito: true, tipus: true, mennyiseg: true, datum: true, megjegyzes: true },
+            // actor: ki rögzítette a bevételt/felhasználást (sessionből, NEM a kérés törzséből)
+            data: { takarmanyId, halaszatId, tipus, mennyiseg, datum, megjegyzes, felhasznaloId: auth.user.azonosito },
+            select: { azonosito: true, tipus: true, mennyiseg: true, datum: true, megjegyzes: true, felhasznaloId: true },
         }),
         prisma.takarmany.update({
             where: { azonosito: takarmanyId },

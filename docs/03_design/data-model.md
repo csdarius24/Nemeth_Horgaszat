@@ -56,6 +56,8 @@ erDiagram
     Felhasznalo ||--o{ HalaszatTagsag : "halaszatTagsag"
     Felhasznalo ||--o{ ToTagsag : "tagsagok"
     Felhasznalo |o--o{ Hibabejelentes : "hibabejelentesek"
+    Felhasznalo |o--o{ NaploEsemeny : "naploEsemenyek"
+    Felhasznalo |o--o{ TakarmanyMozgas : "takarmanyMozgasok"
 
     Halaszat ||--o{ HalaszatTagsag : "tagsagok"
     Halaszat |o--o{ To : "toak"
@@ -182,6 +184,7 @@ erDiagram
         enum tipus "EsemenyTipus"
         int toId FK
         int halfajId FK "nullable"
+        int felhasznaloId FK "nullable (actor)"
         int darab
         decimal mennyisegKg
         datetime datum
@@ -204,6 +207,7 @@ erDiagram
         int halaszatId FK
         int toId FK "nullable"
         int etetesId FK "nullable"
+        int felhasznaloId FK "nullable (actor)"
         enum tipus "TakarmanyMozgasTipus"
         decimal mennyiseg
         datetime datum
@@ -366,11 +370,14 @@ erDiagram
 - **Fontos mezők:** `tipus` (`TakarmanyMozgasTipus`: `BEVETEL` / `FELHASZNALVA`),
   `mennyiseg` (`Decimal(10,2)`, kötelező, pozitív), `datum`, `megjegyzes`
   (opcionális), `takarmanyId`, `halaszatId`, `toId` (**opcionális** — melyik tóhoz
-  kötődő felhasználás), `etetesId` (**opcionális** — melyik etetés váltotta ki).
+  kötődő felhasználás), `etetesId` (**opcionális** — melyik etetés váltotta ki),
+  `felhasznaloId` (**opcionális actor** — ki adta hozzá / ki használta fel).
 - **Indexek:** `@@index([takarmanyId, datum])`, `@@index([halaszatId, datum])`,
-  `@@index([toId])`, `@@index([etetesId])`.
+  `@@index([toId])`, `@@index([etetesId])`, `@@index([felhasznaloId])`.
 - **Relációk:** `takarmany` (Cascade), `halaszat` (Cascade), `to` (opcionális,
-  **SetNull**), `etetes` (opcionális, **SetNull**).
+  **SetNull**), `etetes` (opcionális, **SetNull**), `felhasznalo` (opcionális,
+  **SetNull**). Az `felhasznaloId` a sessionből kerül beírásra (bevétel a
+  mozgás-végponton, felhasználás az etetéskor).
 - **Megjegyzés:** a mozgás létrehozása és a `Takarmany.keszlet` frissítése egy
   `prisma.$transaction`-ben történik; a készlet nem mehet negatívba. Kétféle
   forrás: **kézi** (a mozgás-végpont, `toId`/`etetesId` = `null`) és
@@ -380,9 +387,17 @@ erDiagram
 - **Cél:** auditnapló; minden fontos művelet (telepítés, kivét, etetés,
   áttelepítés) ide is bejegyződik, ember által olvasható `leiras` szöveggel.
 - **Fontos mezők:** `tipus` (`EsemenyTipus`), `darab` (opcionális), `mennyisegKg`
-  (opcionális `Decimal(8,2)`), `datum`, `leiras` (opcionális szöveg).
-- **Indexek:** `@@index([toId, datum])`, `@@index([tipus, datum])`.
-- **Relációk:** `to` (Cascade), `halfaj` (opcionális, SetNull).
+  (opcionális `Decimal(8,2)`), `datum`, `leiras` (opcionális szöveg),
+  `felhasznaloId` (**opcionális actor** — ki rögzítette az eseményt).
+- **Indexek:** `@@index([toId, datum])`, `@@index([tipus, datum])`,
+  `@@index([felhasznaloId])`.
+- **Relációk:** `to` (Cascade), `halfaj` (opcionális, SetNull), `felhasznalo`
+  (opcionális, **SetNull**).
+- **Megjegyzés (actor / nyomon követhetőség):** a `felhasznaloId` a **session**
+  felhasználójából kerül beírásra a művelet-route-okban (nem a kérés törzséből),
+  így „ki végezte/rögzítette" visszakereshető. Nullable a régi sorok és a
+  rendszer-generált események miatt. A művelet **szerkesztése/érvénytelenítése és
+  a verziózott előzmény** még **nincs** (következő lépés).
 
 ### NaptarBejegyzes (`naptar_bejegyzesek`)
 - **Cél:** halászat-szintű naptár / eseménybejegyzés.
@@ -431,6 +446,8 @@ A referenciális akciók a `schema.prisma` `onDelete` beállításaiból szárma
 | `TakarmanyMozgas.etetes` | **SetNull** | Etetés törlésekor a mozgás `etetesId`-ja nullára áll, a mozgás megmarad. |
 | `NaploEsemeny.to` | Cascade | Tó törlésekor a naplóesemények törlődnek. |
 | `NaploEsemeny.halfaj` | **SetNull** | Halfaj törlésekor a `halfajId` nullára áll, a napló megmarad. |
+| `NaploEsemeny.felhasznalo` | **SetNull** | Felhasználó törlésekor a `felhasznaloId` nullára áll, a napló megmarad (actor elveszik, az esemény nem). |
+| `TakarmanyMozgas.felhasznalo` | **SetNull** | Felhasználó törlésekor a mozgás `felhasznaloId`-ja nullára áll, a mozgás megmarad. |
 | `NaptarBejegyzes.halaszat` | Cascade | Halászat törlésekor a naptárbejegyzések törlődnek. |
 | `Hibabejelentes.halaszat` | **SetNull** | Halászat törlésekor a kapcsolat nullára áll, a bejelentés megmarad. |
 | `Hibabejelentes.felhasznalo` | **SetNull** | Felhasználó törlésekor a kapcsolat nullára áll, a bejelentés megmarad. |

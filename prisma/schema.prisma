@@ -47,10 +47,12 @@ model Felhasznalo {
   frissitve  DateTime @updatedAt
 
   // relációk
-  sessions         Session[]
-  tagsagok         ToTagsag[]
-  halaszatTagsag   HalaszatTagsag[]
-  hibabejelentesek Hibabejelentes[]
+  sessions          Session[]
+  tagsagok          ToTagsag[]
+  halaszatTagsag    HalaszatTagsag[]
+  hibabejelentesek  Hibabejelentes[]
+  naploEsemenyek    NaploEsemeny[]
+  takarmanyMozgasok TakarmanyMozgas[]
 
   @@map("felhasznalok")
 }
@@ -263,12 +265,18 @@ model NaploEsemeny {
   datum       DateTime     @default(now())
   leiras      String?      @db.Text
 
+  // Actor / nyomon követhetőség: ki rögzítette az eseményt (sessionből).
+  // Nullable: régi sorok + rendszer-generált események megmaradnak.
+  felhasznaloId Int?
+
   // relációk
-  to     To      @relation(fields: [toId], references: [azonosito], onDelete: Cascade)
-  halfaj Halfaj? @relation(fields: [halfajId], references: [azonosito], onDelete: SetNull)
+  to          To           @relation(fields: [toId], references: [azonosito], onDelete: Cascade)
+  halfaj      Halfaj?      @relation(fields: [halfajId], references: [azonosito], onDelete: SetNull)
+  felhasznalo Felhasznalo? @relation(fields: [felhasznaloId], references: [azonosito], onDelete: SetNull)
 
   @@index([toId, datum])
   @@index([tipus, datum])
+  @@index([felhasznaloId])
   @@map("naplo_esemenyek")
 }
 
@@ -330,15 +338,21 @@ model TakarmanyMozgas {
   toId        Int?
   etetesId    Int?
 
-  takarmany Takarmany @relation(fields: [takarmanyId], references: [azonosito], onDelete: Cascade)
-  halaszat  Halaszat  @relation(fields: [halaszatId], references: [azonosito], onDelete: Cascade)
-  to        To?       @relation(fields: [toId], references: [azonosito], onDelete: SetNull)
-  etetes    Etetes?   @relation(fields: [etetesId], references: [azonosito], onDelete: SetNull)
+  // Actor: ki rögzítette a mozgást (bevétel/felhasználás), sessionből.
+  // Nullable: régi sorok + rendszer-generált mozgások megmaradnak.
+  felhasznaloId Int?
+
+  takarmany   Takarmany    @relation(fields: [takarmanyId], references: [azonosito], onDelete: Cascade)
+  halaszat    Halaszat     @relation(fields: [halaszatId], references: [azonosito], onDelete: Cascade)
+  to          To?          @relation(fields: [toId], references: [azonosito], onDelete: SetNull)
+  etetes      Etetes?      @relation(fields: [etetesId], references: [azonosito], onDelete: SetNull)
+  felhasznalo Felhasznalo? @relation(fields: [felhasznaloId], references: [azonosito], onDelete: SetNull)
 
   @@index([takarmanyId, datum])
   @@index([halaszatId, datum])
   @@index([toId])
   @@index([etetesId])
+  @@index([felhasznaloId])
   @@map("takarmany_mozgasok")
 }
 

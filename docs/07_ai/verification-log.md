@@ -207,6 +207,36 @@ felügyelt és igazolt legyen, ne vakon elfogadott. Kapcsolódó: `ai-manifest.m
   szolgálnak végrehajtott PASS-bizonyítékként** egyetlen elfogadási kritériumhoz
   sem. A teljes endpoint-szintű (HTTP/cookie → 401) lefedés továbbra is tervezett.
 
+## V-15 — Actor / audit-napló megerősítés (Sprint 1): séma + route-ok + build/teszt
+
+- **Dátum:** 2026-06-26.
+- **AI kimenet:** `felhasznaloId` (actor) a `NaploEsemeny`-en és a
+  `TakarmanyMozgas`-on; a művelet-route-ok (telepítés/kivét/etetés/áttelepítés +
+  takarmánymozgás) sessionből írják; `rogzitoNev` a `timeline` és a
+  mozgásnapló-válaszban; `rogzitoMegjelenites` tiszta helper; migráció
+  `20260626120000_actor_naplo_takarmanymozgas`.
+- **Kockázat, ha téves:** hamisított actor (ha a kérés törzséből venné);
+  törött build/típusok; production DB véletlen módosítása.
+- **Ellenőrzés (pontos parancsok, tényleges futás):**
+  - Kódszintű: az actor a `auth.user.azonosito`-ból (session), **nem** a
+    `body`-ból — minden érintett `create` hívásban.
+  - `npx prisma generate` → **siker** (nincs DB-kapcsolat).
+  - `npx tsc --noEmit` → **exit 0**.
+  - `npm run test` → **7 fájl / 52 teszt passed** (46 + 6 `rogzitoMegjelenites`).
+  - `npm run test:integration` → **5 teszt SKIPPED** (nincs teszt-DB); a
+    feed-workflow teszt actor-assertekkel bővült, de **teszt-DB hiányában nem
+    futott** — 0 DB-kapcsolat, production **nem** érintve.
+  - `npm run build` → **„Compiled successfully", static pages generálva**.
+- **Eredmény:** ✅ Actor rögzítés kódszinten kész, unit + build + generate zöld.
+- **Bizonyíték:** a fenti parancskimenetek; `prisma/schema.prisma`,
+  `prisma/migrations/20260626120000_actor_naplo_takarmanymozgas/migration.sql`,
+  az 5 érintett route; `docs/04_quality/test-report.md` 5/8. szakasz.
+- **Hatókör-korlát (őszinte):** a **migráció NINCS alkalmazva** a production DB-re
+  (nem futott `migrate deploy`/`migrate dev` — a `.env` a productionre mutathat).
+  Az actor-mező addig üres marad éles adaton. A **művelet-szerkesztés/
+  érvénytelenítés + verziózott előzmény** **nincs** (következő sprint). Az
+  endpoint-szintű integrációs actor-igazolás **teszt-DB-re vár**.
+
 ---
 
 ## Összegzés
@@ -227,6 +257,7 @@ felügyelt és igazolt legyen, ne vakon elfogadott. Kapcsolódó: `ai-manifest.m
 | V-12 | Nincs titok AI-ben | ✅ |
 | V-13 | Etetés↔takarmány migráció + build/teszt (2026-06-26) | ✅ unit+build+migráció (integration: tervezett) |
 | V-14 | Integrációs infra + biztonságos kihagyás (2026-06-26) | ✅ implementálva, **nem futtatva** (nincs teszt-DB), production-érintés nélkül |
+| V-15 | Actor / audit-napló Sprint 1 (2026-06-26) | ✅ kódszinten kész (52 teszt, build zöld); migráció **nem alkalmazva**, edit/invalidate audit hátra |
 
 A nyitott bizonyítékok (V-04 CI-futás link, V-11 lefedettségi érték, V-13/V-14
 integrációs tesztek **valós teszt-DB elleni futtatása**) `TODO`-ként/tervezettként

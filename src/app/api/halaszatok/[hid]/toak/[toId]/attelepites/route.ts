@@ -107,6 +107,8 @@ export async function POST(
                     halfajId,
                     darab,
                     leiras: leirasForras,
+                    // actor: ki rögzítette (sessionből)
+                    felhasznaloId: auth.user.azonosito,
                 },
             });
 
@@ -117,6 +119,8 @@ export async function POST(
                     halfajId,
                     darab,
                     leiras: leirasCel,
+                    // actor: ki rögzítette (sessionből)
+                    felhasznaloId: auth.user.azonosito,
                 },
             });
 

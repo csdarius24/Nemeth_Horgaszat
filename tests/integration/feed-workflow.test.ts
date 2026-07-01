@@ -39,7 +39,7 @@ if (!INTEGRACIOS_DB_ELERHETO) {
  */
 async function etetesTakarmannyal(
     prisma: PrismaClient,
-    p: { toId: number; halaszatId: number; takarmanyId: number; mennyisegKg: number; jelenlegiKeszlet: number }
+    p: { toId: number; halaszatId: number; takarmanyId: number; mennyisegKg: number; jelenlegiKeszlet: number; felhasznaloId?: number }
 ) {
     const szamitas = szamitTakarmanyFelhasznalas(p.jelenlegiKeszlet, p.mennyisegKg);
     if (!szamitas.ok) throw new Error(`készlet-hiba: ${szamitas.hiba}`);
@@ -54,13 +54,18 @@ async function etetesTakarmannyal(
             data: {
                 takarmanyId: p.takarmanyId, halaszatId: p.halaszatId, tipus: "FELHASZNALVA",
                 mennyiseg: p.mennyisegKg, datum: new Date(), toId: p.toId, etetesId: etetes.azonosito,
+                // actor: ki etetett (mint az etetes route)
+                felhasznaloId: p.felhasznaloId ?? null,
             },
-            select: { azonosito: true, tipus: true, toId: true, etetesId: true },
+            select: { azonosito: true, tipus: true, toId: true, etetesId: true, felhasznaloId: true },
         });
         await tx.takarmany.update({ where: { azonosito: p.takarmanyId }, data: { keszlet: ujKeszlet } });
         const naplo = await tx.naploEsemeny.create({
-            data: { tipus: "ETETES", toId: p.toId, mennyisegKg: p.mennyisegKg, datum: new Date(), leiras: "itest etetés" },
-            select: { azonosito: true, tipus: true, toId: true },
+            data: {
+                tipus: "ETETES", toId: p.toId, mennyisegKg: p.mennyisegKg, datum: new Date(), leiras: "itest etetés",
+                felhasznaloId: p.felhasznaloId ?? null,
+            },
+            select: { azonosito: true, tipus: true, toId: true, felhasznaloId: true },
         });
         return { etetes, mozgas, naplo, ujKeszlet };
     });
@@ -97,10 +102,10 @@ describe.skipIf(!INTEGRACIOS_DB_ELERHETO)("Integráció: takarmány-etetés work
             prisma.takarmany.update({ where: { azonosito: takarmany.azonosito }, data: { keszlet: 100 } }),
         ]);
 
-        // etetés 30 kg-mal, takarmányhoz kötve
+        // etetés 30 kg-mal, takarmányhoz kötve, actor = user
         const eredmeny = await etetesTakarmannyal(prisma, {
             toId: to.azonosito, halaszatId: halaszat.azonosito, takarmanyId: takarmany.azonosito,
-            mennyisegKg: 30, jelenlegiKeszlet: 100,
+            mennyisegKg: 30, jelenlegiKeszlet: 100, felhasznaloId: user.azonosito,
         });
 
         // készlet 100 → 70
@@ -110,23 +115,26 @@ describe.skipIf(!INTEGRACIOS_DB_ELERHETO)("Integráció: takarmány-etetés work
         expect(Number(frissTakarmany?.keszlet)).toBe(70);
         expect(eredmeny.ujKeszlet).toBe(70);
 
-        // FELHASZNALVA mozgás az etetéshez + tóhoz kötve
+        // FELHASZNALVA mozgás az etetéshez + tóhoz + actorhoz kötve
         const mozgas = await prisma.takarmanyMozgas.findUnique({
             where: { azonosito: eredmeny.mozgas.azonosito },
-            select: { tipus: true, mennyiseg: true, etetesId: true, toId: true, takarmanyId: true },
+            select: { tipus: true, mennyiseg: true, etetesId: true, toId: true, takarmanyId: true, felhasznaloId: true },
         });
         expect(mozgas?.tipus).toBe("FELHASZNALVA");
         expect(Number(mozgas?.mennyiseg)).toBe(30);
         expect(mozgas?.etetesId).toBe(eredmeny.etetes.azonosito);
         expect(mozgas?.toId).toBe(to.azonosito);
         expect(mozgas?.takarmanyId).toBe(takarmany.azonosito);
+        // actor: a mozgás rögzítője a session-user
+        expect(mozgas?.felhasznaloId).toBe(user.azonosito);
 
-        // NaploEsemeny(ETETES) létrejött a tóra
+        // NaploEsemeny(ETETES) létrejött a tóra, actorral
         const naplo = await prisma.naploEsemeny.findFirst({
-            where: { toId: to.azonosito, tipus: "ETETES" }, select: { azonosito: true, tipus: true },
+            where: { toId: to.azonosito, tipus: "ETETES" }, select: { azonosito: true, tipus: true, felhasznaloId: true },
         });
         expect(naplo).not.toBeNull();
         expect(naplo?.tipus).toBe("ETETES");
+        expect(naplo?.felhasznaloId).toBe(user.azonosito);
 
         // Etetes a takarmányhoz kötve
         const etetes = await prisma.etetes.findUnique({

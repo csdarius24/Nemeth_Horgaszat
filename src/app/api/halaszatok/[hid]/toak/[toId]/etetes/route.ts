@@ -75,6 +75,8 @@ export async function POST(
                             tipus ? `típus: ${tipus}` : null,
                             megjegyzes ? `megj.: ${megjegyzes}` : null,
                         ].filter(Boolean).join(" • "),
+                        // actor: ki etetett (sessionből)
+                        felhasznaloId: auth.user.azonosito,
                     },
                 });
 
@@ -137,6 +139,8 @@ export async function POST(
                     megjegyzes: megjegyzes ?? `Etetés (${to.nev})`,
                     toId: to.azonosito,
                     etetesId: etetes.azonosito,
+                    // actor: ki etetett (a felhasználás rögzítője, sessionből)
+                    felhasznaloId: auth.user.azonosito,
                 },
                 select: { azonosito: true },
             });
@@ -158,6 +162,8 @@ export async function POST(
                         `takarmány: ${takarmany.nev} (−${mennyisegKg} ${takarmany.egyseg}, maradt: ${ujKeszlet})`,
                         megjegyzes ? `megj.: ${megjegyzes}` : null,
                     ].filter(Boolean).join(" • "),
+                    // actor: ki etetett (sessionből)
+                    felhasznaloId: auth.user.azonosito,
                 },
             });
 
