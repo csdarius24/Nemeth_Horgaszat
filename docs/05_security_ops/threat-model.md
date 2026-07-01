@@ -87,7 +87,10 @@ milyen védelem van, és mi a maradék (reziduális) kockázat.
   actor rögzítés** — a `NaploEsemeny` és a `TakarmanyMozgas` mostantól tárolja a
   cselekvő `felhasznaloId`-ját (a **sessionből**, nem a kérés törzséből) a
   telepítés/kivét/etetés/áttelepítés és a takarmánymozgás műveleteknél; a
-  read-végpontok `rogzitoNev`-et adnak vissza.
+  read-végpontok `rogzitoNev`-et adnak vissza. A migráció **teszt-DB → production**
+  sorrendben **alkalmazva**, és a DB-backed integrációs teszt a biztonságos
+  teszt-DB-n **ellenőrizte** a napló/mozgás `felhasznaloId`-ját (lásd
+  `../07_ai/verification-log.md` V-16).
 - **Reziduális kockázat (csökkent, de nem nulla):** ~~a napló nem rögzíti a
   cselekvő azonosítóját~~ **rendezve az új műveletekre**. Ami **még hiányzik**: a
   művelet **szerkesztésének/érvénytelenítésének** és a **verziózott előzménynek** a

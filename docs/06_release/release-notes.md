@@ -59,6 +59,18 @@ ismert korlátai átláthatóan dokumentáltak (lásd lentebb és a
   (`osszesito`) aggregációkkal és paraméter-korlátokkal.
 - Auditnapló (`NaploEsemeny`) minden fontos műveletnél.
 
+### Actor / nyomon követhetőség (Sprint 1)
+- A `NaploEsemeny` és a `TakarmanyMozgas` mostantól rögzíti a **cselekvő
+  `felhasznaloId`-ját** (a **sessionből**, nem a kérés törzséből) a
+  telepítés / kivét / áttelepítés / etetés + automatikus takarmány-levonás +
+  kézi takarmánymozgás műveleteknél.
+- A tó-idővonal és a takarmánymozgás-előzmény `rogzitoNev`-et ad vissza; a
+  takarmánymozgás-UI mutatja a rögzítőt.
+- Migráció: `20260626120000_actor_naplo_takarmanymozgas` — **teszt-DB → production**
+  sorrendben alkalmazva.
+- **Még nincs:** művelet-szerkesztés/érvénytelenítés audit + verziózás; nem minden
+  CRUD kap actort.
+
 ### Kiegészítő modulok
 - Naptár (havi bejegyzések), hibabejelentés státuszkövetéssel, beépített
   számológép segédeszköz.
@@ -67,10 +79,11 @@ ismert korlátai átláthatóan dokumentáltak (lásd lentebb és a
 
 | Tétel | Állapot | Hivatkozás |
 |---|---|---|
-| Unit tesztek | ✅ **42/42 zöld** (Vitest, 5 fájl — 2026-06-26; korábban 29) | `docs/04_quality/test-report.md` 5. |
-| Típusellenőrzés | ✅ **`npx tsc --noEmit` exit 0** | `verification-log.md` V-02, V-13 |
-| Production build | ✅ **`npm run build` sikeres** (Next.js, 2026-06-26) | `verification-log.md` V-13 |
-| Production DB-migráció | ✅ **`20260626100000_link_etetes_takarmany` alkalmazva** (`prisma migrate deploy`, `srv1695.hstgr.io`, 2026-06-26) | `verification-log.md` V-13 |
+| Unit tesztek | ✅ **52/52 zöld** (Vitest, 7 fájl — 2026-06-26; korábban 42) | `docs/04_quality/test-report.md` 5. |
+| Integrációs tesztek | ✅ **Lefutottak a biztonságos teszt-DB-n** (feed-workflow + actor + jogosultság); teszt-DB nélkül biztonságos skip | `verification-log.md` V-16, `test-report.md` 8. |
+| Típusellenőrzés | ✅ **`npx tsc --noEmit` exit 0** | `verification-log.md` V-02, V-13, V-16 |
+| Production build | ✅ **`npm run build` sikeres** (Next.js, 2026-06-26) | `verification-log.md` V-13, V-16 |
+| Production DB-migráció | ✅ **`20260626100000_link_etetes_takarmany`** + **`20260626120000_actor_naplo_takarmanymozgas`** alkalmazva (`prisma migrate deploy`, `srv1695.hstgr.io`) | `verification-log.md` V-13, V-16 |
 | CI workflow | ✅ Létezik (typecheck + unit teszt, push/PR) | `.github/workflows/ci.yml` |
 | Biztonsági dokumentáció | ✅ STRIDE threat-model, privacy, runbook, deployment, role-matrix | `docs/05_security_ops/` |
 | AI verifikációs dokumentáció | ✅ Manifeszt, prompt-log, verification-log | `docs/07_ai/` |

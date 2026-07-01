@@ -26,13 +26,14 @@ lefedettség, Playwright trace, endpoint-szintű integration) később illeszten
 |---|---|
 | Teszt-keretrendszer | ✅ Vitest 3.2.6 (`vitest.config.ts`, node környezet) |
 | Unit tesztek | ✅ **52 teszt, 7 fájl** (`tests/unit/`) — korábban 46/6 |
-| Integration tesztek | ⚠️ **Infrastruktúra kész** (`tests/integration/`), de teszt-DB hiányában **nem futtatva** (biztonságos skip) — lásd 8. |
+| Integration tesztek | ✅ **Végrehajtva a biztonságos teszt-DB ellen** (feed-workflow + authorization, actor-assertekkel); teszt-DB nélkül továbbra is biztonságos skip — lásd 8. |
 | E2E tesztek | ❌ Nincs (tervezett, Playwright) |
 | Lefedettség mérés | ✅ Elérhető (`npm run test:coverage`, `@vitest/coverage-v8`) |
 | CI tesztlépés | ❌ Nincs (nincs `.github/` pipeline — tervezett) |
 | Statikus ellenőrzés | ⚠️ `tsc --noEmit` zöld; `npm run lint` **pre-existing hibák miatt piros** (lásd 6.1) |
 | Production build | ✅ `npm run build` (Next.js) sikeres — 2026-06-26 |
 | Production DB migráció | ✅ `20260626100000_link_etetes_takarmany` **alkalmazva** (`prisma migrate deploy`, 2026-06-26, `srv1695.hstgr.io`) — lásd `verification-log.md` V-13 |
+| Actor migráció (Sprint 1) | ✅ `20260626120000_actor_naplo_takarmanymozgas` **alkalmazva** — előbb a biztonságos **teszt-DB**-re, majd a **production**-re (`prisma migrate deploy`) — lásd `verification-log.md` V-16 |
 | Kézi (manuális) ellenőrzés | ⚠️ Fejlesztés közben ad-hoc, nem dokumentált |
 
 **Jelenleg rendelkezésre álló minőségi jelek:** Vitest unit tesztek, ESLint
@@ -212,36 +213,41 @@ tétele. Lásd a 6.2 hátralévő tételeket.
 
 ## 8. Integrációs tesztek — állapot (2026-06-26)
 
-> **Implementálva, de teszt-DB hiányában NEM futtatva.** Az első DB-backed
-> workflow-tesztek elkészültek; a futtatás dedikált, izolált teszt-adatbázist
-> igényel. A production DB-t **nem** érintettük.
+> **Végrehajtva a biztonságos teszt-adatbázis ellen.** A DB-backed workflow-tesztek
+> elkészültek **és lefutottak** egy dedikált, izolált teszt-adatbázison
+> (`TEST_DATABASE_URL`), a production-guard mellett. A production DB-t az
+> integrációs tesztek **nem** érintették.
+>
+> **Bizonyíték-provenancia (őszinteség):** a `npm run test` / `tsc --noEmit` /
+> `npm run build` kimenetek ebben a munkamenetben géppel rögzítettek (lásd 5.
+> szakasz). A **teszt-DB migráció + `npm run test:integration` futtatását a
+> fejlesztő végezte** a biztonságos teszt-DB-n; a részletes konzolkimenet ebben az
+> asszisztens-munkamenetben nem került elmentésre, ezért itt a **végrehajtott
+> lépések és azok kimenetele** szerepel, nem kitalált konzolszöveg.
 
 | Tétel | Állapot |
 |---|---|
 | Integrációs infrastruktúra | ✅ Kész (`tests/integration/`, `vitest.integration.config.ts`) |
 | Production-guard (host/DB ellenőrzés) | ✅ Kész + **unit-tesztelt** (`tests/unit/test-db-guard.test.ts`) |
 | Teszt-DB kezelő (csak `TEST_DATABASE_URL`/`DATABASE_URL_TEST`) | ✅ Kész (`tests/integration/helpers/testDb.ts`) |
-| Workflow A — takarmány-etetés levonás (+ **actor** assert) | ✅ Megírva (`feed-workflow.test.ts`) — a `TakarmanyMozgas`/`NaploEsemeny` `felhasznaloId`-ját is ellenőrzi; futtatás: teszt-DB-vel |
-| Backward-compat C — etetés takarmány nélkül | ✅ Megírva (`feed-workflow.test.ts`) |
-| Workflow B — jogosultság/tenant-izoláció | ✅ Megírva (`authorization.test.ts`) |
-| **Tényleges futtatás** | ⚠️ **SKIPPED** — nincs `TEST_DATABASE_URL` beállítva (5 teszt kihagyva, 0 DB-kapcsolat) |
+| Workflow A — takarmány-etetés levonás (+ **actor** assert) | ✅ Lefutott a teszt-DB-n — a `TakarmanyMozgas`/`NaploEsemeny` `felhasznaloId`-ját (actor) is ellenőrzi |
+| Backward-compat C — etetés takarmány nélkül | ✅ Lefutott a teszt-DB-n |
+| Workflow B — jogosultság/tenant-izoláció | ✅ Lefutott a teszt-DB-n |
+| **Tényleges futtatás** | ✅ **Végrehajtva** a biztonságos teszt-DB ellen (fejlesztői futtatás, `npm run test:integration`); az 5-teszt suite (feed-workflow + authorization) sikeresen lefutott. Megjegyzés: teszt-DB nélküli környezetben a suite továbbra is biztonságosan **kihagyásra** kerül (skip). |
 
-**Reprodukálható futtatás (teszt-DB-vel):**
+**Migráció-alkalmazás sorrendje (biztonságos):**
 
-1. Hozz létre egy **üres, izolált** MySQL teszt-adatbázist (nem a production!).
-2. `TEST_DATABASE_URL="mysql://user:pass@host:3306/nemeth_horgaszat_test"` (a
-   production-guard elutasítja a `srv1695.hstgr.io` / `u625819054_horgaszat_v1`
-   értékeket).
-3. `TEST_DATABASE_URL=... npx prisma migrate deploy` (séma a teszt-DB-re; a Prisma
-   CLI a `DATABASE_URL`-t használja a `migrate deploy`-hoz, ezért a teszt-DB
-   futtatáshoz a megfelelő env-et kell beállítani).
-4. `TEST_DATABASE_URL=... npm run test:integration`.
+1. Az actor-migráció (`20260626120000_actor_naplo_takarmanymozgas`) **először a
+   biztonságos teszt-adatbázisra** lett alkalmazva, majd az integrációs tesztek
+   ott futottak.
+2. Ezt követően a migráció a **production** adatbázisra is alkalmazásra került
+   (`prisma migrate deploy`), fejlesztői futtatással — lásd `verification-log.md`
+   V-16.
 
-Az eredmény (zöld/piros), a futás dátuma és a használt DB **ide rögzítendő**,
-amint egy biztonságos teszt-DB rendelkezésre áll. Bizonyítékot kitalálni tilos.
+### 8.1 Integrációs tesztmátrix-sorok — futtatva
 
-### 8.1 Bővített tervezett tesztmátrix-sorok
-
-A 3. szakasz `I-10` (etetés↔takarmány levonás) és a jogosultsági `I-07`/`I-08`
-sorok **megírva** vannak integrációs tesztként, de **futtatásuk teszt-DB-re vár**;
-státuszuk addig `Megírva / nem futtatva`.
+Az `I-10` (etetés↔takarmány levonás **+ actor**) integrációs teszt és a workflow B
+(jogosultság/tenant-izoláció) **lefutott** a biztonságos teszt-DB-n. Az `I-07`/
+`I-08` (teljes negatív RBAC-mátrix a HTTP-route-okon, cookie-alapú 401) továbbra is
+**tervezett**: a jelenlegi integrációs tesztek **domain/Prisma-szintűek**, nem
+teljes HTTP/cookie endpoint-tesztek.

@@ -34,9 +34,9 @@ végpont-teszt nélkül · `TODO` = nincs még megvalósítva.
 | AC1 | Felhasználó létre tud hozni halászatot | PARTIAL | Kód-szintű review | `POST /api/halaszatok` halászatot + OWNER tagságot hoz létre tranzakcióban; `api-design.md`. A `slugify` unit-tesztelt. | Integration teszt (I-02): register→create→OWNER tagság. |
 | AC2 | A halászathoz tavak rendelhetők | PARTIAL | Kód-szintű review | `POST/GET /api/halaszatok/[hid]/toak` (ADMIN létrehoz, STAFF listáz), `TO`/`TELELO` típus. | Integration teszt (I-03). |
 | AC3 | A tavakhoz halfajok kezelhetők | PARTIAL | Kód-szintű review | `halfajok` CRUD: egyedi név (P2002→409), FK-védett törlés (P2003→409). | Integration teszt (I-04). |
-| AC4 | Telepítés/kivét után az állomány automatikusan frissül | PARTIAL | Unit teszt + kód-szintű review | `telepites`/`kivetel`/`attelepites` `prisma.$transaction`-ben frissíti a `HalAllomany`-t; kivétnél készlet-ellenőrzés. **Bővült:** az etetés (`takarmanyId`-vel) most egy tranzakcióban vonja le a **takarmánykészletet** is (`Etetes`+`TakarmanyMozgas(FELHASZNALVA)`+`Takarmany.keszlet`); a levonási logika **unit-tesztelt** (`szamitTakarmanyFelhasznalas`, 8 teszt), és az engedélyező **production migráció alkalmazva** (`20260626100000_link_etetes_takarmany`, lásd `verification-log.md` V-13). | Integration teszt (I-05, I-06, I-10): állomány-/készlet-delta + edge case-ek (idegen takarmány → 404, nincs elég készlet → 422, atomicitás). |
+| AC4 | Telepítés/kivét után az állomány automatikusan frissül | PARTIAL | Unit teszt + kód-szintű review | `telepites`/`kivetel`/`attelepites` `prisma.$transaction`-ben frissíti a `HalAllomany`-t; kivétnél készlet-ellenőrzés. **Bővült:** az etetés (`takarmanyId`-vel) most egy tranzakcióban vonja le a **takarmánykészletet** is (`Etetes`+`TakarmanyMozgas(FELHASZNALVA)`+`Takarmany.keszlet`); a levonási logika **unit-tesztelt** (`szamitTakarmanyFelhasznalas`, 8 teszt), és az engedélyező **production migráció alkalmazva** (`20260626100000_link_etetes_takarmany`, lásd `verification-log.md` V-13). | **Sprint 1:** az `I-10` (etetés↔takarmány levonás **+ actor**) integrációs teszt a biztonságos teszt-DB-n **lefutott**; hátra: `I-05`/`I-06` (állomány-delta, áttelepítés) és a teljes HTTP endpoint-lefedés. |
 | AC5 | A jogosultsági rendszer megakadályozza az illetéktelen hozzáférést | PARTIAL | Unit teszt + kód-szintű review | RBAC: `requireHalaszatRole` + rangsor; **unit-tesztelt** `meetsToRole`/`meetsHalaszatRole`/`canManageTarget` + **új** `canUpdateHibabejelentesStatus` (15 teszt). A korábbi `hibabejelentesek` auth-rés **rendezve** (auth + RBAC kikényszerítve). | Végpont-szintű negatív integration teszt (I-07: 401/403), beleértve a hibabejelentés-végpontokat. |
-| AC6 | Az események naplózásra kerülnek | PARTIAL | Unit teszt + kód-szintű review | Minden művelet `NaploEsemeny`-t ír (telepítés/kivét/etetés/áttelepítés); `timeline`/`summary` visszaolvassa. **Bővült (Sprint 1):** a napló és a `TakarmanyMozgas` mostantól rögzíti a **cselekvő `felhasznaloId`-ját a sessionből**; a `timeline` és a takarmánymozgás-előzmény `rogzitoNev`-et ad vissza (ki rögzítette). A megjelenítő helper unit-tesztelt (`rogzitoMegjelenites`). | Integration teszt: napló + actor keletkezésének **végrehajtott** igazolása (a teszt megírva, de teszt-DB hiányában **nem futott**). **Caveat:** művelet-szerkesztés/érvénytelenítés **audit + verziózás** még nincs → teljes audit-előzmény `PARTIAL`. |
+| AC6 | Az események naplózásra kerülnek | PARTIAL | Unit + **integration** teszt (teszt-DB) + kód-szintű review | Minden művelet `NaploEsemeny`-t ír (telepítés/kivét/etetés/áttelepítés); `timeline`/`summary` visszaolvassa. **Sprint 1 (lezárva):** a napló és a `TakarmanyMozgas` rögzíti a **cselekvő `felhasznaloId`-ját a sessionből**; a `timeline` és a takarmánymozgás-előzmény `rogzitoNev`-et ad vissza. A megjelenítő helper unit-tesztelt; a **DB-backed integrációs teszt a biztonságos teszt-DB-n lefutott**, és ellenőrzi a `NaploEsemeny`/`TakarmanyMozgas` `felhasznaloId`-ját; az actor-migráció **productionre alkalmazva**. | **Caveat (marad PARTIAL):** művelet-szerkesztés/érvénytelenítés **audit + verziózás nincs**; a lefedés **domain/Prisma-szintű** (nem teljes HTTP/cookie endpoint-teszt); nem minden CRUD kap actort. |
 | AC7 | Több halászat adatai egymástól elkülönítve tárolódnak | PARTIAL | Kód-szintű review | Tenant-izoláció: `requireHalaszatRole` + `assertToBelongsToTenant` (idegen tó → 404). A `hibabejelentesek` végpontok izolációja **rendezve**: a listázás tenant-szűrt, a státuszváltás a bejelentés saját halászatára kötött (tenant-átlépés kizárva). | Integration teszt (I-08): idegen `[hid]`/`[toId]` → 403/404. |
 
 ## Megjegyzések a bizonyíték jellegéről
@@ -49,13 +49,15 @@ végpont-teszt nélkül · `TODO` = nincs még megvalósítva.
   többi kritérium és az **endpoint-szintű** viselkedés bizonyítéka **kód-szintű**
   (a forrás átolvasása) + a production migráció/build tényleges futása, **nem**
   automatizált végpont-teszt — az integration/e2e réteg tervezett.
-- **Integrációs (DB-backed) workflow tesztek: megírva, de NEM futtatva.** Az első
-  DB-backed workflow-tesztek elkészültek (takarmány-etetés workflow + jogosultság,
-  `tests/integration/**`), de **dedikált teszt-adatbázis hiányában nem futottak le**
-  (biztonságos skip, production-érintés nélkül — lásd `verification-log.md` V-14 és
-  `test-report.md` 8.). **Ezért egyetlen AC sem kap emiatt `PASS`-t**: a tényleges,
-  teszt-DB elleni zöld futtatás a feltétele az AC4/AC5/AC6/AC7 `PARTIAL → PASS`
-  átállításának. Bizonyítékot kitalálni tilos.
+- **Integrációs (DB-backed) workflow tesztek: a biztonságos teszt-DB-n lefutottak
+  (Sprint 1).** A takarmány-etetés workflow (**actor-assertekkel**) + a jogosultsági
+  tesztek (`tests/integration/**`) egy dedikált, izolált teszt-adatbázison
+  **végrehajtásra kerültek** (fejlesztői futtatás, production-guard mellett — lásd
+  `verification-log.md` V-16 és `test-report.md` 8.). Ez **erősebb bizonyíték**,
+  mint a korábbi „megírva, de skip". **Ám az AC-k továbbra is `PARTIAL`-ok**: a
+  jelenlegi lefedés **domain/Prisma-szintű**, nem teljes **HTTP/cookie
+  endpoint-teszt** (a 401-útvonal nem futott), és a manuális/e2e réteg hiányzik. A
+  `PASS` a teljes végpont-szintű, ismételhető bizonyítékhoz kötött.
 - **Nincs dokumentált, megismételhető manuális tesztkör** sem rögzítve; ennek
   hiányában a kritériumok nem kapnak `PASS`-t. Egy strukturált manuális
   átfutás (a `ux-flows.md` szerint) átmeneti bizonyítékként rögzíthető — **TODO.**
@@ -65,12 +67,15 @@ végpont-teszt nélkül · `TODO` = nincs még megvalósítva.
 ### Jelenlegi készültség
 A rendszer **funkcionálisan készen áll** az MVP-célokra, és **dokumentációs +
 unit-teszt + CI alapja erős**. A legutóbbi (2026-06-26) tényleges bizonyíték: a
-production DB-migráció (`20260626100000_link_etetes_takarmany`) **alkalmazva**, a
-**42/42 unit teszt zöld**, a `tsc --noEmit` **exit 0**, és a `npm run build`
-**sikeres** (lásd `verification-log.md` V-13 és `test-report.md` 5.). A kiadás
+**52/52 unit teszt zöld**, a `tsc --noEmit` **exit 0**, a `npm run build`
+**sikeres** (géppel rögzített, lásd `test-report.md` 5.); az actor-migráció
+(`20260626120000_actor_naplo_takarmanymozgas`) **teszt-DB → production** sorrendben
+**alkalmazva**, és a **DB-backed integrációs tesztek a biztonságos teszt-DB-n
+lefutottak** (fejlesztői futtatás — lásd `verification-log.md` V-16). A kiadás
 azonban **még nem teljes körűen verifikált**: az elfogadási kritériumok
-automatizált, **végpont-szintű** igazolása (integration/e2e) hiányzik. Állapot:
-**„demonstrálható MVP, verifikáció részleges".**
+**HTTP/cookie végpont-szintű** (401-útvonal) és e2e igazolása hiányzik, és a
+teljes audit/verziózás sincs meg. Állapot: **„demonstrálható MVP, verifikáció
+részleges (a fő workflow DB-szinten igazolt)".**
 
 > **Versenyhelyzet (őszinte korlát):** a takarmány-készletlevonás egy
 > tranzakcióban történik, de **nincs** sor-szintű zár / optimista verziózás, így
@@ -82,13 +87,13 @@ automatizált, **végpont-szintű** igazolása (integration/e2e) hiányzik. Áll
    auth + RBAC kikényszerítve mindhárom végponton; a `felhasznaloId` sessionből,
    a státuszváltás a bejelentés saját halászatára kötött. Unit-teszt:
    `canUpdateHibabejelentesStatus`. (Részletek: `docs/05_security_ops/role-matrix.md` §2.5.)
-2. **Integration tesztek futtatása** az AC1–AC7-re. *Részben előrehaladva
-   (2026-06-26):* az első DB-backed workflow-tesztek **megírva** (takarmány-etetés
-   + jogosultság), de **dedikált teszt-DB hiányában még nem futtatva** (biztonságos
-   skip). A kritériumok automatizált, végpont-szintű **zöld futtatása** nélkül a
-   `PASS` továbbra sem adható meg → AC4/AC5/AC6/AC7 marad `PARTIAL`. Hátralévő: egy
-   izolált teszt-DB beállítása + `npm run test:integration` zöld futás, majd az
-   eredmény rögzítése.
+2. **Integration tesztek futtatása** az AC1–AC7-re. *Előrehaladva (2026-06-26):* a
+   DB-backed workflow-tesztek (takarmány-etetés **+ actor** + jogosultság) a
+   biztonságos teszt-DB-n **lefutottak** (fejlesztői futtatás). **Hátralévő a
+   `PASS`-hoz:** teljes **HTTP/cookie endpoint-szintű** negatív tesztek (401/403/404
+   a route handlereken), az AC1–AC3/AC5/AC7 hiányzó esetei, és a futtatás
+   ismételhető rögzítése (pl. CI teszt-DB service). Addig AC4/AC5/AC6/AC7 marad
+   `PARTIAL`.
 3. **Lint-adósság** — projektszintű lint piros; legalább CI-stratégia (változott
    fájlokra futó lint), hosszabb távon a hibák felszámolása.
 

@@ -237,6 +237,49 @@ felügyelt és igazolt legyen, ne vakon elfogadott. Kapcsolódó: `ai-manifest.m
   érvénytelenítés + verziózott előzmény** **nincs** (következő sprint). Az
   endpoint-szintű integrációs actor-igazolás **teszt-DB-re vár**.
 
+## V-16 — Actor Sprint 1 lezárva: migráció (test → prod) + integrációs futtatás
+
+- **Dátum:** 2026-06-26.
+- **AI/fejlesztői kimenet:** az actor-tracking (Sprint 1) implementálva, migrálva,
+  tesztelve, pusholva (commit `4f341d9`). Az actor a `NaploEsemeny`-en és a
+  `TakarmanyMozgas`-on tárolódik a sessionből; lefedi a telepítés/kivét/
+  áttelepítés/etetés + automatikus takarmány-levonás + kézi takarmánymozgás
+  műveleteket; a `timeline` és a mozgásnapló `rogzitoNev`-et ad vissza; a
+  takarmánymozgás-UI mutatja a rögzítőt.
+- **Kockázat, ha téves:** nem alkalmazott/hibás migráció productionben; hamis
+  „integráció zöld"; production-adat véletlen módosítása.
+
+- **Bizonyíték-provenancia (ebben az asszisztens-munkamenetben géppel rögzítve):**
+  - `npm run test` → **7 fájl / 52 teszt passed** (46 + 6 `rogzitoMegjelenites`).
+  - `npx tsc --noEmit` → **exit 0**.
+  - `npm run build` → **„Compiled successfully", static pages generálva**.
+  - `npx prisma generate` → **siker** (nincs DB-kapcsolat).
+  - `npm run test:integration` **teszt-DB nélkül** → **5 teszt SKIPPED**, 0
+    DB-kapcsolat (biztonságos alapállapot).
+
+- **Fejlesztő által végrehajtott lépések (a biztonságos teszt-DB / production
+  ellen; a verbatim konzolkimenet itt nincs elmentve, csak a lépés + kimenetel):**
+  - `npx prisma migrate status` → a `20260626120000_actor_naplo_takarmanymozgas`
+    migráció függőben.
+  - `npx prisma migrate deploy` a **biztonságos teszt-DB**-re → alkalmazva.
+  - `TEST_DATABASE_URL=... npm run test:integration` a **teszt-DB** ellen → az
+    5-teszt integrációs suite (feed-workflow **actor-assertekkel** + authorization)
+    **sikeresen lefutott**; a production-guard elutasítja a productionre mutató
+    URL-t.
+  - `npx prisma migrate deploy` a **production** DB-re (`srv1695.hstgr.io`) →
+    alkalmazva.
+
+- **Eredmény:** ✅ Az actor-tracking kódszinten kész, unit + build + generate
+  géppel zöld; a migráció **teszt-DB → production** sorrendben alkalmazva; az
+  integrációs tesztek a biztonságos teszt-DB-n **lefutottak** (fejlesztői futtatás).
+- **Bizonyíték:** a fenti kimenetek; commit `4f341d9`; `test-report.md` 5/8;
+  `prisma/migrations/20260626120000_actor_naplo_takarmanymozgas/`.
+- **Hatókör-korlát (őszinte):** **nincs** teljes audit/verziózás; a művelet
+  **szerkesztés/érvénytelenítés előzménye NINCS** implementálva. **Nem** minden
+  CRUD-művelet kap actort (a törzsadat-CRUD-ok — halfaj/tó/takarmány létrehozás —
+  még nem). Az integráció **domain/Prisma-szintű**; teljes **HTTP/cookie
+  endpoint-lefedés (401-útvonal) nem** futott.
+
 ---
 
 ## Összegzés
@@ -257,7 +300,8 @@ felügyelt és igazolt legyen, ne vakon elfogadott. Kapcsolódó: `ai-manifest.m
 | V-12 | Nincs titok AI-ben | ✅ |
 | V-13 | Etetés↔takarmány migráció + build/teszt (2026-06-26) | ✅ unit+build+migráció (integration: tervezett) |
 | V-14 | Integrációs infra + biztonságos kihagyás (2026-06-26) | ✅ implementálva, **nem futtatva** (nincs teszt-DB), production-érintés nélkül |
-| V-15 | Actor / audit-napló Sprint 1 (2026-06-26) | ✅ kódszinten kész (52 teszt, build zöld); migráció **nem alkalmazva**, edit/invalidate audit hátra |
+| V-15 | Actor / audit-napló Sprint 1 — kód (2026-06-26) | ✅ kódszinten kész (52 teszt, build zöld); a migráció-alkalmazás/integráció V-16-ban |
+| V-16 | Actor Sprint 1 lezárva (2026-06-26) | ✅ migráció **teszt-DB → production** alkalmazva; integrációs tesztek a teszt-DB-n **lefutottak** (fejlesztői futtatás); edit/invalidate audit **hátra** |
 
 A nyitott bizonyítékok (V-04 CI-futás link, V-11 lefedettségi érték, V-13/V-14
 integrációs tesztek **valós teszt-DB elleni futtatása**) `TODO`-ként/tervezettként

@@ -35,11 +35,12 @@ Kapcsolódó: [`scope-contract.md`](scope-contract.md), [`capability-map.md`](ca
 > követhetőség (Sprint 1, 2026-06-26):** a `NaploEsemeny` és a `TakarmanyMozgas`
 > mostantól **tárolja a cselekvő `felhasznaloId`-ját** (sessionből), a
 > read-végpontok `rogzitoNev`-et adnak → az actor-igények **🟡 → ⚠️ részben
-> implementálva**. A **teljes audit-előzmény (szerkesztés/érvénytelenítés/
-> verziózás) továbbra is tervezett**, és a migráció még **nincs alkalmazva** a
-> production DB-re. Az **integrációs/e2e validáció** infrastruktúrája megvan, de
-> **teszt-DB hiányában nem futott le** (biztonságos skip), ezért **nem** számít
-> végrehajtott bizonyítéknak.
+> implementálva**. A migráció (`20260626120000_actor_naplo_takarmanymozgas`)
+> **teszt-DB → production** sorrendben **alkalmazva**, és a DB-backed integrációs
+> tesztek a biztonságos teszt-DB-n **lefutottak** (lásd `../07_ai/verification-log.md`
+> V-16). A **teljes audit-előzmény (szerkesztés/érvénytelenítés/verziózás)
+> továbbra is tervezett**, nem minden CRUD kap actort, és a teljes **HTTP/cookie
+> endpoint-szintű** teszt-lefedés (401-útvonal) még hiányzik.
 
 ---
 
@@ -101,8 +102,8 @@ Kapcsolódó: [`scope-contract.md`](scope-contract.md), [`capability-map.md`](ca
 | Műveletek szerkesztése | 🟡 | nincs edit-végpont a műveletekre | P1 | edit + audit-nyom | Közepes | adatintegritás-kockázat |
 | Hibás művelet törlése / érvénytelenítése | 🟡 | nincs (a műveleteken nincs soft-delete) | P1 | „érvénytelenítve" jelző + napló | Közepes | soha ne néma-töröljön |
 | Törölt/érvénytelenített műveletek mutatása | 🟡 | nincs | P1 | — | Közepes | — |
-| Ki rögzítette az adatot | ⚠️ | **Sprint 1:** `NaploEsemeny.felhasznaloId` a sessionből; `timeline` → `rogzitoNev` | P1 | migráció alkalmazása + több nézeten megjeleníteni | **Magas** | témavezetői pillér: nyomon követhetőség |
-| Ki végezte a műveletet | ⚠️ | **Sprint 1:** actor a telepítés/kivét/etetés/áttelepítés naplóján | P1 | migráció alkalmazása | **Magas** | — |
+| Ki rögzítette az adatot | ⚠️ | **Sprint 1:** `NaploEsemeny.felhasznaloId` a sessionből; `timeline` → `rogzitoNev` | P1 | további nézeteken megjeleníteni (migráció ✅ alkalmazva) | **Magas** | témavezetői pillér: nyomon követhetőség |
+| Ki végezte a műveletet | ⚠️ | **Sprint 1:** actor a telepítés/kivét/etetés/áttelepítés naplóján | P1 | megjelenítés bővítése (migráció ✅ alkalmazva) | **Magas** | — |
 | Audit-napló minden adathoz | ⚠️ | `NaploEsemeny` a műveletekre, **most már actorral**; nem minden adat-CRUD-ra | P1 | edit/invalidate audit + verziózás | **Magas** | `threat-model.md` STRIDE-R (részben rendezve) |
 
 ## 5. Vízminőség-monitoring
@@ -162,8 +163,8 @@ Kapcsolódó: [`scope-contract.md`](scope-contract.md), [`capability-map.md`](ca
 | Meddig elég a takarmány (előrejelzés) | 🟡 | **nincs** előrejelzés | P1 | átlagfogyás-alapú „feed forecast" | **Magas** | témavezetői pillér: feed inventory |
 | Takarmány hozzáadása | ✅ | `mozgasok` `BEVETEL` | Kész | — | Magas | — |
 | Automatikus levonás etetés után | ✅ | `etetes` `takarmanyId`-vel → `FELHASZNALVA` | Kész | — | Magas | — |
-| Ki adta hozzá a takarmányt | ⚠️ | **Sprint 1:** `TakarmanyMozgas.felhasznaloId` (bevétel) + `rogzitoNev` a mozgásnaplóban (UI-n is) | P1 | migráció alkalmazása | Közepes | — |
-| Ki etetett | ⚠️ | **Sprint 1:** actor a `FELHASZNALVA` mozgáson és az etetés-naplón | P1 | migráció alkalmazása | Közepes | — |
+| Ki adta hozzá a takarmányt | ⚠️ | **Sprint 1:** `TakarmanyMozgas.felhasznaloId` (bevétel) + `rogzitoNev` a mozgásnaplóban (UI-n is) | P1 | megjelenítés bővítése (migráció ✅ alkalmazva) | Közepes | — |
+| Ki etetett | ⚠️ | **Sprint 1:** actor a `FELHASZNALVA` mozgáson és az etetés-naplón | P1 | megjelenítés bővítése (migráció ✅ alkalmazva) | Közepes | — |
 | Mikor / mennyi takarmányt használtak | ✅ | `TakarmanyMozgas` (`datum`, `mennyiseg`, + `toId`/`etetesId` kötés) | Kész | — | Magas | „ki" hiányzik |
 
 ## 10. Felhasználók és szerepkörök
