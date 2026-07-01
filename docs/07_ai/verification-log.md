@@ -178,6 +178,35 @@ felügyelt és igazolt legyen, ne vakon elfogadott. Kapcsolódó: `ai-manifest.m
   (row-lock / optimista verziózás) nincs** implementálva. **CI-futás linkje
   nincs ellenőrizve** ehhez a változáshoz (lásd V-04 TODO).
 
+## V-14 — Integrációs teszt-infrastruktúra + biztonságos kihagyás (nincs production-érintés)
+
+- **Dátum:** 2026-06-26.
+- **AI kimenet:** DB-backed integrációs/workflow tesztek (takarmány-etetés
+  workflow + jogosultság), külön vitest-configgal, production-guarddal és
+  teszt-DB kezelővel; production-guard unit-teszt.
+- **Kockázat, ha téves:** integrációs teszt véletlenül a **production** DB ellen
+  fut → adatmódosítás/-szennyezés; vagy hamis „zöld" integráció.
+- **Ellenőrzés (pontos parancsok, tényleges futás):**
+  - `TEST_DATABASE_URL` és `DATABASE_URL_TEST` a futtatáskor **üres** (ellenőrizve)
+    → nincs teszt-DB.
+  - `npx tsc --noEmit` → **exit 0**.
+  - `npm run test` (csak unit, `tests/unit/**`) → **6 fájl / 46 teszt passed**
+    (korábbi 42 + 4 production-guard teszt). **Nem** futott integrációs teszt.
+  - `npm run test:integration` → **2 fájl / 5 teszt SKIPPED**; a kimenet kiírja a
+    kihagyás okát; a futás **0 ms teszt-idő, nincs DB-kapcsolat** — a production DB
+    **nem** lett megérintve.
+  - `npm run build` → **„Compiled successfully", static pages generálva**.
+- **Eredmény:** ✅ Az infrastruktúra implementálva és **biztonságosan kihagyva**
+  (nincs teszt-DB), production-érintés nélkül. A unit + guard + build bizonyíték
+  zöld.
+- **Bizonyíték:** a fenti parancskimenetek; `tests/integration/**`,
+  `vitest.integration.config.ts`, `tests/integration/helpers/testDb.ts`;
+  `docs/04_quality/test-report.md` 8. szakasz.
+- **Hatókör-korlát (őszinte):** az integrációs tesztek **NEM futottak le valós
+  adatbázis ellen** (nem volt biztonságos teszt-DB beállítva), ezért **nem
+  szolgálnak végrehajtott PASS-bizonyítékként** egyetlen elfogadási kritériumhoz
+  sem. A teljes endpoint-szintű (HTTP/cookie → 401) lefedés továbbra is tervezett.
+
 ---
 
 ## Összegzés
@@ -197,7 +226,8 @@ felügyelt és igazolt legyen, ne vakon elfogadott. Kapcsolódó: `ai-manifest.m
 | V-11 | Coverage szkript | ✅ (érték: TODO) |
 | V-12 | Nincs titok AI-ben | ✅ |
 | V-13 | Etetés↔takarmány migráció + build/teszt (2026-06-26) | ✅ unit+build+migráció (integration: tervezett) |
+| V-14 | Integrációs infra + biztonságos kihagyás (2026-06-26) | ✅ implementálva, **nem futtatva** (nincs teszt-DB), production-érintés nélkül |
 
-A nyitott bizonyítékok (V-04 CI-futás link, V-11 lefedettségi érték, V-13
-endpoint-szintű integration) `TODO`-ként/tervezettként jelölve; ezek a megfelelő
-futások után pótolhatók.
+A nyitott bizonyítékok (V-04 CI-futás link, V-11 lefedettségi érték, V-13/V-14
+integrációs tesztek **valós teszt-DB elleni futtatása**) `TODO`-ként/tervezettként
+jelölve; ezek a megfelelő futások után pótolhatók.

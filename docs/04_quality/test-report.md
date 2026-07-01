@@ -6,11 +6,13 @@ forrása: `docs/01_product/scope-contract.md` (AC1–AC7).
 
 ## 1. Állapot — összefoglaló
 
-> **Az első valós automata teszt-infrastruktúra elkészült (unit szint).**
-> Bevezetésre került a **Vitest**, `test` / `test:unit` / `test:watch` /
-> `test:coverage` szkriptekkel és `vitest.config.ts`-szel. Jelenleg **42 unit
-> teszt** fut **5 fájlban**, mind zöld (lásd 5. szakasz). Az **integration** és
-> **e2e** réteg továbbra is tervezett (lásd 3. szakasz).
+> **Unit szint zöld; integrációs infrastruktúra elkészült (de teszt-DB hiányában
+> nem futtatva).** Jelenleg **46 unit teszt** fut **6 fájlban**, mind zöld (lásd 5.
+> szakasz). Elkészült az **első DB-backed integrációs/workflow teszt-réteg** is
+> (takarmány-etetés workflow + jogosultság), biztonságos teszt-DB kezeléssel és
+> production-guarddal — ez **dedikált teszt-adatbázist igényel**, ezért jelenleg
+> **biztonságosan kihagyva** fut (lásd 8. szakasz). Az **e2e** réteg továbbra is
+> tervezett.
 
 Frissítés dátuma: **2026-06-26** (korábbi baseline: 2026-06-17, 29 teszt). A unit
 teszt-szám az új tiszta helperekkel bővült: **29 → 34** (hibabejelentés-státusz
@@ -23,8 +25,8 @@ lefedettség, Playwright trace, endpoint-szintű integration) később illeszten
 | Tétel | Állapot |
 |---|---|
 | Teszt-keretrendszer | ✅ Vitest 3.2.6 (`vitest.config.ts`, node környezet) |
-| Unit tesztek | ✅ **42 teszt, 5 fájl** (`tests/unit/`) — korábban 29/4 |
-| Integration tesztek | ❌ Nincs (tervezett) |
+| Unit tesztek | ✅ **46 teszt, 6 fájl** (`tests/unit/`) — korábban 42/5 |
+| Integration tesztek | ⚠️ **Infrastruktúra kész** (`tests/integration/`), de teszt-DB hiányában **nem futtatva** (biztonságos skip) — lásd 8. |
 | E2E tesztek | ❌ Nincs (tervezett, Playwright) |
 | Lefedettség mérés | ✅ Elérhető (`npm run test:coverage`, `@vitest/coverage-v8`) |
 | CI tesztlépés | ❌ Nincs (nincs `.github/` pipeline — tervezett) |
@@ -86,18 +88,21 @@ Legutóbbi tényleges futás — `npm run test` (Vitest 3.2.6, `environment: nod
 **2026-06-26**:
 
 ```text
- ✓ tests/unit/roles.test.ts            (15 tests)
- ✓ tests/unit/slug.test.ts             ( 6 tests)
- ✓ tests/unit/szam.test.ts             ( 6 tests)
- ✓ tests/unit/password.test.ts         ( 7 tests)
+ ✓ tests/unit/roles.test.ts             (15 tests)
+ ✓ tests/unit/slug.test.ts              ( 6 tests)
+ ✓ tests/unit/szam.test.ts              ( 6 tests)
+ ✓ tests/unit/password.test.ts          ( 7 tests)
  ✓ tests/unit/takarmany-keszlet.test.ts ( 8 tests)
+ ✓ tests/unit/test-db-guard.test.ts     ( 4 tests)
 
- Test Files  5 passed (5)
-      Tests   42 passed (42)
+ Test Files  6 passed (6)
+      Tests   46 passed (46)
 ```
 
 - **Típusellenőrzés:** `npx tsc --noEmit` → **exit 0** (0 típushiba).
 - **Production build:** `npm run build` (Next.js) → **sikeres** (2026-06-26).
+- **Integrációs tesztek:** `npm run test:integration` → **5 teszt SKIPPED** (nincs
+  teszt-DB) — biztonságos, production-érintés nélkül (lásd 8. szakasz).
 - **Környezet:** Node (lokális), DB **nem szükséges** a unit réteghez (tiszta
   logika). Megjegyzés: a production DB-migráció külön, `prisma migrate deploy`-jal
   alkalmazva (lásd `verification-log.md` V-13).
@@ -115,6 +120,7 @@ Legutóbbi tényleges futás — `npm run test` (Vitest 3.2.6, `environment: nod
 | `tests/unit/roles.test.ts` | `src/lib/roles.ts` (**kiemelt**) | rangsorok, `meets*Role`, `canManageTarget`, `canUpdateHibabejelentesStatus` |
 | `tests/unit/password.test.ts` | `src/lib/password.ts` (**kiemelt**) | `sha256`, hash/verify, token |
 | `tests/unit/takarmany-keszlet.test.ts` | `src/lib/takarmany/keszlet.ts` | készletlevonás: elég/nincs elég/érvénytelen, `ketTizedes` kerekítés |
+| `tests/unit/test-db-guard.test.ts` | `tests/integration/helpers/testDb.ts` (`ellenorizNemProduction`) | production-guard: production host/DB → dob; biztonságos teszt-URL → átengedi |
 
 ### 5.2 Viselkedés-megőrző kiemelések (refaktor)
 
@@ -184,7 +190,7 @@ A folyamatos integráció a `.github/workflows/ci.yml`-ben van definiálva, és
 4. `npx prisma generate` — Prisma kliens előállítása (a typecheckhez kell;
    nem csatlakozik adatbázishoz).
 5. `npx tsc --noEmit` — típusellenőrzés.
-6. `npm run test` — Vitest unit tesztek (42 teszt, 5 fájl).
+6. `npm run test` — Vitest unit tesztek (46 teszt, 6 fájl).
 
 A CI tehát **typecheck + unit teszt** szinten véd; valódi adatbázis nem
 szükséges (a workflow csak egy placeholder `DATABASE_URL`-t állít be a Prisma
@@ -201,3 +207,39 @@ workflow `TODO` kommentje ugyanezt rögzíti.
 szolgáltatással (pl. MySQL service container), Playwright e2e lépés, lefedettségi
 riport feltöltése, és — a lint-adósság felszámolása után — a lint blokkolóvá
 tétele. Lásd a 6.2 hátralévő tételeket.
+
+## 8. Integrációs tesztek — állapot (2026-06-26)
+
+> **Implementálva, de teszt-DB hiányában NEM futtatva.** Az első DB-backed
+> workflow-tesztek elkészültek; a futtatás dedikált, izolált teszt-adatbázist
+> igényel. A production DB-t **nem** érintettük.
+
+| Tétel | Állapot |
+|---|---|
+| Integrációs infrastruktúra | ✅ Kész (`tests/integration/`, `vitest.integration.config.ts`) |
+| Production-guard (host/DB ellenőrzés) | ✅ Kész + **unit-tesztelt** (`tests/unit/test-db-guard.test.ts`) |
+| Teszt-DB kezelő (csak `TEST_DATABASE_URL`/`DATABASE_URL_TEST`) | ✅ Kész (`tests/integration/helpers/testDb.ts`) |
+| Workflow A — takarmány-etetés levonás | ✅ Megírva (`feed-workflow.test.ts`) — futtatás: teszt-DB-vel |
+| Backward-compat C — etetés takarmány nélkül | ✅ Megírva (`feed-workflow.test.ts`) |
+| Workflow B — jogosultság/tenant-izoláció | ✅ Megírva (`authorization.test.ts`) |
+| **Tényleges futtatás** | ⚠️ **SKIPPED** — nincs `TEST_DATABASE_URL` beállítva (5 teszt kihagyva, 0 DB-kapcsolat) |
+
+**Reprodukálható futtatás (teszt-DB-vel):**
+
+1. Hozz létre egy **üres, izolált** MySQL teszt-adatbázist (nem a production!).
+2. `TEST_DATABASE_URL="mysql://user:pass@host:3306/nemeth_horgaszat_test"` (a
+   production-guard elutasítja a `srv1695.hstgr.io` / `u625819054_horgaszat_v1`
+   értékeket).
+3. `TEST_DATABASE_URL=... npx prisma migrate deploy` (séma a teszt-DB-re; a Prisma
+   CLI a `DATABASE_URL`-t használja a `migrate deploy`-hoz, ezért a teszt-DB
+   futtatáshoz a megfelelő env-et kell beállítani).
+4. `TEST_DATABASE_URL=... npm run test:integration`.
+
+Az eredmény (zöld/piros), a futás dátuma és a használt DB **ide rögzítendő**,
+amint egy biztonságos teszt-DB rendelkezésre áll. Bizonyítékot kitalálni tilos.
+
+### 8.1 Bővített tervezett tesztmátrix-sorok
+
+A 3. szakasz `I-10` (etetés↔takarmány levonás) és a jogosultsági `I-07`/`I-08`
+sorok **megírva** vannak integrációs tesztként, de **futtatásuk teszt-DB-re vár**;
+státuszuk addig `Megírva / nem futtatva`.

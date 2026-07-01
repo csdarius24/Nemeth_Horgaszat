@@ -134,7 +134,8 @@ A negatív tesztek elsőrendűek a thesis védhetősége szempontjából:
 
 ## 8. Teszt-adat stratégia
 
-- **Külön teszt-adatbázis** (saját `DATABASE_URL`), sosem az éles/fejlesztői DB.
+- **Külön teszt-adatbázis** (dedikált `TEST_DATABASE_URL` / `DATABASE_URL_TEST`,
+  **sosem** a `DATABASE_URL`/éles DB — lásd 8.A production-guard).
 - **Séma:** `prisma migrate deploy` a teszt-DB-re a futtatás előtt.
 - **Izoláció:** minden teszt(csoport) tiszta állapotból induljon — tranzakcióba
   csomagolt teszt és visszagörgetés, vagy a táblák ürítése (truncate) + minimál
@@ -147,6 +148,58 @@ A negatív tesztek elsőrendűek a thesis védhetősége szempontjából:
 - **Auth a tesztekben:** integration szinten a session-süti megszerzése a
   `login` végponton át, vagy közvetlen `Session` rekord létrehozása + süti
   beállítása helperrel.
+
+## 8.A Integrációs teszt-infrastruktúra — biztonságos teszt-DB kezelés (implementálva)
+
+> **Implementálva (2026-06-26), de teszt-DB hiányában nem futtatva.** Az első
+> DB-backed workflow-tesztek és a hozzájuk tartozó biztonsági infrastruktúra
+> elkészült. A futtatás **dedikált, izolált teszt-adatbázist igényel**
+> (`TEST_DATABASE_URL` vagy `DATABASE_URL_TEST`).
+
+**Biztonsági szabályok (kódból kikényszerítve — `tests/integration/helpers/testDb.ts`):**
+
+- Az integrációs tesztek **kizárólag** a `TEST_DATABASE_URL` / `DATABASE_URL_TEST`
+  változót használják. A `DATABASE_URL`-t (`.env`, production) a teszt-réteg
+  **soha nem** olvassa be.
+- **Production-guard:** ha a teszt-URL a productionre utal (`srv1695.hstgr.io`
+  hosztot vagy `u625819054_horgaszat_v1` DB-nevet tartalmaz), a futás **azonnal
+  leáll** hibával. Ezt **unit-teszt** is fedi (`tests/unit/test-db-guard.test.ts`).
+- Ha nincs teszt-DB beállítva, az integrációs blokk **biztonságosan kihagyásra
+  kerül** (`describe.skipIf`), nem fut production ellen, és **nem nyit
+  DB-kapcsolatot**.
+
+**Konfiguráció és parancsok:**
+
+- `npm run test` — **csak** a `tests/unit/**` (a default `vitest.config.ts` ide
+  szűkítve) → soha nem nyúl DB-hez, így production-biztos.
+- `npm run test:integration` — külön config (`vitest.integration.config.ts`),
+  `tests/integration/**`; teszt-DB hiányában skip.
+- `npm run test:all` — unit + integration (az integráció önmagát kihagyja/guardolja).
+
+**Adat- és takarítási elv:** minden rekord egyedi prefixszel jön létre
+(`itest_<timestamp>_<rand>`), fix ID-t nem feltételezünk, és a futás végén a
+létrehozott gyökerek (Halaszat, Felhasznalo) törlődnek (kaszkád + explicit), így
+nem támaszkodunk meglévő production/dev rekordra.
+
+**Lefedett workflow-tesztek (futtatás teszt-DB-vel):**
+
+- **A) Takarmány-etetés workflow** (`tests/integration/feed-workflow.test.ts`):
+  szintetikus halászat/user/tagság/tó/takarmány → bevétel → etetés `takarmanyId`-vel
+  → `Takarmany.keszlet` csökken → `TakarmanyMozgas(FELHASZNALVA)` jön létre az
+  `Etetes`-hez/tóhoz kötve → `NaploEsemeny(ETETES)` keletkezik. A készletszámítás
+  a **valódi** `szamitTakarmanyFelhasznalas` helperrel.
+- **C) Visszafelé kompatibilitás:** etetés `takarmanyId` nélkül → `Etetes` + napló,
+  a takarmány készlete **változatlan**, nincs `FELHASZNALVA` mozgás.
+- **B) Jogosultsági workflow** (`tests/integration/authorization.test.ts`):
+  tenant-izoláció (idegen halászat tagja → elutasítva) és szerepkör-kapuzás (STAFF
+  nem végezhet ADMIN-műveletet; inaktivált tagság elutasítva) a **valódi**
+  `meetsHalaszatRole` logikával — a `requireHalaszatRole` guard auth UTÁNI,
+  DB-függő döntésének hű mása.
+
+**Hatókör-korlát (őszinte):** ezek **Prisma/domain-szintű** integrációs tesztek a
+valódi sémát, tranzakciókat és üzleti helpereket gyakorolják. A teljes
+**endpoint-szintű (HTTP route handler + Next cookie/session → 401)** lefedés
+a **következő lépés** (Next request-kontextus vagy futó szerver szükséges hozzá).
 
 ## 9. Lefedettségi célok
 

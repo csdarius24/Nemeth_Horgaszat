@@ -41,13 +41,21 @@ végpont-teszt nélkül · `TODO` = nincs még megvalósítva.
 
 ## Megjegyzések a bizonyíték jellegéről
 
-- **Automatizált bizonyíték** jelenleg a unit rétegben áll rendelkezésre (**42
-  teszt, 5 fájl**, mind zöld — 2026-06-26), amely az AC5 jogosultsági logikáját
-  (`roles.ts`, beleértve a `canUpdateHibabejelentesStatus`-t) és az AC4
-  takarmány-készletlevonási logikáját (`szamitTakarmanyFelhasznalas`) részben
-  fedi. A többi kritérium és az **endpoint-szintű** viselkedés bizonyítéka
-  **kód-szintű** (a forrás átolvasása) + a production migráció/build tényleges
-  futása, **nem** automatizált végpont-teszt — az integration/e2e réteg tervezett.
+- **Automatizált bizonyíték** jelenleg a unit rétegben áll rendelkezésre (**46
+  teszt, 6 fájl**, mind zöld — 2026-06-26), amely az AC5 jogosultsági logikáját
+  (`roles.ts`, beleértve a `canUpdateHibabejelentesStatus`-t), az AC4
+  takarmány-készletlevonási logikáját (`szamitTakarmanyFelhasznalas`) és a
+  teszt-biztonsági production-guardot (`ellenorizNemProduction`) részben fedi. A
+  többi kritérium és az **endpoint-szintű** viselkedés bizonyítéka **kód-szintű**
+  (a forrás átolvasása) + a production migráció/build tényleges futása, **nem**
+  automatizált végpont-teszt — az integration/e2e réteg tervezett.
+- **Integrációs (DB-backed) workflow tesztek: megírva, de NEM futtatva.** Az első
+  DB-backed workflow-tesztek elkészültek (takarmány-etetés workflow + jogosultság,
+  `tests/integration/**`), de **dedikált teszt-adatbázis hiányában nem futottak le**
+  (biztonságos skip, production-érintés nélkül — lásd `verification-log.md` V-14 és
+  `test-report.md` 8.). **Ezért egyetlen AC sem kap emiatt `PASS`-t**: a tényleges,
+  teszt-DB elleni zöld futtatás a feltétele az AC4/AC5/AC6/AC7 `PARTIAL → PASS`
+  átállításának. Bizonyítékot kitalálni tilos.
 - **Nincs dokumentált, megismételhető manuális tesztkör** sem rögzítve; ennek
   hiányában a kritériumok nem kapnak `PASS`-t. Egy strukturált manuális
   átfutás (a `ux-flows.md` szerint) átmeneti bizonyítékként rögzíthető — **TODO.**
@@ -74,18 +82,25 @@ automatizált, **végpont-szintű** igazolása (integration/e2e) hiányzik. Áll
    auth + RBAC kikényszerítve mindhárom végponton; a `felhasznaloId` sessionből,
    a státuszváltás a bejelentés saját halászatára kötött. Unit-teszt:
    `canUpdateHibabejelentesStatus`. (Részletek: `docs/05_security_ops/role-matrix.md` §2.5.)
-2. **Integration tesztek hiánya** az AC1–AC7-re — a kritériumok automatizált,
-   végpont-szintű igazolása nélkül a `PASS` nem adható meg (az AC5/AC7 ezért marad
-   `PARTIAL`, az auth-rés kódszintű rendezése ellenére).
+2. **Integration tesztek futtatása** az AC1–AC7-re. *Részben előrehaladva
+   (2026-06-26):* az első DB-backed workflow-tesztek **megírva** (takarmány-etetés
+   + jogosultság), de **dedikált teszt-DB hiányában még nem futtatva** (biztonságos
+   skip). A kritériumok automatizált, végpont-szintű **zöld futtatása** nélkül a
+   `PASS` továbbra sem adható meg → AC4/AC5/AC6/AC7 marad `PARTIAL`. Hátralévő: egy
+   izolált teszt-DB beállítása + `npm run test:integration` zöld futás, majd az
+   eredmény rögzítése.
 3. **Lint-adósság** — projektszintű lint piros; legalább CI-stratégia (változott
    fájlokra futó lint), hosszabb távon a hibák felszámolása.
 
 ### Ajánlott következő lépések a végleges beadás előtt
 1. ~~A `hibabejelentesek` végpontok jogosultságolása (session-alapú szerző/tenant).~~
    ✅ **Kész (2026-06-26).**
-2. Integration tesztek bevezetése teszt-adatbázissal (I-01…I-08, ezen belül a
-   hibabejelentés-végpontok 401/403/404 esetei), és az AC-k átállítása `PASS`-ra a
-   zöld eredmények alapján.
+2. Integration tesztek **futtatása** teszt-adatbázissal. *Az infrastruktúra és az
+   első workflow-tesztek (takarmány-etetés + jogosultság) már megvannak
+   (`tests/integration/**`, production-guarddal);* hátra van egy izolált teszt-DB
+   beállítása + `npm run test:integration` zöld futás, majd a hiányzó esetek
+   (I-01…I-08, hibabejelentés 401/403/404) kiegészítése és az AC-k átállítása
+   `PASS`-ra a zöld eredmények alapján.
 3. Legalább egy Playwright e2e a fő folyamatra (E-01) + a két negatív esetre.
 4. `npm run test:coverage` futtatása, a lefedettségi érték rögzítése a
    `test-report.md`-ben.
