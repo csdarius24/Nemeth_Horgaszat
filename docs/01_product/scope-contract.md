@@ -17,6 +17,10 @@ A fókusz — a témavezetői visszajelzés nyomán — a napi műveletek (telep
 kivét, etetés, áttelepítés, takarmánymozgás) auditálható, tóra bontott
 nyilvántartása.
 
+> Az ügyfél teljes funkciólistájának (kész / részleges / SZD2 / jövőbeli / nem
+> ajánlott) leképezése és az ajánlott roadmap:
+> [`customer-requirements-map.md`](customer-requirements-map.md).
+
 ---
 
 # MVP-határ (In Scope / Out of Scope)

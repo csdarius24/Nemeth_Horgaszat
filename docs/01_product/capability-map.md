@@ -3,6 +3,9 @@
 A képességtérkép a **halgazdálkodási műveletek** támogatása köré szerveződik.
 Jelölés: **[kész]** = megvalósítva · **[tervezett]** = SZD2-re tervezett.
 
+> Az ügyfél-igények részletes leképezése ezekre a képességekre (státusz +
+> roadmap): [`customer-requirements-map.md`](customer-requirements-map.md).
+
 ## Tenant Management
 
 - Halászat létrehozása
