@@ -390,12 +390,31 @@ táblázatok az egyes végpontoknál pontosítják.
 
 ### GET /api/halaszatok/[hid]/osszesito
 - **Cél:** halászat-szintű összesítő (dashboard): tavak száma, készlet
-  fajonként, etetés N napra, eseményeloszlás, aktivitási trend.
+  fajonként, etetés N napra, eseményeloszlás, aktivitási trend — **Dashboard 2.0
+  óta** ezen felül takarmánykészlet, etetési trend (kg/nap), szabály-alapú
+  riasztások és a legutóbbi tevékenységek **rögzítővel**.
 - **Jogosultság:** `requireHalaszatRole(hid, "STAFF")`.
 - **Query:** `days` (1–90, alap 30).
-- **Siker:** `200` `{ toak: { ossz, aktiv }, halallomany: { osszDarab, fajokSzama, fajonkent }, etetes: { napok, osszegKg, darab }, esemenyEloszlas, aktivitasEsemenyek, tavakAllomany, days }`.
+- **Siker:** `200` — az eredeti mezők **változatlanul** megmaradnak
+  (`toak`, `halallomany`, `etetes`, `esemenyEloszlas`, `aktivitasEsemenyek`,
+  `tavakAllomany`, `days`), kiegészülve az alábbi **additív** mezőkkel:
+
+  | Mező | Tartalom |
+  |---|---|
+  | `takarmany` | `{ ossz, aktiv, osszKeszlet, tetelek: [{ azonosito, nev, egyseg, keszlet, aktiv }] }` — takarmánykészlet-összesítő |
+  | `etetesTrend` | `[{ nap: "YYYY-MM-DD", kg }]` — napi etetett mennyiség az időszakban |
+  | `riasztasok` | `[{ kod, sulyossag, cim, reszlet, eroforrasId? }]` — szabály-alapú figyelmeztetések, súlyosság szerint rendezve |
+  | `riasztasKuszobok` | `{ alacsonyKeszlet, inaktivToNapok }` — a szabályok küszöbértékei (átláthatóság) |
+  | `legutobbiEsemenyek` | utolsó 8 naplóesemény `{ ..., to: { azonosito, nev }, felhasznaloId, rogzitoNev }` — **ki rögzítette** |
+
+- **Riasztási szabályok (kizárólag meglévő adatból):** `TAKARMANY_ELFOGYOTT`
+  (készlet 0 → *magas*), `TAKARMANY_ALACSONY` (küszöb alatt → *közepes*),
+  `TO_URES_ALLOMANY` (aktív tó 0 hallal → *közepes*), `TO_INAKTIV` (aktív tó,
+  amelyben ≥ N napja nem volt művelet, vagy még soha → *alacsony*). A döntést a
+  tiszta, **unit-tesztelt** `src/lib/dashboard/riasztasok.ts` helper adja.
+  **Vízminőség-/halegészség-alapú riasztás NINCS** — ahhoz külön modul kell (SZD2).
 - **Hibák:** `400` hibás azonosító; `401/403` (`{ error }`).
-- **Mellékhatás:** nincs (csak olvasás/aggregáció).
+- **Mellékhatás:** nincs (csak olvasás/aggregáció) — a végpont **nem ír** adatot.
 
 ---
 

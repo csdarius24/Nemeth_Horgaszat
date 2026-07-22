@@ -6,9 +6,8 @@ forrása: `docs/01_product/scope-contract.md` (AC1–AC7).
 
 ## 1. Állapot — összefoglaló
 
-> **Unit szint zöld; integrációs infrastruktúra elkészült (de teszt-DB hiányában
-> nem futtatva).** Jelenleg **52 unit teszt** fut **7 fájlban**, mind zöld (lásd 5.
-> szakasz). Elkészült az **első DB-backed integrációs/workflow teszt-réteg** is
+> **Unit szint zöld; az integrációs réteg a biztonságos teszt-DB-n lefutott.**
+> Jelenleg **67 unit teszt** fut **8 fájlban**, mind zöld (lásd 5. szakasz). Elkészült az **első DB-backed integrációs/workflow teszt-réteg** is
 > (takarmány-etetés workflow + jogosultság), biztonságos teszt-DB kezeléssel és
 > production-guarddal — ez **dedikált teszt-adatbázist igényel**, ezért jelenleg
 > **biztonságosan kihagyva** fut (lásd 8. szakasz). Az **e2e** réteg továbbra is
@@ -25,7 +24,7 @@ lefedettség, Playwright trace, endpoint-szintű integration) később illeszten
 | Tétel | Állapot |
 |---|---|
 | Teszt-keretrendszer | ✅ Vitest 3.2.6 (`vitest.config.ts`, node környezet) |
-| Unit tesztek | ✅ **52 teszt, 7 fájl** (`tests/unit/`) — korábban 46/6 |
+| Unit tesztek | ✅ **67 teszt, 8 fájl** (`tests/unit/`) — korábban 52/7 |
 | Integration tesztek | ✅ **Végrehajtva a biztonságos teszt-DB ellen** (feed-workflow + authorization, actor-assertekkel); teszt-DB nélkül továbbra is biztonságos skip — lásd 8. |
 | E2E tesztek | ❌ Nincs (tervezett, Playwright) |
 | Lefedettség mérés | ✅ Elérhető (`npm run test:coverage`, `@vitest/coverage-v8`) |
@@ -96,9 +95,10 @@ Legutóbbi tényleges futás — `npm run test` (Vitest 3.2.6, `environment: nod
  ✓ tests/unit/takarmany-keszlet.test.ts ( 8 tests)
  ✓ tests/unit/test-db-guard.test.ts     ( 4 tests)
  ✓ tests/unit/rogzito.test.ts           ( 6 tests)
+ ✓ tests/unit/riasztasok.test.ts        (15 tests)
 
- Test Files  7 passed (7)
-      Tests   52 passed (52)
+ Test Files  8 passed (8)
+      Tests   67 passed (67)
 ```
 
 - **Típusellenőrzés:** `npx tsc --noEmit` → **exit 0** (0 típushiba).
@@ -124,6 +124,7 @@ Legutóbbi tényleges futás — `npm run test` (Vitest 3.2.6, `environment: nod
 | `tests/unit/takarmany-keszlet.test.ts` | `src/lib/takarmany/keszlet.ts` | készletlevonás: elég/nincs elég/érvénytelen, `ketTizedes` kerekítés |
 | `tests/unit/test-db-guard.test.ts` | `tests/integration/helpers/testDb.ts` (`ellenorizNemProduction`) | production-guard: production host/DB → dob; biztonságos teszt-URL → átengedi |
 | `tests/unit/rogzito.test.ts` | `src/lib/audit/rogzito.ts` (`rogzitoMegjelenites`) | actor-megjelenítés: név → email → null; trim; nincs actor → null |
+| `tests/unit/riasztasok.test.ts` | `src/lib/dashboard/riasztasok.ts` | dashboard riasztási szabályok: takarmány elfogyott/alacsony + küszöb-határeset, üres/inaktív tó, súlyosság-rendezés |
 
 ### 5.2 Viselkedés-megőrző kiemelések (refaktor)
 
@@ -193,7 +194,7 @@ A folyamatos integráció a `.github/workflows/ci.yml`-ben van definiálva, és
 4. `npx prisma generate` — Prisma kliens előállítása (a typecheckhez kell;
    nem csatlakozik adatbázishoz).
 5. `npx tsc --noEmit` — típusellenőrzés.
-6. `npm run test` — Vitest unit tesztek (52 teszt, 7 fájl).
+6. `npm run test` — Vitest unit tesztek (67 teszt, 8 fájl).
 
 A CI tehát **typecheck + unit teszt** szinten véd; valódi adatbázis nem
 szükséges (a workflow csak egy placeholder `DATABASE_URL`-t állít be a Prisma

@@ -52,9 +52,9 @@ Kapcsolódó: [`scope-contract.md`](scope-contract.md), [`capability-map.md`](ca
 | Fő dashboard bejelentkezés után | ✅ | `halaszatok/[hid]/page.tsx` + `HalaszatStatClient` + `GET .../osszesito` | Kész / P1 | Dashboard 2.0 bővítés | Magas | — |
 | Kulcs-statisztikák | ✅ | `osszesito` (KPI-k, chartok) | Kész / P1 | trendek, riasztások | Magas | — |
 | Össz halmennyiség | ✅ | `osszesito.halallomany.osszDarab` | Kész | — | Magas | — |
-| Legutóbbi tevékenységek | ✅ | `timeline` / `summary`, `NaploEsemeny` | Kész | — | Magas | actor (ki) hiányzik |
+| Legutóbbi tevékenységek | ✅ | `timeline` / `summary`, `NaploEsemeny`; **Dashboard 2.0:** `legutobbiEsemenyek` a dashboardon **„Rögzítette: …"** megjelenítéssel | Kész | — | Magas | a régi (actor előtti) eseményeknél nincs rögzítő |
 | Etetési adatok | ✅ | etetés-aggregáció az `osszesito`-ban | Kész | — | Magas | — |
-| Értesítések / riasztások | ⚠️ | csak takarmány low-stock **vizuális** jelzés (`TakarmanyokClient`) | P2 | szabály-alapú riasztó + dashboard warning | Közepes | nincs értesítő rendszer |
+| Értesítések / riasztások | ⚠️ | **Dashboard 2.0:** szabály-alapú riasztás-panel a dashboardon (takarmány elfogyott/alacsony, üres állományú tó, régóta inaktív tó) — `riasztasok` az `osszesito`-ban, unit-tesztelt szabályokkal | P2 | push/e-mail értesítés; vízminőség-alapú riasztás | Közepes | **nincs** kiküldött értesítés (csak felületi megjelenítés) |
 | AI javaslatok | ❌ | **nincs** termék-AI a kódban | Jövőbeli | — | Alacsony | ne jelöljük késznek |
 | Másnapi tervek | 🟡 | nincs | P1/P4 | terv-entitás | Közepes | — |
 | Ütemezett etetés | 🟡 | nincs (a naptár manuális) | P3 | ütemezés + naptár-integráció | Közepes | — |
@@ -114,7 +114,7 @@ Kapcsolódó: [`scope-contract.md`](scope-contract.md), [`capability-map.md`](ca
 | Vizuális tó-állapot | 🟡 | nincs | P2 | — | Közepes | — |
 | Vízminőség-indikátorok | 🟡 | nincs | P2 | mérés-entitás | Közepes | — |
 | Riasztás rossz értékekre | 🟡 | nincs | P2 | szabály-alapú riasztás | Közepes | — |
-| Dashboard figyelmeztetés problémás tóra | 🟡 | nincs | P2 | dashboard-integráció | Közepes | — |
+| Dashboard figyelmeztetés problémás tóra | ⚠️ | **Dashboard 2.0:** van tó-figyelmeztetés (üres állomány, régóta nincs művelet), de **nem vízminőség-alapú** | P2 | vízminőség-mérésekhez kötött figyelmeztetés | Közepes | a „problémás tó" jelenleg csak művelet-/állomány-alapú |
 
 ## 6. Halegészségügyi modul
 
@@ -201,8 +201,12 @@ takarmánykészlet, RBAC, dashboard, validáció, nyomon követhetőség), és a
 alapokra építenek.
 
 ### 1. fázis — a művelet-MVP megerősítése
-- **Dashboard 2.0** — trendek, low-stock és problémás-tó figyelmeztetések a
-  meglévő `osszesito`-ra építve.
+- **Dashboard 2.0** — ✅ **Leszállítva (2026-06-26):** szabály-alapú riasztás-panel
+  (takarmány elfogyott/alacsony, üres állományú tó, régóta inaktív tó),
+  **etetési trend (kg/nap)**, takarmánykészlet-KPI, és a **legutóbbi tevékenységek
+  „Rögzítette: …" megjelenítéssel** (a Sprint 1 actor-adatra építve). Csak olvasó
+  bővítés az `osszesito`-n, séma-változás nélkül. *Hátra:* kiküldött értesítések
+  és vízminőség-alapú figyelmeztetés (P2).
 - **Actor / audit-napló megerősítése** — ✅ **Sprint 1 leszállítva (2026-06-26):**
   `felhasznaloId` a `NaploEsemeny`-en és a `TakarmanyMozgas`-on (sessionből),
   `rogzitoNev` a tó-idővonalon és a takarmánymozgás-előzményen. *Hátra:* a migráció
@@ -271,9 +275,14 @@ az ügyfél lássa: nem elfelejtettük, hanem tudatosan halasztottuk őket.
 5. **Megágyaz a PDF-naplónak és a naptár-integrációnak** (3. fázis) — actor nélkül
    azok is féllábon állnának.
 
-**Gyors-követő (fast-follow):** **Dashboard 2.0** — vizuálisan is demonstrálható,
-és az actor-adatot azonnal meg tudja jeleníteni („ki csinálta" a legutóbbi
-tevékenységeknél).
+**Gyors-követő (fast-follow):** ~~**Dashboard 2.0**~~ — ✅ **elkészült
+(2026-06-26)**; a legutóbbi tevékenységeknél már megjelenik a „Rögzítette".
+
+**A következő javasolt sprint (frissítve):** **Feed forecast** („meddig elég a
+takarmány" az átlagos napi fogyásból) — kicsi, jól körülhatárolt, a
+takarmánykészlet-pillért erősíti, és a most bevezetett `etetesTrend` adatra
+építhet. Utána: **művelet edit/invalidate audit** (a teljes audit-előzmény
+lezárása).
 
 > Megjegyzés a validációról: az **integrációs/e2e** réteg infrastruktúrája
 > elkészült, de **teszt-DB hiányában nem futott le** (biztonságos skip) — a sprint

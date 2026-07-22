@@ -16,6 +16,25 @@ interface ToAllomany {
     allomany: Array<{ halfajNev: string; darab: number }>;
 }
 
+type Riasztas = {
+    kod: string;
+    sulyossag: "magas" | "kozepes" | "alacsony";
+    cim: string;
+    reszlet: string;
+    eroforrasId?: number;
+};
+
+type LegutobbiEsemeny = {
+    azonosito: number;
+    tipus: string;
+    datum: string;
+    leiras: string | null;
+    darab: number | null;
+    mennyisegKg: any;
+    to: { azonosito: number; nev: string } | null;
+    rogzitoNev: string | null;
+};
+
 interface OsszesitoValasz {
     toak: { ossz: number; aktiv: number };
     halallomany: {
@@ -28,6 +47,17 @@ interface OsszesitoValasz {
     aktivitasEsemenyek: Array<{ tipus: string; datum: string }>;
     tavakAllomany: ToAllomany[];
     days: number;
+    // Dashboard 2.0 — opcionalisak, hogy regi valasszal is mukodjon
+    takarmany?: {
+        ossz: number;
+        aktiv: number;
+        osszKeszlet: number;
+        tetelek: Array<{ azonosito: number; nev: string; egyseg: string; keszlet: number; aktiv: boolean }>;
+    };
+    etetesTrend?: Array<{ nap: string; kg: number }>;
+    riasztasok?: Riasztas[];
+    riasztasKuszobok?: { alacsonyKeszlet: number; inaktivToNapok: number };
+    legutobbiEsemenyek?: LegutobbiEsemeny[];
 }
 
 // ─── Szinek ───────────────────────────────────────────────────────────────────
@@ -98,6 +128,171 @@ function KpiKartya({ cim, ertek, alcim, szin }: {
             </div>
             <div style={{ fontSize: 30, fontWeight: 800, marginTop: 6, lineHeight: 1 }}>{ertek}</div>
             {alcim && <div className="muted" style={{ marginTop: 6, fontSize: 12 }}>{alcim}</div>}
+        </div>
+    );
+}
+
+// ─── Riasztas panel (Dashboard 2.0) ──────────────────────────────────────────
+
+const SULYOSSAG_STILUS: Record<string, { szin: string; hatter: string; cimke: string }> = {
+    magas:    { szin: "#ff7a7a", hatter: "rgba(150,30,30,0.22)",  cimke: "Magas" },
+    kozepes:  { szin: "#ffa94d", hatter: "rgba(150,90,20,0.18)",  cimke: "Kozepes" },
+    alacsony: { szin: "#9fb8c8", hatter: "rgba(60,80,95,0.18)",   cimke: "Alacsony" },
+};
+
+function RiasztasPanel({ riasztasok, kuszobok }: {
+    riasztasok: Riasztas[];
+    kuszobok?: { alacsonyKeszlet: number; inaktivToNapok: number };
+}) {
+    const [mindMutat, setMindMutat] = useState(false);
+    const LATHATO = 4;
+    const lathatok = mindMutat ? riasztasok : riasztasok.slice(0, LATHATO);
+
+    if (riasztasok.length === 0) {
+        return (
+            <div className="glass card" style={{ borderLeft: "3px solid #6bcb77" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                    <span style={{ fontSize: 18 }}>&#10003;</span>
+                    <div>
+                        <div style={{ fontWeight: 700 }}>Nincs aktiv figyelmeztetes</div>
+                        <div className="muted" style={{ fontSize: 12, marginTop: 2 }}>
+                            Nincs elfogyott/alacsony takarmany, ures allomanyu vagy regota inaktiv to.
+                        </div>
+                    </div>
+                </div>
+            </div>
+        );
+    }
+
+    const magasSzam = riasztasok.filter((r) => r.sulyossag === "magas").length;
+
+    return (
+        <div className="glass card" style={{ borderLeft: `3px solid ${magasSzam > 0 ? "#ff7a7a" : "#ffa94d"}` }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, marginBottom: 12, flexWrap: "wrap" }}>
+                <h3 className="h2">Figyelmeztetesek</h3>
+                <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                    <span className="badge">{riasztasok.length} tetel</span>
+                    {magasSzam > 0 && (
+                        <span className="badge" style={{ background: "rgba(150,30,30,0.3)", color: "#ff9d9d" }}>
+                            {magasSzam} surgos
+                        </span>
+                    )}
+                </div>
+            </div>
+
+            <div style={{ display: "grid", gap: 8 }}>
+                {lathatok.map((r, i) => {
+                    const s = SULYOSSAG_STILUS[r.sulyossag] ?? SULYOSSAG_STILUS.alacsony;
+                    return (
+                        <div
+                            key={`${r.kod}-${r.eroforrasId ?? i}`}
+                            style={{
+                                display: "flex", gap: 10, alignItems: "flex-start",
+                                padding: "10px 12px", borderRadius: 12,
+                                background: s.hatter,
+                                border: `1px solid ${s.szin}44`,
+                            }}
+                        >
+                            <span style={{
+                                flexShrink: 0, marginTop: 2, fontSize: 10, fontWeight: 800,
+                                letterSpacing: "0.06em", textTransform: "uppercase",
+                                color: s.szin, border: `1px solid ${s.szin}66`,
+                                borderRadius: 999, padding: "2px 8px",
+                            }}>
+                                {s.cimke}
+                            </span>
+                            <div style={{ minWidth: 0 }}>
+                                <div style={{ fontWeight: 700, fontSize: 14 }}>{r.cim}</div>
+                                <div className="muted" style={{ fontSize: 12, marginTop: 2 }}>{r.reszlet}</div>
+                            </div>
+                        </div>
+                    );
+                })}
+            </div>
+
+            {riasztasok.length > LATHATO && (
+                <button
+                    className="btn"
+                    style={{ marginTop: 10, fontSize: 12 }}
+                    onClick={() => setMindMutat((v) => !v)}
+                >
+                    {mindMutat ? "Kevesebb" : `Tovabbi ${riasztasok.length - LATHATO} megjelenitese`}
+                </button>
+            )}
+
+            {kuszobok && (
+                <div className="muted" style={{ fontSize: 11, marginTop: 10 }}>
+                    Szabalyok: takarmany &lt; {kuszobok.alacsonyKeszlet} egyseg = alacsony &bull;{" "}
+                    {kuszobok.inaktivToNapok} napja nincs muvelet = inaktiv to. Vizminoseg-alapu
+                    riasztas meg nincs (kulon modul).
+                </div>
+            )}
+        </div>
+    );
+}
+
+// ─── Legutobbi tevekenysegek (actorral) ──────────────────────────────────────
+
+function LegutobbiLista({ esemenyek }: { esemenyek: LegutobbiEsemeny[] }) {
+    if (esemenyek.length === 0) {
+        return (
+            <div className="glass card">
+                <h3 className="h2" style={{ marginBottom: 8 }}>Legutobbi tevekenysegek</h3>
+                <div className="muted">Meg nincs naplozott muvelet.</div>
+            </div>
+        );
+    }
+
+    return (
+        <div className="glass card">
+            <h3 className="h2" style={{ marginBottom: 14 }}>Legutobbi tevekenysegek</h3>
+            <div style={{ display: "grid", gap: 8 }}>
+                {esemenyek.map((e) => {
+                    const szin = ESEMENY_SZIN[e.tipus] ?? "#d08a5b";
+                    return (
+                        <div
+                            key={e.azonosito}
+                            style={{
+                                display: "flex", gap: 12, alignItems: "flex-start",
+                                padding: "10px 12px", borderRadius: 12,
+                                background: "rgba(255,255,255,0.03)",
+                                borderLeft: `3px solid ${szin}`,
+                            }}
+                        >
+                            <div style={{ minWidth: 0, flex: 1 }}>
+                                <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+                                    <span style={{
+                                        fontSize: 11, fontWeight: 800, color: szin,
+                                        textTransform: "uppercase", letterSpacing: "0.06em",
+                                    }}>
+                                        {esemenyNev(e.tipus)}
+                                    </span>
+                                    {e.to?.nev && <span className="muted" style={{ fontSize: 12 }}>&bull; {e.to.nev}</span>}
+                                </div>
+                                {e.leiras && (
+                                    <div style={{ fontSize: 13, marginTop: 3, overflow: "hidden", textOverflow: "ellipsis" }}>
+                                        {e.leiras}
+                                    </div>
+                                )}
+                                <div className="muted" style={{ fontSize: 11, marginTop: 4 }}>
+                                    {new Date(e.datum).toLocaleString("hu-HU", {
+                                        year: "numeric", month: "2-digit", day: "2-digit",
+                                        hour: "2-digit", minute: "2-digit",
+                                    })}
+                                    {" • "}
+                                    {e.rogzitoNev
+                                        ? <>Rogzitette: <strong style={{ color: "rgba(255,255,255,0.8)" }}>{e.rogzitoNev}</strong></>
+                                        : <span style={{ opacity: 0.7 }}>Rogzito: nincs adat</span>}
+                                </div>
+                            </div>
+                        </div>
+                    );
+                })}
+            </div>
+            <div className="muted" style={{ fontSize: 11, marginTop: 10 }}>
+                A &bdquo;Rogzitette&rdquo; a bejelentkezett felhasznalobol szarmazik. A korabbi
+                (actor bevezetese elotti) esemenyeknel nincs adat.
+            </div>
         </div>
     );
 }
@@ -236,6 +431,15 @@ export default function HalaszatStatClient({ hid }: { hid: string }) {
         return Object.values(napok);
     }, [data]);
 
+    // Etetesi trend (kg/nap) — a nyers YYYY-MM-DD kulcsbol olvashato cimke
+    const etetesTrendAdat = useMemo(
+        () => (data?.etetesTrend ?? []).map((e) => ({
+            cimke: new Date(e.nap + "T00:00:00").toLocaleDateString("hu-HU", { month: "short", day: "numeric" }),
+            kg: e.kg,
+        })),
+        [data]
+    );
+
     // Tavak tipus szerint szzetvalasztva
     const toTavak = useMemo(
         () => (data?.tavakAllomany ?? []).filter((t) => t.tipus === "TO"),
@@ -310,12 +514,25 @@ export default function HalaszatStatClient({ hid }: { hid: string }) {
             </div>
 
             {/* ── KPI kartyak ── */}
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(4, minmax(0,1fr))", gap: 12 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(170px, 1fr))", gap: 12 }}>
                 <KpiKartya cim="Osszes to" ertek={data.toak.ossz} alcim={`${data.toak.aktiv} aktiv`} szin="#d08a5b" />
                 <KpiKartya cim="Ossz hal" ertek={`${data.halallomany.osszDarab} db`} alcim={`${data.halallomany.fajokSzama} halfaj`} szin="#b24b25" />
                 <KpiKartya cim={`Etetes (${data.days} nap)`} ertek={`${fmtDecimal(data.etetes.osszegKg)} kg`} alcim={`${data.etetes.darab} bejegyzes`} szin="#7a2a17" />
+                {data.takarmany && (
+                    <KpiKartya
+                        cim="Takarmanykeszlet"
+                        ertek={fmtDecimal(data.takarmany.osszKeszlet)}
+                        alcim={`${data.takarmany.aktiv} aktiv takarmany`}
+                        szin="#4caf50"
+                    />
+                )}
                 <KpiKartya cim="Ossz esemeny" ertek={data.esemenyEloszlas.reduce((s, e) => s + e.darab, 0)} alcim="naplozott muveletek" szin="#c06535" />
             </div>
+
+            {/* ── Riasztasok (Dashboard 2.0) ── */}
+            {data.riasztasok && (
+                <RiasztasPanel riasztasok={data.riasztasok} kuszobok={data.riasztasKuszobok} />
+            )}
 
             {/* ── Nincs adat placeholder ── */}
             {!vanAdat && (
@@ -435,7 +652,33 @@ export default function HalaszatStatClient({ hid }: { hid: string }) {
                             </ResponsiveContainer>
                         </div>
                     )}
+
+                    {/* ── Etetesi trend (kg/nap) — Dashboard 2.0 ── */}
+                    {etetesTrendAdat.length > 1 && (
+                        <div className="glass card" style={{ borderLeft: "3px solid #b24b2580" }}>
+                            <h3 className="h2" style={{ marginBottom: 16 }}>
+                                Etetesi trend &mdash; kg / nap (elmult {data.days} nap)
+                            </h3>
+                            <ResponsiveContainer width="100%" height={200}>
+                                <BarChart data={etetesTrendAdat} margin={{ top: 0, right: 16, bottom: 0, left: 0 }}>
+                                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.07)" vertical={false} />
+                                    <XAxis dataKey="cimke" stroke={TENGELY.stroke} tick={TENGELY.tick} />
+                                    <YAxis stroke={TENGELY.stroke} tick={TENGELY.tick} />
+                                    <Tooltip
+                                        {...TOOLTIP_STILUS}
+                                        formatter={(v: any) => [`${fmtDecimal(v)} kg`, "Etetes"] as [string, string]}
+                                    />
+                                    <Bar dataKey="kg" name="Etetes (kg)" fill={ESEMENY_SZIN.ETETES} radius={[4, 4, 0, 0]} maxBarSize={30} />
+                                </BarChart>
+                            </ResponsiveContainer>
+                        </div>
+                    )}
                 </>
+            )}
+
+            {/* ── Legutobbi tevekenysegek (actorral) — Dashboard 2.0 ── */}
+            {data.legutobbiEsemenyek && (
+                <LegutobbiLista esemenyek={data.legutobbiEsemenyek} />
             )}
         </div>
     );
