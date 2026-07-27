@@ -191,6 +191,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 
                     {hid && (
                         <>
+                            <NavItem href={`${base}/toak`}            icon={<Icon name="lake" />}       label="Tavak és telelők"  active={/\/toak\/?$/.test(pathname ?? "")} />
                             <NavItem href={`${base}/halfajok`}         icon={<Icon name="fish" />}       label="Halfajok"          active={pathname.includes("/halfajok")} />
                             <NavItem href={`${base}/takarmanyok`}      icon={<Icon name="wheat" />}      label="Takarmányok"       active={pathname.includes("/takarmanyok")} />
                             <NavItem href={`${base}/halkeltes`}        icon={<Icon name="hatchery" />}   label="Halkeltetés"       active={pathname.includes("/halkeltes")} />

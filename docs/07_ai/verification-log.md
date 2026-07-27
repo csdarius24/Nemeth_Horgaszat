@@ -280,6 +280,39 @@ felügyelt és igazolt legyen, ne vakon elfogadott. Kapcsolódó: `ai-manifest.m
   még nem). Az integráció **domain/Prisma-szintű**; teljes **HTTP/cookie
   endpoint-lefedés (401-útvonal) nem** futott.
 
+## V-17 — Vízegység-áttekintés („Tavak és telelők") + függő migráció
+
+- **Dátum:** 2026-06-27.
+- **AI kimenet:** `GET /api/halaszatok/[hid]/toak/attekintes` végpont, a
+  `/halaszatok/[hid]/toak` oldal (keresés, típus-szűrők, kártyák), tiszta
+  `src/lib/toak/attekintes.ts` helper, és a
+  `20260627090000_to_tipusok_es_muszaki_adatok` migráció (`ToTipus` bővítés +
+  opcionális `teruletHa`/`atlagMelysegMeter`/`kapacitasKg`).
+- **Kockázat, ha téves:** kitalált vízminőség-/egészség-pontszám; hibás
+  állománybecslés; migráció véletlen alkalmazása a production DB-re.
+- **Ellenőrzés (pontos parancsok, tényleges futás ebben a munkamenetben):**
+  - `npx prisma generate` → **siker** (nincs DB-kapcsolat).
+  - `npx tsc --noEmit` → **exit 0**.
+  - `npm run test` → **9 fájl / 96 teszt passed** (67 + 29 új a
+    `toak-attekintes.test.ts`-ből).
+  - `npm run build` → **„Compiled successfully"**; a route-manifest tartalmazza a
+    `ƒ /halaszatok/[hid]/toak` és `ƒ /api/halaszatok/[hid]/toak/attekintes` útvonalat.
+  - `npm run test:integration` — **nem futtatva** ebben a körben (nincs beállított
+    `TEST_DATABASE_URL` a munkamenetben); a suite teszt-DB nélkül biztonságosan skippel.
+- **Eredmény:** ✅ A funkció kódszinten kész, unit + typecheck + build zöld.
+- **Bizonyíték:** a fenti kimenetek; `src/lib/toak/attekintes.ts`,
+  `tests/unit/toak-attekintes.test.ts`, `docs/03_design/api-design.md`.
+- **Hatókör-korlát (őszinte):**
+  - A **migráció NINCS alkalmazva** — sem teszt-, sem production adatbázisra. A
+    lokális `.env` a **production**ra mutat (`srv1695.hstgr.io`), ezért semmilyen
+    `migrate dev/deploy` nem futott. Amíg nem alkalmazzák, az új `ToTipus` értékek
+    és a három műszaki mező nem használható éles adaton.
+  - **Vízminőség- és egészség-pontszám: nincs adatforrás** → az API mindig
+    `null`-t ad; a felület „nincs adat"-ot mutat. Ál-pontszámot nem gyártunk.
+  - Az **állomány kg BECSÜLT** (darab × tömegtartomány középértéke), nem mért érték.
+  - **Böngésző-ellenőrzés nem futott** (a dev szerver a production DB-re
+    csatlakozna) — a vizuális átnézés hátravan.
+
 ---
 
 ## Összegzés
@@ -302,6 +335,7 @@ felügyelt és igazolt legyen, ne vakon elfogadott. Kapcsolódó: `ai-manifest.m
 | V-14 | Integrációs infra + biztonságos kihagyás (2026-06-26) | ✅ implementálva, **nem futtatva** (nincs teszt-DB), production-érintés nélkül |
 | V-15 | Actor / audit-napló Sprint 1 — kód (2026-06-26) | ✅ kódszinten kész (52 teszt, build zöld); a migráció-alkalmazás/integráció V-16-ban |
 | V-16 | Actor Sprint 1 lezárva (2026-06-26) | ✅ migráció **teszt-DB → production** alkalmazva; integrációs tesztek a teszt-DB-n **lefutottak** (fejlesztői futtatás); edit/invalidate audit **hátra** |
+| V-17 | Vízegység-áttekintés (2026-06-27) | ✅ kód + 96 teszt + build zöld; a migráció **létrehozva, NEM alkalmazva**; vízminőség/egészség = „nincs adat" |
 
 A nyitott bizonyítékok (V-04 CI-futás link, V-11 lefedettségi érték, V-13/V-14
 integrációs tesztek **valós teszt-DB elleni futtatása**) `TODO`-ként/tervezettként

@@ -67,8 +67,9 @@ Kapcsolódó: [`scope-contract.md`](scope-contract.md), [`capability-map.md`](ca
 
 | Ügyfél-igény | Állapot | Bizonyíték a repóban | Ajánlott kategória | Szükséges változás | Thesis-relevancia | Kockázat / megjegyzés |
 |---|---|---|---|---|---|---|
-| Tavak létrehozása | ✅ | `POST .../toak` | Kész | — | Magas | — |
-| Telelő tavak létrehozása | ✅ | `ToTipus = TELELO` | Kész | — | Magas | — |
+| Tavak létrehozása | ✅ | `POST .../toak` (opcionális terület/mélység/kapacitás is) | Kész | — | Magas | — |
+| Telelő tavak létrehozása | ✅ | `ToTipus = TELELO`; **új:** `IVADEKNEVELO`, `KELTETO_MEDENCE` típusok is | Kész | migráció alkalmazása | Magas | a migráció **még nincs alkalmazva** |
+| Vízegység-áttekintő oldal (kártyák, keresés, szűrők) | ✅ | `/halaszatok/[hid]/toak` + `GET .../toak/attekintes` — kártya: típus, terület, mélység, állapot, 3 mutató, állomány kg, fő faj, utolsó etetés, fedezet, megnyitás | Kész | — | Magas | vízminőség/egészség mutató „nincs adat" |
 | Halfaj hozzáadása tóhoz/telelőhöz | ✅ | `halfajok` + `HalAllomany`/`telepites` | Kész | — | Magas | — |
 | Halállomány felvétele | ✅ | `POST .../telepites` | Kész | — | Magas | — |
 | Aktuális készlet tavanként | ✅ | `GET .../toak/[toId]` (`allomanyok`) | Kész | — | Magas | — |
@@ -78,8 +79,8 @@ Kapcsolódó: [`scope-contract.md`](scope-contract.md), [`capability-map.md`](ca
 | Kivétel | ✅ | `POST .../kivetel` | Kész | — | Magas | — |
 | Eladás / kivétel indoka | ⚠️ | `Kivetel.ok` (szabad szöveg) | Kész / P1 | strukturált ok-lista (enum) opció | Közepes | jelenleg szabad szöveg |
 | Készlet csökken kivét/eladás után | ✅ | `kivetel` tranzakció (`HalAllomany.darab`) | Kész | — | Magas | — |
-| Tó-minőség statisztika | 🟡 | **nincs** vízminőség-modell | P2 | vízminőség modul | Közepes | — |
-| Vízminőség alapú tó-minőség | 🟡 | nincs | P2 | — | Közepes | — |
+| Tó-minőség statisztika | ⚠️ | **Vízegység-áttekintés** (`/toak`): kártyánként állapot (Kiváló/Jó/Figyelendő/Nincs adat), becsült állomány kg, fő faj, utolsó etetés, takarmány-fedezet, telítettség — **de nem vízminőség-alapú** | P2 | vízminőség-mérés modul | Közepes | a „minőség" itt művelet-/állomány-alapú |
+| Vízminőség alapú tó-minőség | 🟡 | **nincs** vízminőség-modell; a `vizminosegPont` és `egeszsegPont` szándékosan mindig `null` („nincs adat") | P2 | vízminőség-entitás + mérések | Közepes | tudatosan nem gyártunk ál-pontszámot |
 
 ## 3. Halfajok és halállomány
 

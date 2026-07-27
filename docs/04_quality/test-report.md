@@ -7,7 +7,7 @@ forrása: `docs/01_product/scope-contract.md` (AC1–AC7).
 ## 1. Állapot — összefoglaló
 
 > **Unit szint zöld; az integrációs réteg a biztonságos teszt-DB-n lefutott.**
-> Jelenleg **67 unit teszt** fut **8 fájlban**, mind zöld (lásd 5. szakasz). Elkészült az **első DB-backed integrációs/workflow teszt-réteg** is
+> Jelenleg **96 unit teszt** fut **9 fájlban**, mind zöld (lásd 5. szakasz). Elkészült az **első DB-backed integrációs/workflow teszt-réteg** is
 > (takarmány-etetés workflow + jogosultság), biztonságos teszt-DB kezeléssel és
 > production-guarddal — ez **dedikált teszt-adatbázist igényel**, ezért jelenleg
 > **biztonságosan kihagyva** fut (lásd 8. szakasz). Az **e2e** réteg továbbra is
@@ -24,7 +24,7 @@ lefedettség, Playwright trace, endpoint-szintű integration) később illeszten
 | Tétel | Állapot |
 |---|---|
 | Teszt-keretrendszer | ✅ Vitest 3.2.6 (`vitest.config.ts`, node környezet) |
-| Unit tesztek | ✅ **67 teszt, 8 fájl** (`tests/unit/`) — korábban 52/7 |
+| Unit tesztek | ✅ **96 teszt, 9 fájl** (`tests/unit/`) — korábban 67/8 |
 | Integration tesztek | ✅ **Végrehajtva a biztonságos teszt-DB ellen** (feed-workflow + authorization, actor-assertekkel); teszt-DB nélkül továbbra is biztonságos skip — lásd 8. |
 | E2E tesztek | ❌ Nincs (tervezett, Playwright) |
 | Lefedettség mérés | ✅ Elérhető (`npm run test:coverage`, `@vitest/coverage-v8`) |
@@ -33,6 +33,7 @@ lefedettség, Playwright trace, endpoint-szintű integration) később illeszten
 | Production build | ✅ `npm run build` (Next.js) sikeres — 2026-06-26 |
 | Production DB migráció | ✅ `20260626100000_link_etetes_takarmany` **alkalmazva** (`prisma migrate deploy`, 2026-06-26, `srv1695.hstgr.io`) — lásd `verification-log.md` V-13 |
 | Actor migráció (Sprint 1) | ✅ `20260626120000_actor_naplo_takarmanymozgas` **alkalmazva** — előbb a biztonságos **teszt-DB**-re, majd a **production**-re (`prisma migrate deploy`) — lásd `verification-log.md` V-16 |
+| Vízegység-migráció (Tavak és telelők) | ⚠️ `20260627090000_to_tipusok_es_muszaki_adatok` **létrehozva, de NEM alkalmazva** (sem teszt-, sem production DB-re) — új `ToTipus` értékek + opcionális `teruletHa`/`atlagMelysegMeter`/`kapacitasKg` |
 | Kézi (manuális) ellenőrzés | ⚠️ Fejlesztés közben ad-hoc, nem dokumentált |
 
 **Jelenleg rendelkezésre álló minőségi jelek:** Vitest unit tesztek, ESLint
@@ -50,6 +51,8 @@ lefedettség, Playwright trace, endpoint-szintű integration) később illeszten
 | U-05 | Unit | `canManageTarget` | dolgozó-kezelés szabályai | Vitest | ✅ Kész |
 | U-06 | Unit | `canUpdateHibabejelentesStatus` | hibabejelentés-státusz jogosultság (tenant/ADMIN/bejelentő) | Vitest | ✅ Kész |
 | U-07 | Unit | `szamitTakarmanyFelhasznalas` / `ketTizedes` | takarmány-készletlevonás: elég/nincs elég/érvénytelen, 2-tizedes kerekítés | Vitest | ✅ Kész |
+| U-08 | Unit | `dashboard/riasztasok` | riasztási szabályok (takarmány, üres/inaktív tó, súlyosság-rendezés) | Vitest | ✅ Kész |
+| U-09 | Unit | `toak/attekintes` | vízegység-kártya logika: becsült kg, fő fajok, fedezet, telítettség, állapot, „nincs adat" | Vitest | ✅ Kész |
 | I-01 | Integration | Auth | register/login/me/logout + hibák | Vitest+DB | Tervezett |
 | I-02 | Integration | Halászat | létrehozás + OWNER tagság | Vitest+DB | Tervezett |
 | I-03 | Integration | Tó | létrehozás/listázás, típus | Vitest+DB | Tervezett |
@@ -96,9 +99,10 @@ Legutóbbi tényleges futás — `npm run test` (Vitest 3.2.6, `environment: nod
  ✓ tests/unit/test-db-guard.test.ts     ( 4 tests)
  ✓ tests/unit/rogzito.test.ts           ( 6 tests)
  ✓ tests/unit/riasztasok.test.ts        (15 tests)
+ ✓ tests/unit/toak-attekintes.test.ts   (29 tests)
 
- Test Files  8 passed (8)
-      Tests   67 passed (67)
+ Test Files  9 passed (9)
+      Tests   96 passed (96)
 ```
 
 - **Típusellenőrzés:** `npx tsc --noEmit` → **exit 0** (0 típushiba).
@@ -125,6 +129,7 @@ Legutóbbi tényleges futás — `npm run test` (Vitest 3.2.6, `environment: nod
 | `tests/unit/test-db-guard.test.ts` | `tests/integration/helpers/testDb.ts` (`ellenorizNemProduction`) | production-guard: production host/DB → dob; biztonságos teszt-URL → átengedi |
 | `tests/unit/rogzito.test.ts` | `src/lib/audit/rogzito.ts` (`rogzitoMegjelenites`) | actor-megjelenítés: név → email → null; trim; nincs actor → null |
 | `tests/unit/riasztasok.test.ts` | `src/lib/dashboard/riasztasok.ts` | dashboard riasztási szabályok: takarmány elfogyott/alacsony + küszöb-határeset, üres/inaktív tó, súlyosság-rendezés |
+| `tests/unit/toak-attekintes.test.ts` | `src/lib/toak/attekintes.ts` | vízegység-kártyák: becsült állomány kg (részleges/hiányzó súly), fő fajok (+N), takarmány-fedezet, telítettség, állapot-levezetés, „nincs adat" fallback, címkék |
 
 ### 5.2 Viselkedés-megőrző kiemelések (refaktor)
 
@@ -194,7 +199,7 @@ A folyamatos integráció a `.github/workflows/ci.yml`-ben van definiálva, és
 4. `npx prisma generate` — Prisma kliens előállítása (a typecheckhez kell;
    nem csatlakozik adatbázishoz).
 5. `npx tsc --noEmit` — típusellenőrzés.
-6. `npm run test` — Vitest unit tesztek (67 teszt, 8 fájl).
+6. `npm run test` — Vitest unit tesztek (96 teszt, 9 fájl).
 
 A CI tehát **typecheck + unit teszt** szinten véd; valódi adatbázis nem
 szükséges (a workflow csak egy placeholder `DATABASE_URL`-t állít be a Prisma

@@ -244,7 +244,7 @@ erDiagram
 | `EsemenyTipus` | `TELEPITES`, `KIVETEL`, `ETETES` | `NaploEsemeny.tipus` — a naplózott művelet típusa. |
 | `Szerepkor` | `OWNER`, `ADMIN`, `STAFF`, `OR`, `ANGLER` | `ToTagsag.szerepkor` — tó-szintű szerepkör (5 fokozat). |
 | `HalaszatSzerepkor` | `OWNER`, `ADMIN`, `STAFF` | `HalaszatTagsag.szerepkor` — halászat (tenant) szintű szerepkör. |
-| `ToTipus` | `TO`, `TELELO` | `To.tipus` — normál tó vagy telelő tó. |
+| `ToTipus` | `TO`, `TELELO`, `IVADEKNEVELO`, `KELTETO_MEDENCE` | `To.tipus` — vízegység típusa. Az `IVADEKNEVELO` és `KELTETO_MEDENCE` a vízegység-áttekintéshez került be (visszafelé kompatibilis ENUM-bővítés). |
 | `TakarmanyMozgasTipus` | `BEVETEL`, `FELHASZNALVA` | `TakarmanyMozgas.tipus` — készletnövelő (bevétel) vagy készletcsökkentő (felhasználás) mozgás. |
 | `HibabejelentesStatusz` | `UJ`, `FOLYAMATBAN`, `MEGOLDVA`, `ELUTASITVA` | `Hibabejelentes.statusz` — a hibabejelentés állapota (alapérték `UJ`). |
 
@@ -290,8 +290,14 @@ erDiagram
 - **Relációk:** `halaszat`, `felhasznalo` (mindkettő kötelező).
 
 ### To (`toak`)
-- **Cél:** egy tó (normál vagy telelő) egy halászaton belül.
-- **Fontos mezők:** `nev`, `tipus` (`ToTipus`, alap `TO`), `aktiv`, `halaszatId`.
+- **Cél:** egy vízegység (tó, telelő, ivadéknevelő, keltető medence) egy
+  halászaton belül.
+- **Fontos mezők:** `nev`, `tipus` (`ToTipus`, alap `TO`), `aktiv`, `halaszatId`,
+  valamint **opcionális műszaki adatok**: `teruletHa` (`Decimal(8,2)`),
+  `atlagMelysegMeter` (`Decimal(5,2)`), `kapacitasKg` (`Decimal(10,2)`) — mind
+  **nullable**, a meglévő tavak érvényesek maradnak; hiányzó érték a felületen
+  „nincs adat". A `kapacitasKg` a **telítettség** számításához kell (nélküle a
+  mutató `null`).
 - **Megszorítások / megjegyzés:** a `halaszatId` **nullable** (`Int?`). Ez
   szándékos: a séma kommentje szerint a mező átmenetileg nullable, hogy a régi
   (tenant nélküli) adatok ne boruljanak migrációkor. Új tó mindig `halaszatId`-vel

@@ -295,12 +295,52 @@ táblázatok az egyes végpontoknál pontosítják.
 - **Hibák:** `400` hibás azonosító; `401/403` jogosultság (`{ hiba }`).
 
 ### POST /api/halaszatok/[hid]/toak
-- **Cél:** új tó létrehozása.
+- **Cél:** új vízegység (tó / telelő / ivadéknevelő / keltető medence) létrehozása.
 - **Jogosultság:** `requireHalaszatRole(hid, "ADMIN")`.
-- **Request body:** `{ nev: string (min. 2), tipus?: "TO" | "TELELO" }` (alap `TO`).
-- **Siker:** `201` `{ to: { azonosito, nev, tipus, aktiv, letrehozva } }`.
+- **Request body:** `{ nev: string (min. 2), tipus?: "TO" | "TELELO" | "IVADEKNEVELO" | "KELTETO_MEDENCE" (alap "TO"), teruletHa?: number, atlagMelysegMeter?: number, kapacitasKg?: number }`
+  — a három műszaki mező **opcionális**; csak pozitív számként kerül mentésre,
+  egyébként `null`.
+- **Siker:** `201` `{ to: { azonosito, nev, tipus, aktiv, letrehozva, teruletHa, atlagMelysegMeter, kapacitasKg } }`.
 - **Hibák:** `400` túl rövid név; `401/403` jogosultság (`{ hiba }`).
 - **Mellékhatás:** `To` létrejön a `halaszatId`-vel.
+
+### GET /api/halaszatok/[hid]/toak/attekintes
+- **Cél:** **vízegység-áttekintés** („Tavak és telelők" oldal) — egy sor minden
+  tóhoz/telelőhöz, a kártyákhoz szükséges összes adattal. Csak olvasás.
+- **Jogosultság:** `requireHalaszatRole(hid, "STAFF")`; minden lekérdezés
+  `halaszatId`-re szűr (tenant-izoláció).
+- **Query:** `days` (1–90, alap 30) — az etetési átlag számítási időszaka.
+- **Siker:** `200` `{ egysegek: [...], osszesen, days, viewerRole, takarmany: { keszletKg, halaszatAtlagNapiKg, halaszatFedezetNap }, nincsAdatForras }`.
+
+  Egy `egysegek` elem mezői:
+
+  | Mező | Tartalom |
+  |---|---|
+  | `azonosito`, `nev`, `tipus`, `aktiv` | alapadatok |
+  | `teruletHa`, `atlagMelysegMeter`, `kapacitasKg` | opcionális műszaki adatok (`null`, ha nincs megadva) |
+  | `allomanyDarab` | `HalAllomany` darabszám-összeg |
+  | `allomanyKg` | **becsült** összsúly: `SUM(darab × (minTomegKg+maxTomegKg)/2)`; `null`, ha nincs tömegadat |
+  | `allomanyBecsultReszleges` | `true`, ha csak a tételek egy részéhez volt tömegadat |
+  | `foFajok` | a legnagyobb darabszámú fajok (pl. `"Ponty, Amur +1"`); `null`, ha nincs állomány |
+  | `utolsoEtetes`, `utolsoEtetesNapja` | legutóbbi `Etetes` időpontja / hány napja |
+  | `atlagNapiEtetesKg` | az adott vízegység átlagos napi etetése az időszakban |
+  | `fedezetNap` | takarmány-fedezet napokban; `null`, ha nincs mérhető fogyás |
+  | `utolsoEsemeny`, `utolsoEsemenyNapja` | legutóbbi `NaploEsemeny` |
+  | `telitettsegSzazalek` | `becsültKg / kapacitasKg`; `null`, ha nincs kapacitás |
+  | `vizminosegPont`, `egeszsegPont` | **mindig `null`** — nincs vízminőség-/halegészség-modul |
+  | `allapot` | `"kivalo" \| "jo" \| "figyelendo" \| "nincs_adat"` |
+
+- **Állapot-szabályok** (a tiszta, unit-tesztelt `src/lib/toak/attekintes.ts`-ben;
+  **vízminőségtől nem függenek**): `nincs_adat`, ha nincs állomány és soha nem volt
+  művelet · `figyelendo`, ha nincs állomány VAGY ≥14 napja nincs művelet VAGY a
+  fedezet < 7 nap · `kivalo`, ha van állomány, ≤3 napja volt művelet és a fedezet
+  nem számolható vagy ≥14 nap · egyébként `jo`.
+- **Megjegyzés a fedezetről:** a takarmánykészlet **halászat-szintű (megosztott)**,
+  nem tavankénti. A kártyán látható `fedezetNap` azt mutatja, hány napra elegendő a
+  közös készlet, **ha csak az adott vízegység fogyasztana** a jelenlegi ütemével; a
+  reális, összesített érték a `takarmany.halaszatFedezetNap`.
+- **Hibák:** `400` hibás azonosító; `401/403` (`{ error }`).
+- **Mellékhatás:** nincs (csak olvasás/aggregáció).
 
 ### GET /api/halaszatok/[hid]/toak/[toId]
 - **Cél:** egy tó adatai + aktuális készlete halfajonként.
@@ -529,6 +569,7 @@ táblázatok az egyes végpontoknál pontosítják.
 | POST | `/api/halaszatok/[hid]/takarmanyok/[id]/mozgasok` | STAFF |
 | GET | `/api/halaszatok/[hid]/toak` | STAFF |
 | POST | `/api/halaszatok/[hid]/toak` | ADMIN |
+| GET | `/api/halaszatok/[hid]/toak/attekintes` | STAFF |
 | GET | `/api/halaszatok/[hid]/toak/[toId]` | STAFF |
 | POST | `/api/halaszatok/[hid]/toak/[toId]/telepites` | ADMIN |
 | POST | `/api/halaszatok/[hid]/toak/[toId]/kivetel` | ADMIN |

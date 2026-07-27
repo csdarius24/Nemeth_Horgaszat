@@ -42,7 +42,7 @@ export default async function HalaszatDashboardPage(props: { params: Promise<{ h
         { cim: "Halfajok", leiras: "Tenant-specifikus halfaj lista",   href: `/halaszatok/${hid}/halfajok`, primary: true  },
         { cim: "Dolgozok", leiras: "Munkatarsak kezelese",             href: `/halaszatok/${hid}/dolgozok`, primary: false },
         { cim: "Naptar",   leiras: "Esemenyek es jegyzetek",           href: `/halaszatok/${hid}/naptar`,   primary: false },
-        { cim: "Tavak",    leiras: canManage ? "Lista es letrehozas" : "Lista (csak megtekintes)", href: "#toak", primary: false },
+        { cim: "Tavak es telelok", leiras: "Vizegyseg-attekintes kartyakkal", href: `/halaszatok/${hid}/toak`, primary: false },
     ];
 
     return (

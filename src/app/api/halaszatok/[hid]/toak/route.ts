@@ -52,10 +52,19 @@ export async function POST(
 
     const body = await req.json().catch(() => ({}));
     const nev = typeof body?.nev === "string" ? body.nev.trim() : "";
-    const tipus = body?.tipus === "TELELO" ? "TELELO" : "TO";
+
+    const ENGEDETT_TIPUSOK = ["TO", "TELELO", "IVADEKNEVELO", "KELTETO_MEDENCE"] as const;
+    const tipus = ENGEDETT_TIPUSOK.includes(body?.tipus) ? body.tipus : "TO";
 
     if (nev.length < 2) {
         return NextResponse.json({ hiba: "A tó neve kötelező (min. 2 karakter)." }, { status: 400 });
+    }
+
+    // Opcionális műszaki adatok: csak akkor mentjük, ha pozitív számként érkeztek.
+    function opcionalisPozitiv(x: unknown): number | null {
+        if (x == null || x === "") return null;
+        const n = Number(x);
+        return Number.isFinite(n) && n > 0 ? n : null;
     }
 
     const ujTo = await prisma.to.create({
@@ -63,8 +72,14 @@ export async function POST(
             nev,
             tipus,
             halaszatId,
+            teruletHa: opcionalisPozitiv(body?.teruletHa),
+            atlagMelysegMeter: opcionalisPozitiv(body?.atlagMelysegMeter),
+            kapacitasKg: opcionalisPozitiv(body?.kapacitasKg),
         },
-        select: { azonosito: true, nev: true, tipus: true, aktiv: true, letrehozva: true },
+        select: {
+            azonosito: true, nev: true, tipus: true, aktiv: true, letrehozva: true,
+            teruletHa: true, atlagMelysegMeter: true, kapacitasKg: true,
+        },
     });
 
     return NextResponse.json({ to: ujTo }, { status: 201 });
