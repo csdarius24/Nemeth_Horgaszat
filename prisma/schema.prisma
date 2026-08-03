@@ -11,6 +11,22 @@ enum EsemenyTipus {
   TELEPITES
   KIVETEL
   ETETES
+  // Halászati napló 2.0 — visszafelé kompatibilis bővítés.
+  // Jelenleg csak a TAKARMANY_BEVETEL / TAKARMANY_FELHASZNALAS keletkezik
+  // ténylegesen (takarmánymozgásból); a többi érték a jövőbeli modulokhoz
+  // van előkészítve (esemény NEM jön létre hozzájuk, amíg a modul nincs kész).
+  ATTELEPITES
+  TAKARMANY_BEVETEL
+  TAKARMANY_FELHASZNALAS
+  TAKARMANY_KORREKCIO
+  VIZMINOSEG_MERES
+  ELHULLAS
+  MADARKAR
+  HALKELTES
+  FELADAT
+  HIBABEJELENTES
+  RIASZTAS
+  EGYEB
 }
 
 enum TakarmanyMozgasTipus {
@@ -89,6 +105,7 @@ model Halaszat {
   naptarBejegyzesek  NaptarBejegyzes[]
   takarmanyok        Takarmany[]
   takarmanyMozgasok  TakarmanyMozgas[]
+  naploEsemenyek     NaploEsemeny[]
 
   @@map("halaszatok")
 }
@@ -266,7 +283,9 @@ model Etetes {
 model NaploEsemeny {
   azonosito   Int          @id @default(autoincrement())
   tipus       EsemenyTipus
-  toId        Int
+  // Halászati napló 2.0: a toId nullable lett, mert vannak tóhoz nem kötött
+  // események (pl. takarmány-bevétel). A tenant-kötést ilyenkor a halaszatId adja.
+  toId        Int?
   halfajId    Int?
   darab       Int?
   mennyisegKg Decimal?     @db.Decimal(8, 2)
@@ -277,14 +296,26 @@ model NaploEsemeny {
   // Nullable: régi sorok + rendszer-generált események megmaradnak.
   felhasznaloId Int?
 
+  // Halászati napló 2.0 — mind nullable, a régi sorok érvényesek maradnak:
+  halaszatId             Int?     // közvetlen tenant-kötés (tó nélküli eseményekhez is)
+  cim                    String?  @db.VarChar(200) // ember-olvasható cím
+  reszletekJson          Json?    // strukturált részletek (pl. takarmány neve, új készlet)
+  kapcsolodoEntitasTipus String?  @db.VarChar(40)  // pl. "Etetes", "Kivetel", "TakarmanyMozgas"
+  kapcsolodoEntitasId    Int?
+  ervenyes               Boolean  @default(true)   // érvénytelenítés (audit-flow) később; most mindig true
+
   // relációk
-  to          To           @relation(fields: [toId], references: [azonosito], onDelete: Cascade)
+  // AUDIT-DÖNTÉS: a tó törlése többé NEM törli a naplót (Cascade → SetNull),
+  // az auditnapló a tó megszűnése után is megmarad.
+  to          To?          @relation(fields: [toId], references: [azonosito], onDelete: SetNull)
   halfaj      Halfaj?      @relation(fields: [halfajId], references: [azonosito], onDelete: SetNull)
   felhasznalo Felhasznalo? @relation(fields: [felhasznaloId], references: [azonosito], onDelete: SetNull)
+  halaszat    Halaszat?    @relation(fields: [halaszatId], references: [azonosito], onDelete: Cascade)
 
   @@index([toId, datum])
   @@index([tipus, datum])
   @@index([felhasznaloId])
+  @@index([halaszatId, datum])
   @@map("naplo_esemenyek")
 }
 

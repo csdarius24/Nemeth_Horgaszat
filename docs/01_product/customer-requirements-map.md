@@ -133,12 +133,12 @@ Kapcsolódó: [`scope-contract.md`](scope-contract.md), [`capability-map.md`](ca
 
 | Ügyfél-igény | Állapot | Bizonyíték a repóban | Ajánlott kategória | Szükséges változás | Thesis-relevancia | Kockázat / megjegyzés |
 |---|---|---|---|---|---|---|
-| Külön napló-menü | 🟡 | `timeline`/`NaploEsemeny` van, külön „napló-menü" nincs | P3 | napló-nézet | Közepes | — |
-| Kötelező adminisztráció támogatása | ⚠️ | részben (auditnapló műveletekre) | P3 | eseménykör-bővítés | Közepes | — |
-| Események automatikus gyűjtése | ⚠️ | `NaploEsemeny` automatikusan gyűlik a **műveletekre** | P3 | bővíteni vízminőség/mortalitás/hatchery eseményekre | Közepes | jelenleg csak 4 művelettípus |
-| PDF-riport generálás | 🟡 | nincs | P3 | PDF-export réteg | Közepes | — |
-| Gyors PDF-export | 🟡 | nincs | P3 | — | Közepes | — |
-| Tartalmazza: telepítés/áthelyezés/kivét/eladás/etetés/vízminőség/mortalitás/hatchery | ⚠️ | telepítés/áthelyezés/kivét/etetés naplózva; vízminőség/mortalitás/hatchery **nincs** | P3 | eseménykör + a hiányzó modulok | Közepes | függ a P2/P4-től |
+| Külön napló-menü | ✅ | **Halászati napló 2.0:** `/halaszatok/[hid]/naplo` oldal + `GET .../naplo` API — keresés, típus-/vízegység-szűrő, napi/heti/havi gyorsszűrők | Kész | — | Magas | — |
+| Kötelező adminisztráció támogatása | ⚠️ | naplólista + **napi/heti/havi nyomtatható export** (fejléc, időszak, összegzések, eseménytábla, „generálta") | P3 | hivatalos formátum-igények pontosítása | Közepes | — |
+| Események automatikus gyűjtése | ⚠️ | automatikus: telepítés, kivét, áttelepítés, etetés, **takarmány-bevétel/-felhasználás** (kézi és etetéskori automatikus levonás is) | P3 | vízminőség/mortalitás/hatchery események a moduljaikkal együtt | Közepes | csak a megvalósított műveletek naplóznak |
+| PDF-riport generálás | ⚠️ | **nyomtatóbarát HTML export** („Nyomtatás / PDF mentés" gombbal — böngészőből PDF-be menthető); közvetlen bináris PDF **nincs** | P3 | szerveroldali PDF-generálás | Közepes | tudatosan nem került be nehéz PDF-függőség |
+| Gyors PDF-export | ⚠️ | egykattintásos export gomb a napló-oldalon (új fülön nyílik, nyomtatható) | P3 | közvetlen PDF-letöltés | Közepes | — |
+| Tartalmazza: telepítés/áthelyezés/kivét/eladás/etetés/vízminőség/mortalitás/hatchery | ⚠️ | telepítés/áthelyezés/kivét (eladás-ok szöveggel)/etetés/takarmánymozgás **naplózva**; vízminőség/mortalitás/hatchery **nincs** (nincs moduljuk — enum-értékük előkészítve) | P3 | a hiányzó modulok (P2/P4) | Közepes | nem állítjuk, hogy nem létező modul naplózna |
 
 ## 8. Halkeltetési modul
 

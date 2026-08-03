@@ -100,15 +100,22 @@ export async function POST(
                 megjegyzes ? `megj.: ${megjegyzes}` : null,
             ].filter(Boolean).join(" • ");
 
+            // Megjegyzés (Halászati napló 2.0): az áttelepítés tudatosan KÉT eseményt
+            // ír (KIVETEL a forráson + TELEPITES a célon), mert per-tó idővonalon így
+            // helyes az állományváltozás. Az összetartozást a reszletekJson jelzi;
+            // az ATTELEPITES enum-érték a jövőbeli egyesített nézethez van fenntartva.
             await tx.naploEsemeny.create({
                 data: {
                     tipus: "KIVETEL",
                     toId: fromTo.azonosito,
+                    halaszatId,
                     halfajId,
                     darab,
+                    cim: `Áttelepítés (kivét) — ${fromTo.nev} → ${toTo.nev}`,
                     leiras: leirasForras,
                     // actor: ki rögzítette (sessionből)
                     felhasznaloId: auth.user.azonosito,
+                    reszletekJson: { attelepites: true, forrasToId: fromTo.azonosito, celToId: toTo.azonosito },
                 },
             });
 
@@ -116,11 +123,14 @@ export async function POST(
                 data: {
                     tipus: "TELEPITES",
                     toId: toTo.azonosito,
+                    halaszatId,
                     halfajId,
                     darab,
+                    cim: `Áttelepítés (telepítés) — ${toTo.nev} ← ${fromTo.nev}`,
                     leiras: leirasCel,
                     // actor: ki rögzítette (sessionből)
                     felhasznaloId: auth.user.azonosito,
+                    reszletekJson: { attelepites: true, forrasToId: fromTo.azonosito, celToId: toTo.azonosito },
                 },
             });
 

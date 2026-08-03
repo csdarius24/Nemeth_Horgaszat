@@ -458,6 +458,47 @@ táblázatok az egyes végpontoknál pontosítják.
 
 ---
 
+## Halászati napló végpontok
+
+### GET /api/halaszatok/[hid]/naplo
+- **Cél:** központi **Halászati napló** — minden naplózott művelet szűrhető,
+  kereshető listája, teljes nyomon követhetőséggel (ki / mit / mikor / hol /
+  mennyi).
+- **Jogosultság:** `requireHalaszatRole(hid, "STAFF")`. **Tenant-izoláció:** a
+  régi sorok a tón keresztül (`to.halaszatId`), az újak a közvetlen `halaszatId`
+  mezőn keresztül szűrődnek (OR).
+- **Query:** `q` (keresés a `cim`/`leiras` szövegben), `tipus` (érvényes
+  `EsemenyTipus`), `toId`, `from`/`to` (ISO dátum), VAGY `period=day|week|month`
+  + `date=YYYY-MM-DD` (UTC határok, hétfő-kezdésű hét), `limit` (alap 100, max 200).
+- **Siker:** `200` `{ esemenyek: [...], talalatOsszesen, tenantOsszesen, limit, idoszak }`.
+  Egy esemény: `{ id, tipus, tipusCimke, cim, leiras, datum, rogzitoNev, toId,
+  toNev, halfajNev, mennyisegKg, darab, ervenyes, reszletek, kapcsolodoEntitasTipus,
+  kapcsolodoEntitasId }`. A `cim` a tárolt címből, régi soroknál a típus+tó+faj
+  fallbackből képződik.
+- **Hibák:** `400` érvénytelen azonosító/típus/dátum; `401/403` (`{ error }`).
+- **Mellékhatás:** nincs (csak olvasás).
+
+### GET /api/halaszatok/[hid]/naplo/export
+- **Cél:** **napi / heti / havi** napló-dokumentum export. Az MVP formátum
+  **nyomtatóbarát HTML** (beépített „Nyomtatás / PDF mentés" gombbal; a böngésző
+  Nyomtatás → PDF mentés útvonalával menthető PDF-be). **Közvetlen bináris PDF
+  még nincs** — `format=pdf` kérésre `400` magyarázattal (tervezett következő lépés).
+- **Jogosultság:** `requireHalaszatRole(hid, "STAFF")` + tenant-szűrés.
+- **Query:** `period=day|week|month` (alap `day`), `date=YYYY-MM-DD` (alap: mai
+  nap, UTC), `toId?`, `tipus?`, `format=html` (alap).
+- **Siker:** `200`, `Content-Type: text/html; charset=utf-8`. A dokumentum
+  tartalma: cím („Halászati napló"), halászat neve, időszak-címke, generálás
+  időpontja + generálta (session-felhasználó), használt szűrők, **összegzés**
+  (típusonkénti darabszám; etetés kg; telepítés/kivét db; takarmány-bevétel/-
+  felhasználás kg), és az esemény-táblázat (időpont / típus / vízegység /
+  faj-takarmány / mennyiség / rögzítette / részletek). Minden felhasználói
+  tartalom HTML-escape-elve (unit-tesztelt `htmlEscape`).
+- **Hibák:** `400` érvénytelen period/date/típus vagy `format=pdf`; `401/403`;
+  `404` nincs ilyen halászat.
+- **Mellékhatás:** nincs (csak olvasás).
+
+---
+
 ## Naptár végpontok
 
 ### GET /api/halaszatok/[hid]/naptar
@@ -578,6 +619,8 @@ táblázatok az egyes végpontoknál pontosítják.
 | GET | `/api/halaszatok/[hid]/toak/[toId]/summary` | STAFF |
 | GET | `/api/halaszatok/[hid]/toak/[toId]/timeline` | STAFF |
 | GET | `/api/halaszatok/[hid]/osszesito` | STAFF |
+| GET | `/api/halaszatok/[hid]/naplo` | STAFF |
+| GET | `/api/halaszatok/[hid]/naplo/export` | STAFF |
 | GET | `/api/halaszatok/[hid]/naptar` | STAFF |
 | POST | `/api/halaszatok/[hid]/naptar` | STAFF |
 | PATCH | `/api/halaszatok/[hid]/naptar/[id]` | STAFF |

@@ -99,12 +99,17 @@ export async function POST(
                 data: {
                     tipus: "KIVETEL",
                     toId: to.azonosito,
+                    halaszatId,
                     halfajId,
                     darab,
                     datum,
+                    cim: `Kivét — ${to.nev}${halfaj?.nev ? ` (${halfaj.nev})` : ""}`,
                     leiras,
                     // actor: ki rögzítette (sessionből, NEM a kérés törzséből)
                     felhasznaloId: auth.user.azonosito,
+                    kapcsolodoEntitasTipus: "Kivetel",
+                    kapcsolodoEntitasId: kivetel.azonosito,
+                    reszletekJson: { ok },
                 },
             });
 

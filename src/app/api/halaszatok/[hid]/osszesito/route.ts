@@ -140,7 +140,9 @@ export async function GET(
         })
         : [];
     const utolsoMap = new Map<number, Date | null>(
-        utolsoEsemenyek.map((u) => [u.toId, u._max.datum ?? null])
+        utolsoEsemenyek
+            .filter((u): u is typeof u & { toId: number } => u.toId != null)
+            .map((u) => [u.toId, u._max.datum ?? null])
     );
 
     // ── 9. Riasztasok (tiszta, szabaly-alapu helperrel) ───────────────────────

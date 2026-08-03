@@ -71,6 +71,23 @@ ismert korlátai átláthatóan dokumentáltak (lásd lentebb és a
 - **Még nincs:** művelet-szerkesztés/érvénytelenítés audit + verziózás; nem minden
   CRUD kap actort.
 
+### Halászati napló 2.0 (2026-06-27)
+- Központi napló-oldal (`/halaszatok/[hid]/naplo`): keresés, típus- és
+  vízegység-szűrő, napi/heti/havi gyorsszűrők; minden bejegyzésen típus-badge,
+  cím, időpont, **„Rögzítette"**, vízegység/faj, mennyiség, részletek,
+  „Érvényes" jelölés.
+- **Dokumentum-export:** napi/heti/havi **nyomtatóbarát HTML** riport
+  (fejléc, időszak, generálta, szűrők, típusonkénti + mennyiségi összegzések,
+  eseménytábla) — a böngésző „Nyomtatás → PDF mentés" útvonalán PDF-be menthető.
+  **Közvetlen bináris PDF tervezett.**
+- Naplózott műveletek: telepítés, kivét, áttelepítés, etetés, **takarmány-bevétel
+  és -felhasználás** (kézi és etetéskori automatikus levonás is).
+- Séma: `EsemenyTipus` bővítés (15 érték; a nem-implementált modulok típusai
+  előkészítettek, esemény nem keletkezik hozzájuk), `cim`/`reszletekJson`/
+  `kapcsolodo*`/`ervenyes` mezők, `halaszatId` tenant-kötés, és **audit-döntés:**
+  a tó törlése többé nem törli a naplót (SetNull). Migráció:
+  `20260627120000_halaszati_naplo_2` — **még nincs alkalmazva**.
+
 ### Kiegészítő modulok
 - Naptár (havi bejegyzések), hibabejelentés státuszkövetéssel, beépített
   számológép segédeszköz.

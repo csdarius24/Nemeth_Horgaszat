@@ -67,7 +67,7 @@ export async function POST(
                 });
             }
 
-            await tx.telepites.create({
+            const telepites = await tx.telepites.create({
                 data: {
                     toId: to.azonosito,
                     halfajId,
@@ -77,17 +77,28 @@ export async function POST(
                     forras,
                     megjegyzes,
                 },
+                select: { azonosito: true },
             });
 
             await tx.naploEsemeny.create({
                 data: {
                     tipus: "TELEPITES",
                     toId: to.azonosito,
+                    halaszatId,
                     halfajId,
                     darab,
-                    leiras: `Telepítés • darab: ${darab}`,
+                    cim: `Telepítés — ${to.nev}`,
+                    leiras: [
+                        `Telepítés: ${to.nev}`,
+                        `darab: ${darab}`,
+                        forras ? `forrás: ${forras}` : null,
+                        megjegyzes ? `megj.: ${megjegyzes}` : null,
+                    ].filter(Boolean).join(" • "),
                     // actor: ki rögzítette (sessionből, NEM a kérés törzséből)
                     felhasznaloId: auth.user.azonosito,
+                    kapcsolodoEntitasTipus: "Telepites",
+                    kapcsolodoEntitasId: telepites.azonosito,
+                    reszletekJson: { minTomegKg, maxTomegKg, forras },
                 },
             });
 

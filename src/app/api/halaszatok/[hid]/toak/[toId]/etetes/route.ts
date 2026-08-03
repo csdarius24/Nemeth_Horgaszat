@@ -67,6 +67,8 @@ export async function POST(
                     data: {
                         tipus: "ETETES",
                         toId: to.azonosito,
+                        halaszatId,
+                        cim: `Etetés — ${to.nev}`,
                         mennyisegKg,
                         datum,
                         leiras: [
@@ -77,6 +79,8 @@ export async function POST(
                         ].filter(Boolean).join(" • "),
                         // actor: ki etetett (sessionből)
                         felhasznaloId: auth.user.azonosito,
+                        kapcsolodoEntitasTipus: "Etetes",
+                        kapcsolodoEntitasId: etetes.azonosito,
                     },
                 });
 
@@ -154,6 +158,8 @@ export async function POST(
                 data: {
                     tipus: "ETETES",
                     toId: to.azonosito,
+                    halaszatId,
+                    cim: `Etetés — ${to.nev} (${takarmany.nev})`,
                     mennyisegKg,
                     datum,
                     leiras: [
@@ -164,6 +170,28 @@ export async function POST(
                     ].filter(Boolean).join(" • "),
                     // actor: ki etetett (sessionből)
                     felhasznaloId: auth.user.azonosito,
+                    kapcsolodoEntitasTipus: "Etetes",
+                    kapcsolodoEntitasId: etetes.azonosito,
+                    reszletekJson: { takarmanyNev: takarmany.nev, ujKeszlet },
+                },
+            });
+
+            // Halászati napló 2.0: az automatikus készletlevonás KÜLÖN naplóeseményt
+            // is kap (TAKARMANY_FELHASZNALAS), hogy a takarmány-forgalom önállóan
+            // is visszakereshető legyen a naplóban.
+            await tx.naploEsemeny.create({
+                data: {
+                    tipus: "TAKARMANY_FELHASZNALAS",
+                    toId: to.azonosito,
+                    halaszatId,
+                    cim: `Takarmány-felhasználás — ${takarmany.nev} (etetés: ${to.nev})`,
+                    mennyisegKg,
+                    datum,
+                    leiras: `Automatikus levonás etetéskor: −${mennyisegKg} ${takarmany.egyseg} • maradt: ${ujKeszlet} ${takarmany.egyseg}`,
+                    felhasznaloId: auth.user.azonosito,
+                    kapcsolodoEntitasTipus: "TakarmanyMozgas",
+                    kapcsolodoEntitasId: mozgas.azonosito,
+                    reszletekJson: { takarmanyNev: takarmany.nev, ujKeszlet, etetesId: etetes.azonosito, automatikus: true },
                 },
             });
 

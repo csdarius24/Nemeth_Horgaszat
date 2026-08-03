@@ -313,6 +313,45 @@ felügyelt és igazolt legyen, ne vakon elfogadott. Kapcsolódó: `ai-manifest.m
   - **Böngésző-ellenőrzés nem futott** (a dev szerver a production DB-re
     csatlakozna) — a vizuális átnézés hátravan.
 
+## V-18 — Halászati napló 2.0: központi napló + nyomtatható export
+
+- **Dátum:** 2026-06-27.
+- **AI kimenet:** `GET .../naplo` (szűrhető napló-API) + `GET .../naplo/export`
+  (nyomtatóbarát HTML riport), `/halaszatok/[hid]/naplo` oldal, tiszta
+  `src/lib/naplo/format.ts` helper (24 unit teszt), a művelet-route-ok
+  naplóbejegyzéseinek bővítése (cim, halaszatId, kapcsolodó entitás,
+  reszletekJson; kézi + automatikus takarmánymozgás-események), és a
+  `20260627120000_halaszati_naplo_2` migráció.
+- **Kockázat, ha téves:** hibás időszak-határok (rossz riport-tartalom); XSS a
+  HTML-exportban; tenant-szivárgás a naplóban; a nullable `toId` töri a meglévő
+  aggregációkat.
+- **Ellenőrzés (pontos parancsok, tényleges futás ebben a munkamenetben):**
+  - `npx prisma generate` → **siker** (nincs DB-kapcsolat).
+  - `npx tsc --noEmit` → **exit 0** (a nullable `toId` miatti groupBy-típushibát
+    az `osszesito`-ban null-szűréssel javítottuk — a tsc fogta meg).
+  - `npm run test` → **10 fájl / 120 teszt passed** (96 + 24 `naplo-format`);
+    köztük hétfő-kezdésű hét, hónapforduló, érvénytelen dátum → null,
+    `htmlEscape` XSS-esetek.
+  - `npm run build` → **„Compiled successfully"**; route-manifest:
+    `ƒ /api/halaszatok/[hid]/naplo`, `ƒ .../naplo/export`, `ƒ /halaszatok/[hid]/naplo`.
+  - `npm run test:integration` → **5 teszt SKIPPED** (nincs teszt-DB beállítva a
+    munkamenetben; 0 DB-kapcsolat, production nem érintett).
+- **Eredmény:** ✅ Kódszinten kész; unit + typecheck + build zöld.
+- **Bizonyíték:** a fenti kimenetek; `src/lib/naplo/format.ts`,
+  `tests/unit/naplo-format.test.ts`, `docs/03_design/api-design.md`.
+- **Hatókör-korlát (őszinte):**
+  - A **migráció NINCS alkalmazva** (a lokális `.env` a productionre mutat, ezért
+    semmilyen `migrate dev/deploy` nem futott). Alkalmazásig az új napló-mezők és
+    a tóhoz nem kötött események éles adaton nem működnek.
+  - Az export **nyomtatóbarát HTML** — közvetlen bináris **PDF nincs** (tudatosan
+    nem került be nehéz PDF-függőség; tervezett következő lépés).
+  - **Érvénytelenítés/verziózás nincs** — az `ervenyes` mező előkészített, minden
+    bejegyzés „Érvényes"; a teljes edit/invalidate audit tervezett.
+  - Csak a **megvalósított műveletek** naplóznak (telepítés/kivét/áttelepítés/
+    etetés/takarmánymozgás) — vízminőség/elhullás/madárkár/halkeltés esemény
+    **nem** keletkezik, mert nincs moduljuk.
+  - Böngésző-ellenőrzés nem futott (a dev szerver a production DB-re csatlakozna).
+
 ---
 
 ## Összegzés
@@ -335,7 +374,8 @@ felügyelt és igazolt legyen, ne vakon elfogadott. Kapcsolódó: `ai-manifest.m
 | V-14 | Integrációs infra + biztonságos kihagyás (2026-06-26) | ✅ implementálva, **nem futtatva** (nincs teszt-DB), production-érintés nélkül |
 | V-15 | Actor / audit-napló Sprint 1 — kód (2026-06-26) | ✅ kódszinten kész (52 teszt, build zöld); a migráció-alkalmazás/integráció V-16-ban |
 | V-16 | Actor Sprint 1 lezárva (2026-06-26) | ✅ migráció **teszt-DB → production** alkalmazva; integrációs tesztek a teszt-DB-n **lefutottak** (fejlesztői futtatás); edit/invalidate audit **hátra** |
-| V-17 | Vízegység-áttekintés (2026-06-27) | ✅ kód + 96 teszt + build zöld; a migráció **létrehozva, NEM alkalmazva**; vízminőség/egészség = „nincs adat" |
+| V-17 | Vízegység-áttekintés (2026-06-27) | ✅ kód + 96 teszt + build zöld; a migráció azóta **alkalmazva** (Vercel deploy); vízminőség/egészség = „nincs adat" |
+| V-18 | Halászati napló 2.0 (2026-06-27) | ✅ kód + 120 teszt + build zöld; export = nyomtatható HTML (PDF tervezett); a napló-migráció **NEM alkalmazva** |
 
 A nyitott bizonyítékok (V-04 CI-futás link, V-11 lefedettségi érték, V-13/V-14
 integrációs tesztek **valós teszt-DB elleni futtatása**) `TODO`-ként/tervezettként

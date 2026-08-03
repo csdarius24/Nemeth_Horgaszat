@@ -59,7 +59,7 @@ export async function POST(
 
     const takarmany = await prisma.takarmany.findFirst({
         where: { azonosito: takarmanyId, halaszatId },
-        select: { azonosito: true, keszlet: true },
+        select: { azonosito: true, keszlet: true, nev: true, egyseg: true },
     });
     if (!takarmany) return jsonError("A takarmany nem talalhato.", 404);
 
@@ -78,17 +78,43 @@ export async function POST(
     const ujKeszlet = Number(takarmany.keszlet) + keszletValtozas;
     if (ujKeszlet < 0) return jsonError("A keszlet nem mehet negatvba. Jelenlegi keszlet: " + Number(takarmany.keszlet), 422);
 
-    const [mozgas] = await prisma.$transaction([
-        prisma.takarmanyMozgas.create({
+    const mozgas = await prisma.$transaction(async (tx) => {
+        const letrehozott = await tx.takarmanyMozgas.create({
             // actor: ki rögzítette a bevételt/felhasználást (sessionből, NEM a kérés törzséből)
             data: { takarmanyId, halaszatId, tipus, mennyiseg, datum, megjegyzes, felhasznaloId: auth.user.azonosito },
             select: { azonosito: true, tipus: true, mennyiseg: true, datum: true, megjegyzes: true, felhasznaloId: true },
-        }),
-        prisma.takarmany.update({
+        });
+
+        await tx.takarmany.update({
             where: { azonosito: takarmanyId },
             data: { keszlet: ujKeszlet },
-        }),
-    ]);
+        });
+
+        // Halászati napló 2.0: a kézi takarmánymozgás is naplóesemény.
+        // toId: null (a mozgás nem tóhoz kötött) — a tenant-kötést a halaszatId adja.
+        // mennyisegKg csak akkor, ha az egység tényleg kg (őszinteség: zsák/db nem kg!).
+        await tx.naploEsemeny.create({
+            data: {
+                tipus: tipus === "BEVETEL" ? "TAKARMANY_BEVETEL" : "TAKARMANY_FELHASZNALAS",
+                toId: null,
+                halaszatId,
+                cim: `${tipus === "BEVETEL" ? "Takarmány-bevétel" : "Takarmány-felhasználás"} — ${takarmany.nev}`,
+                mennyisegKg: takarmany.egyseg === "kg" ? mennyiseg : null,
+                datum,
+                leiras: [
+                    `${tipus === "BEVETEL" ? "+" : "−"}${mennyiseg} ${takarmany.egyseg}`,
+                    `új készlet: ${ujKeszlet} ${takarmany.egyseg}`,
+                    megjegyzes ? `megj.: ${megjegyzes}` : null,
+                ].filter(Boolean).join(" • "),
+                felhasznaloId: auth.user.azonosito,
+                kapcsolodoEntitasTipus: "TakarmanyMozgas",
+                kapcsolodoEntitasId: letrehozott.azonosito,
+                reszletekJson: { takarmanyNev: takarmany.nev, mennyiseg, egyseg: takarmany.egyseg, ujKeszlet, kezi: true },
+            },
+        });
+
+        return letrehozott;
+    });
 
     return NextResponse.json({ ok: true, mozgas, ujKeszlet }, { status: 201 });
 }

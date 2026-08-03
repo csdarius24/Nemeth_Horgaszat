@@ -182,13 +182,19 @@ erDiagram
     NaploEsemeny {
         int azonosito PK
         enum tipus "EsemenyTipus"
-        int toId FK
+        int toId FK "nullable"
+        int halaszatId FK "nullable (tenant)"
         int halfajId FK "nullable"
         int felhasznaloId FK "nullable (actor)"
         int darab
         decimal mennyisegKg
         datetime datum
+        string cim "nullable"
         string leiras
+        json reszletekJson "nullable"
+        string kapcsolodoEntitasTipus "nullable"
+        int kapcsolodoEntitasId "nullable"
+        bool ervenyes
     }
     Takarmany {
         int azonosito PK
@@ -241,7 +247,7 @@ erDiagram
 
 | Enum | Értékek | Felhasználás |
 |---|---|---|
-| `EsemenyTipus` | `TELEPITES`, `KIVETEL`, `ETETES` | `NaploEsemeny.tipus` — a naplózott művelet típusa. |
+| `EsemenyTipus` | `TELEPITES`, `KIVETEL`, `ETETES`, `ATTELEPITES`, `TAKARMANY_BEVETEL`, `TAKARMANY_FELHASZNALAS`, `TAKARMANY_KORREKCIO`, `VIZMINOSEG_MERES`, `ELHULLAS`, `MADARKAR`, `HALKELTES`, `FELADAT`, `HIBABEJELENTES`, `RIASZTAS`, `EGYEB` | `NaploEsemeny.tipus`. **Ténylegesen keletkező** típusok ma: `TELEPITES`, `KIVETEL`, `ETETES`, `TAKARMANY_BEVETEL`, `TAKARMANY_FELHASZNALAS` — a többi érték a jövőbeli modulokhoz előkészített (esemény nem jön létre hozzájuk). |
 | `Szerepkor` | `OWNER`, `ADMIN`, `STAFF`, `OR`, `ANGLER` | `ToTagsag.szerepkor` — tó-szintű szerepkör (5 fokozat). |
 | `HalaszatSzerepkor` | `OWNER`, `ADMIN`, `STAFF` | `HalaszatTagsag.szerepkor` — halászat (tenant) szintű szerepkör. |
 | `ToTipus` | `TO`, `TELELO`, `IVADEKNEVELO`, `KELTETO_MEDENCE` | `To.tipus` — vízegység típusa. Az `IVADEKNEVELO` és `KELTETO_MEDENCE` a vízegység-áttekintéshez került be (visszafelé kompatibilis ENUM-bővítés). |
@@ -390,15 +396,25 @@ erDiagram
   **automatikus** (etetéskor, `tipus = FELHASZNALVA`, `toId`/`etetesId` kitöltve).
 
 ### NaploEsemeny (`naplo_esemenyek`)
-- **Cél:** auditnapló; minden fontos művelet (telepítés, kivét, etetés,
-  áttelepítés) ide is bejegyződik, ember által olvasható `leiras` szöveggel.
+- **Cél:** auditnapló / **Halászati napló** — minden fontos művelet (telepítés,
+  kivét, etetés, áttelepítés, takarmánymozgás) ide bejegyződik, ember által
+  olvasható `leiras` szöveggel és `cim`-mel.
 - **Fontos mezők:** `tipus` (`EsemenyTipus`), `darab` (opcionális), `mennyisegKg`
   (opcionális `Decimal(8,2)`), `datum`, `leiras` (opcionális szöveg),
   `felhasznaloId` (**opcionális actor** — ki rögzítette az eseményt).
+- **Halászati napló 2.0 mezők (mind nullable, régi sorok érvényesek):**
+  `toId` **nullable lett** (tóhoz nem kötött események — pl. takarmány-bevétel);
+  `halaszatId` (közvetlen tenant-kötés; a régi sorok a tón keresztül kötődnek,
+  a migráció backfillel tölti); `cim` (`VarChar(200)`, ember-olvasható cím);
+  `reszletekJson` (`Json`, strukturált részletek — pl. takarmánynév, új készlet);
+  `kapcsolodoEntitasTipus`/`kapcsolodoEntitasId` (pl. `"Etetes"`, `"Kivetel"`,
+  `"TakarmanyMozgas"` + rekord-azonosító); `ervenyes` (`Boolean`, alap `true` —
+  az érvénytelenítési audit-flow tervezett, jelenleg minden sor érvényes).
 - **Indexek:** `@@index([toId, datum])`, `@@index([tipus, datum])`,
-  `@@index([felhasznaloId])`.
-- **Relációk:** `to` (Cascade), `halfaj` (opcionális, SetNull), `felhasznalo`
-  (opcionális, **SetNull**).
+  `@@index([felhasznaloId])`, `@@index([halaszatId, datum])`.
+- **Relációk:** `to` (opcionális, **SetNull** — **audit-döntés:** a tó törlése
+  többé nem törli a naplót), `halfaj` (opcionális, SetNull), `felhasznalo`
+  (opcionális, **SetNull**), `halaszat` (opcionális, Cascade).
 - **Megjegyzés (actor / nyomon követhetőség):** a `felhasznaloId` a **session**
   felhasználójából kerül beírásra a művelet-route-okban (nem a kérés törzséből),
   így „ki végezte/rögzítette" visszakereshető. Nullable a régi sorok és a
@@ -450,7 +466,8 @@ A referenciális akciók a `schema.prisma` `onDelete` beállításaiból szárma
 | `TakarmanyMozgas.halaszat` | Cascade | Halászat törlésekor a takarmánymozgások törlődnek. |
 | `TakarmanyMozgas.to` | **SetNull** | Tó törlésekor a mozgás `toId`-ja nullára áll, a mozgás megmarad. |
 | `TakarmanyMozgas.etetes` | **SetNull** | Etetés törlésekor a mozgás `etetesId`-ja nullára áll, a mozgás megmarad. |
-| `NaploEsemeny.to` | Cascade | Tó törlésekor a naplóesemények törlődnek. |
+| `NaploEsemeny.to` | **SetNull** | **(Halászati napló 2.0-ban Cascade → SetNull.)** Tó törlésekor a `toId` nullára áll, az auditnapló **megmarad**. |
+| `NaploEsemeny.halaszat` | Cascade | Halászat (tenant) törlésekor a naplója is törlődik. |
 | `NaploEsemeny.halfaj` | **SetNull** | Halfaj törlésekor a `halfajId` nullára áll, a napló megmarad. |
 | `NaploEsemeny.felhasznalo` | **SetNull** | Felhasználó törlésekor a `felhasznaloId` nullára áll, a napló megmarad (actor elveszik, az esemény nem). |
 | `TakarmanyMozgas.felhasznalo` | **SetNull** | Felhasználó törlésekor a mozgás `felhasznaloId`-ja nullára áll, a mozgás megmarad. |
