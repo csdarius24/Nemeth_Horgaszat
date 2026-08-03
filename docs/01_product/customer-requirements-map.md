@@ -100,12 +100,12 @@ Kapcsolódó: [`scope-contract.md`](scope-contract.md), [`capability-map.md`](ca
 | Ügyfél-igény | Állapot | Bizonyíték a repóban | Ajánlott kategória | Szükséges változás | Thesis-relevancia | Kockázat / megjegyzés |
 |---|---|---|---|---|---|---|
 | Minden művelet tárolása | ✅ | `NaploEsemeny` (telepítés/kivét/etetés/áttelepítés) | Kész | — | Magas | actor (ki) hiányzik |
-| Műveletek szerkesztése | 🟡 | nincs edit-végpont a műveletekre | P1 | edit + audit-nyom | Közepes | adatintegritás-kockázat |
-| Hibás művelet törlése / érvénytelenítése | 🟡 | nincs (a műveleteken nincs soft-delete) | P1 | „érvénytelenítve" jelző + napló | Közepes | soha ne néma-töröljön |
-| Törölt/érvénytelenített műveletek mutatása | 🟡 | nincs | P1 | — | Közepes | — |
+| Műveletek szerkesztése | ⚠️ | **Napló-javítás:** `PATCH .../naplo/[id]` — a naplóbejegyzés **szövege** (cím, leírás) javítható ADMIN/OWNER-ként, `szerkesztveAt` + szerkesztő rögzül | P1 | a mennyiségi javítás kompenzáló művelettel / visszavezetéssel | Közepes | a mennyiségi mezők szándékosan nem írhatók (a napló nem hazudhat a műveletről) |
+| Hibás művelet törlése / érvénytelenítése | ⚠️ | **Érvénytelenítés implementálva:** kötelező indokkal, `ervenyes=false` + ki/mikor/miért; a sor megmarad (fizikai törlés nincs) | P1 | készlet automatikus visszavezetése | Közepes | **az érvénytelenítés nem állítja vissza a hal-/takarmánykészletet** |
+| Törölt/érvénytelenített műveletek mutatása | ✅ | a naplóban áthúzva + indokkal láthatók (alapból megjelennek; „Csak érvényes" szűrővel elrejthetők), az exportban is szerepelnek, de az összegekbe nem számítanak | Kész | — | Közepes | — |
 | Ki rögzítette az adatot | ⚠️ | **Sprint 1:** `NaploEsemeny.felhasznaloId` a sessionből; `timeline` → `rogzitoNev` | P1 | további nézeteken megjeleníteni (migráció ✅ alkalmazva) | **Magas** | témavezetői pillér: nyomon követhetőség |
 | Ki végezte a műveletet | ⚠️ | **Sprint 1:** actor a telepítés/kivét/etetés/áttelepítés naplóján | P1 | megjelenítés bővítése (migráció ✅ alkalmazva) | **Magas** | — |
-| Audit-napló minden adathoz | ⚠️ | `NaploEsemeny` a műveletekre, **most már actorral**; nem minden adat-CRUD-ra | P1 | edit/invalidate audit + verziózás | **Magas** | `threat-model.md` STRIDE-R (részben rendezve) |
+| Audit-napló minden adathoz | ⚠️ | `NaploEsemeny` a műveletekre, **actorral**, és **javítás/érvénytelenítés nyomával** (ki/mikor/miért); nem minden adat-CRUD-ra | P1 | teljes verziózás (mező-szintű előzmény) + a törzsadat-CRUD naplózása | **Magas** | `threat-model.md` STRIDE-R (nagyrészt rendezve) |
 
 ## 5. Vízminőség-monitoring
 

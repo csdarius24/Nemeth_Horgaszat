@@ -69,8 +69,10 @@ model Felhasznalo {
   tagsagok          ToTagsag[]
   halaszatTagsag    HalaszatTagsag[]
   hibabejelentesek  Hibabejelentes[]
-  naploEsemenyek    NaploEsemeny[]
-  takarmanyMozgasok TakarmanyMozgas[]
+  naploEsemenyek         NaploEsemeny[]    @relation("NaploRogzito")
+  naploErvenytelenitesek NaploEsemeny[]    @relation("NaploErvenytelenito")
+  naploSzerkesztesek     NaploEsemeny[]    @relation("NaploSzerkeszto")
+  takarmanyMozgasok      TakarmanyMozgas[]
 
   @@map("felhasznalok")
 }
@@ -302,15 +304,31 @@ model NaploEsemeny {
   reszletekJson          Json?    // strukturált részletek (pl. takarmány neve, új készlet)
   kapcsolodoEntitasTipus String?  @db.VarChar(40)  // pl. "Etetes", "Kivetel", "TakarmanyMozgas"
   kapcsolodoEntitasId    Int?
-  ervenyes               Boolean  @default(true)   // érvénytelenítés (audit-flow) később; most mindig true
+
+  // ── Javítás / érvénytelenítés (audit-flow) ────────────────────────────────
+  // AUDIT-ELV: a naplóbejegyzés SOSEM törlődik fizikailag. Hibás rögzítés esetén
+  // érvénytelenítjük: a sor megmarad, de `ervenyes = false`, és rögzül, hogy KI,
+  // MIKOR és MIÉRT érvénytelenítette. Az érvénytelen sorok kimaradnak az
+  // összegzésekből, de a naplóban és az exportban láthatók maradnak.
+  ervenyes                    Boolean   @default(true)
+  ervenytelenitveAt           DateTime?
+  ervenytelenitesOka          String?   @db.VarChar(300)
+  ervenytelenitoFelhasznaloId Int?
+
+  // Szövegjavítás (cím/leírás) nyoma. A mennyiségi mezők NEM szerkeszthetők,
+  // mert azok a tényleges műveleti rekordot (Etetes/Kivetel/...) tükrözik.
+  szerkesztveAt           DateTime?
+  szerkesztoFelhasznaloId Int?
 
   // relációk
   // AUDIT-DÖNTÉS: a tó törlése többé NEM törli a naplót (Cascade → SetNull),
   // az auditnapló a tó megszűnése után is megmarad.
-  to          To?          @relation(fields: [toId], references: [azonosito], onDelete: SetNull)
-  halfaj      Halfaj?      @relation(fields: [halfajId], references: [azonosito], onDelete: SetNull)
-  felhasznalo Felhasznalo? @relation(fields: [felhasznaloId], references: [azonosito], onDelete: SetNull)
-  halaszat    Halaszat?    @relation(fields: [halaszatId], references: [azonosito], onDelete: Cascade)
+  to             To?          @relation(fields: [toId], references: [azonosito], onDelete: SetNull)
+  halfaj         Halfaj?      @relation(fields: [halfajId], references: [azonosito], onDelete: SetNull)
+  felhasznalo    Felhasznalo? @relation("NaploRogzito", fields: [felhasznaloId], references: [azonosito], onDelete: SetNull)
+  ervenytelenito Felhasznalo? @relation("NaploErvenytelenito", fields: [ervenytelenitoFelhasznaloId], references: [azonosito], onDelete: SetNull)
+  szerkeszto     Felhasznalo? @relation("NaploSzerkeszto", fields: [szerkesztoFelhasznaloId], references: [azonosito], onDelete: SetNull)
+  halaszat       Halaszat?    @relation(fields: [halaszatId], references: [azonosito], onDelete: Cascade)
 
   @@index([toId, datum])
   @@index([tipus, datum])

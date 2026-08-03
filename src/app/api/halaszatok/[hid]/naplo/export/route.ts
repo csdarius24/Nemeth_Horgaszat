@@ -84,9 +84,11 @@ export async function GET(
         select: {
             tipus: true, datum: true, cim: true, leiras: true,
             darab: true, mennyisegKg: true, ervenyes: true,
+            ervenytelenitesOka: true,
             to: { select: { nev: true } },
             halfaj: { select: { nev: true } },
             felhasznalo: { select: { nev: true, email: true } },
+            ervenytelenito: { select: { nev: true, email: true } },
             reszletekJson: true,
         },
     });
@@ -102,6 +104,8 @@ export async function GET(
         halfajNev: e.halfaj?.nev ?? null,
         rogzitoNev: rogzitoMegjelenites(e.felhasznalo),
         ervenyes: e.ervenyes,
+        ervenytelenitesOka: e.ervenytelenitesOka,
+        ervenytelenitoNev: rogzitoMegjelenites(e.ervenytelenito),
         takarmanyNev: (e.reszletekJson as any)?.takarmanyNev ?? null,
     }));
 
@@ -118,14 +122,14 @@ export async function GET(
     if (szurok.length === 0) szurok.push("nincs (teljes napló)");
 
     const sorok = esemenyek.map((e) => `
-        <tr>
+        <tr${e.ervenyes ? "" : ' class="ervenytelen"'}>
             <td>${htmlEscape(fmtDatum(e.datum))}</td>
             <td><span class="badge">${htmlEscape(esemenyTipusCimke(e.tipus))}</span></td>
             <td>${htmlEscape(e.toNev ?? "—")}</td>
             <td>${htmlEscape(e.halfajNev ?? e.takarmanyNev ?? "—")}</td>
             <td class="num">${e.mennyisegKg != null ? htmlEscape(`${e.mennyisegKg} kg`) : e.darab != null ? htmlEscape(`${e.darab} db`) : "—"}</td>
             <td>${htmlEscape(e.rogzitoNev ?? "—")}</td>
-            <td class="reszlet">${htmlEscape(e.leiras ?? "—")}</td>
+            <td class="reszlet">${htmlEscape(e.leiras ?? "—")}${e.ervenyes ? "" : `<div class="ervtel-jelzes"><strong>ÉRVÉNYTELENÍTVE</strong>${e.ervenytelenitesOka ? ` — ${htmlEscape(e.ervenytelenitesOka)}` : ""}${e.ervenytelenitoNev ? ` (${htmlEscape(e.ervenytelenitoNev)})` : ""}</div>`}</td>
         </tr>`).join("");
 
     const osszegzesSorok = osszegzes.tipusonkent
@@ -154,6 +158,8 @@ export async function GET(
     .print-btn { position: fixed; top: 16px; right: 16px; padding: 10px 18px; font-size: 14px;
                  background: #7a2a17; color: #fff; border: none; border-radius: 8px; cursor: pointer; }
     .ures { color: #777; font-style: italic; margin: 24px 0; }
+    tr.ervenytelen td { color: #888; text-decoration: line-through; background: #f7f7f7; }
+    tr.ervenytelen .ervtel-jelzes { text-decoration: none; color: #a33; font-size: 11px; margin-top: 3px; }
     footer { margin-top: 24px; font-size: 11px; color: #777; border-top: 1px solid #ccc; padding-top: 8px; }
     @media print { .print-btn { display: none; } body { margin: 12px; } }
 </style>
@@ -168,7 +174,10 @@ export async function GET(
 <div class="meta">Szűrők: ${htmlEscape(szurok.join(" · "))}</div>
 
 <div class="box">
-    <h2>Összegzés (${osszegzes.osszesEsemeny} esemény)</h2>
+    <h2>Összegzés (${osszegzes.osszesEsemeny} érvényes esemény)</h2>
+    ${osszegzes.ervenytelenDarab > 0
+        ? `<div class="meta"><strong>${osszegzes.ervenytelenDarab} érvénytelenített</strong> bejegyzés a listában szerepel (áthúzva), de az összegekbe NEM számít bele.</div>`
+        : ""}
     <ul>${osszegzesSorok || "<li>Nincs esemény az időszakban.</li>"}</ul>
     <ul>
         <li>Etetés összesen: <strong>${osszegzes.etetesKg} kg</strong></li>
@@ -192,6 +201,8 @@ ${esemenyek.length === 0
 <footer>
     Németh Horgászat — halászati műveleti napló. A dokumentum a rögzített naplóeseményekből készült;
     a „Rögzítette" a bejelentkezett felhasználóból származik. A mennyiségi összegek kerekítettek.
+    Az érvénytelenített bejegyzések áthúzva, indokkal szerepelnek, és nem számítanak bele az összegekbe
+    (naplósor fizikailag nem törölhető).
 </footer>
 </body>
 </html>`;

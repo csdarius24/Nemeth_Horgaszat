@@ -141,8 +141,35 @@ describe("naploOsszegzes()", () => {
     it("hiányzó mennyiségeket 0-ként kezel, üres listára nullákat ad", () => {
         const o = naploOsszegzes([]);
         expect(o.osszesEsemeny).toBe(0);
+        expect(o.ervenytelenDarab).toBe(0);
         expect(o.etetesKg).toBe(0);
         expect(o.tipusonkent).toEqual([]);
+    });
+
+    it("az érvénytelenített bejegyzés NEM számít bele az összegekbe", () => {
+        const o = naploOsszegzes([
+            { tipus: "ETETES", mennyisegKg: 10, ervenyes: true },
+            { tipus: "ETETES", mennyisegKg: 999, ervenyes: false }, // elrontott, érvénytelenítve
+        ]);
+        expect(o.etetesKg).toBe(10);
+        expect(o.osszesEsemeny).toBe(1);
+        expect(o.ervenytelenDarab).toBe(1);
+    });
+
+    it("az érvénytelenített bejegyzés a típus-bontásban sem jelenik meg", () => {
+        const o = naploOsszegzes([
+            { tipus: "KIVETEL", darab: 5, ervenyes: false },
+            { tipus: "ETETES", mennyisegKg: 3, ervenyes: true },
+        ]);
+        expect(o.tipusonkent).toEqual([{ tipus: "ETETES", cimke: "Etetés", darab: 1 }]);
+        expect(o.kivetelDarab).toBe(0);
+    });
+
+    it("a hiányzó `ervenyes` mezőt érvényesnek tekinti (visszafelé kompatibilitás)", () => {
+        const o = naploOsszegzes([{ tipus: "ETETES", mennyisegKg: 7 }]);
+        expect(o.etetesKg).toBe(7);
+        expect(o.osszesEsemeny).toBe(1);
+        expect(o.ervenytelenDarab).toBe(0);
     });
 
     it("float-drift nélkül kerekít", () => {

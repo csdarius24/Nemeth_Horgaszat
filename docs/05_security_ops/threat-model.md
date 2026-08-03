@@ -91,13 +91,15 @@ milyen védelem van, és mi a maradék (reziduális) kockázat.
   sorrendben **alkalmazva**, és a DB-backed integrációs teszt a biztonságos
   teszt-DB-n **ellenőrizte** a napló/mozgás `felhasznaloId`-ját (lásd
   `../07_ai/verification-log.md` V-16).
-- **Reziduális kockázat (csökkent, de nem nulla):** ~~a napló nem rögzíti a
-  cselekvő azonosítóját~~ **rendezve az új műveletekre**. Ami **még hiányzik**: a
-  művelet **szerkesztésének/érvénytelenítésének** és a **verziózott előzménynek** a
-  naplózása (ki, mikor, mit módosított/vont vissza) — jelenleg a műveletek nem
-  szerkeszthetők/érvényteleníthetők auditáltan. Emellett a `felhasznaloId`
-  **nullable** (régi sorok / rendszer-események null actorral). TODO: edit/invalidate
-  audit + verziózás (következő sprint).
+- **Reziduális kockázat (jelentősen csökkent):** ~~a napló nem rögzíti a
+  cselekvő azonosítóját~~ **rendezve**. ~~Hiányzik az érvénytelenítés naplózása~~
+  **rendezve (2026-06-27):** a naplóbejegyzés **fizikailag nem törölhető**, csak
+  ADMIN/OWNER által **érvényteleníthető kötelező indokkal**, és rögzül a
+  `ervenytelenitveAt` / `ervenytelenitesOka` / `ervenytelenitoFelhasznaloId`,
+  szövegjavításkor pedig a `szerkesztveAt` / `szerkesztoFelhasznaloId`. Ami **még
+  hiányzik**: **mező-szintű verziózás** (a javítás előtti érték nem őrződik meg,
+  csak a javítás ténye), a törzsadat-CRUD naplózása, és a `felhasznaloId`
+  **nullable** volta (régi sorok / rendszer-események null actorral).
 
 ### I — Information Disclosure (információszivárgás)
 - **Fenyegetés:** személyes adat, jelszó vagy token kiszivárgása; tenant-idegen
@@ -173,7 +175,7 @@ A feladat által kiemelt, kódban visszaigazolt hiányok — release előtt rend
 | Tenant-átlépés (IDOR) | E, I | `requireHalaszatRole` + `assertToBelongsToTenant` (a hibabejelentéseken is) | Alacsony a fő API-n; **Alacsony** a hibabejelentéseknél (rendezve) |
 | Jogosulatlan státuszváltás (hibabejelentés) | E, T | `requireUser` + a bejelentés saját halászatára `requireHalaszatRole(ADMIN)` (globálisnál a bejelentő) | **Alacsony** — auth + RBAC kikényszerítve |
 | Érzékeny adat logban | I | szűkített `select`; `console.log` eltávolítva a hibabejelentés-handlerekből | **Közepes** — még megvan a Prisma query log (prod) |
-| Napló-letagadás | R | `NaploEsemeny` + `TakarmanyMozgas` időbélyeggel **és cselekvő `felhasznaloId`-val** (sessionből) | **Alacsony-közepes** — az actor rögzül; hiányzik még az edit/invalidate audit + verziózás |
+| Napló-letagadás / utólagos manipuláció | R, T | `NaploEsemeny` + `TakarmanyMozgas` időbélyeggel és cselekvő `felhasznaloId`-val; **fizikai törlés nincs** — csak ADMIN/OWNER általi, indokolt érvénytelenítés, ki/mikor/miért nyommal | **Alacsony** — hiányzik még a mező-szintű verziózás |
 | Tárolt XSS szabad szövegből | T, I | React alapból escapel | Alacsony–közepes — felülvizsgálandó a megjelenítés |
 | DB titok kiszivárgása | I | `.env*` gitignore | Alacsony — kézi titokkezelés, lásd `deployment.md` |
 

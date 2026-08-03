@@ -39,6 +39,9 @@ export async function GET(
     const tipusParam = (url.searchParams.get("tipus") ?? "").trim();
     const toIdParam = szam(url.searchParams.get("toId") ?? "0", 0);
     const limit = Math.min(Math.max(szam(url.searchParams.get("limit") ?? "100", 100), 1), 200);
+    // Alapból az érvénytelenített bejegyzések IS látszanak (audit-elv: semmi nem
+    // tűnik el) — a `csakErvenyes=1` szűri ki őket.
+    const csakErvenyes = url.searchParams.get("csakErvenyes") === "1";
 
     // ── Időszak: period+date az elsődleges, különben from/to ─────────────────
     const period = url.searchParams.get("period");
@@ -80,6 +83,7 @@ export async function GET(
             ...(toIdParam ? [{ toId: toIdParam }] : []),
             ...(tol ? [{ datum: { gte: tol } }] : []),
             ...(ig ? [{ datum: { lt: ig } }] : []),
+            ...(csakErvenyes ? [{ ervenyes: true }] : []),
             ...(q
                 ? [{
                     OR: [
@@ -105,6 +109,9 @@ export async function GET(
                 darab: true,
                 mennyisegKg: true,
                 ervenyes: true,
+                ervenytelenitveAt: true,
+                ervenytelenitesOka: true,
+                szerkesztveAt: true,
                 reszletekJson: true,
                 kapcsolodoEntitasTipus: true,
                 kapcsolodoEntitasId: true,
@@ -113,13 +120,15 @@ export async function GET(
                 halfaj: { select: { nev: true } },
                 felhasznaloId: true,
                 felhasznalo: { select: { nev: true, email: true } },
+                ervenytelenito: { select: { nev: true, email: true } },
+                szerkeszto: { select: { nev: true, email: true } },
             },
         }),
         prisma.naploEsemeny.count({ where }),
         prisma.naploEsemeny.count({ where: tenantScope }),
     ]);
 
-    const esemenyek = nyersek.map(({ felhasznalo, halfaj, to, ...e }) => ({
+    const esemenyek = nyersek.map(({ felhasznalo, halfaj, to, ervenytelenito, szerkeszto, ...e }) => ({
         id: e.azonosito,
         tipus: e.tipus,
         tipusCimke: esemenyTipusCimke(e.tipus),
@@ -133,6 +142,11 @@ export async function GET(
         mennyisegKg: e.mennyisegKg == null ? null : Number(e.mennyisegKg),
         darab: e.darab,
         ervenyes: e.ervenyes,
+        ervenytelenitveAt: e.ervenytelenitveAt?.toISOString() ?? null,
+        ervenytelenitesOka: e.ervenytelenitesOka,
+        ervenytelenitoNev: rogzitoMegjelenites(ervenytelenito),
+        szerkesztveAt: e.szerkesztveAt?.toISOString() ?? null,
+        szerkesztoNev: rogzitoMegjelenites(szerkeszto),
         reszletek: e.reszletekJson ?? null,
         kapcsolodoEntitasTipus: e.kapcsolodoEntitasTipus,
         kapcsolodoEntitasId: e.kapcsolodoEntitasId,
@@ -143,6 +157,7 @@ export async function GET(
         talalatOsszesen,
         tenantOsszesen,
         limit,
+        viewerRole: auth.role,
         idoszak: tol || ig
             ? { tol: tol?.toISOString() ?? null, ig: ig?.toISOString() ?? null }
             : null,

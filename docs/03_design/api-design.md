@@ -469,14 +469,47 @@ táblázatok az egyes végpontoknál pontosítják.
   mezőn keresztül szűrődnek (OR).
 - **Query:** `q` (keresés a `cim`/`leiras` szövegben), `tipus` (érvényes
   `EsemenyTipus`), `toId`, `from`/`to` (ISO dátum), VAGY `period=day|week|month`
-  + `date=YYYY-MM-DD` (UTC határok, hétfő-kezdésű hét), `limit` (alap 100, max 200).
+  + `date=YYYY-MM-DD` (UTC határok, hétfő-kezdésű hét), `limit` (alap 100, max 200),
+  `csakErvenyes=1` (az érvénytelenített bejegyzések elrejtése — **alapból
+  látszanak**, mert az audit-elv szerint semmi nem tűnik el).
 - **Siker:** `200` `{ esemenyek: [...], talalatOsszesen, tenantOsszesen, limit, idoszak }`.
   Egy esemény: `{ id, tipus, tipusCimke, cim, leiras, datum, rogzitoNev, toId,
   toNev, halfajNev, mennyisegKg, darab, ervenyes, reszletek, kapcsolodoEntitasTipus,
-  kapcsolodoEntitasId }`. A `cim` a tárolt címből, régi soroknál a típus+tó+faj
-  fallbackből képződik.
+  kapcsolodoEntitasId }` + az érvénytelenítés/szerkesztés nyoma
+  (`ervenytelenitveAt`, `ervenytelenitesOka`, `ervenytelenitoNev`,
+  `szerkesztveAt`, `szerkesztoNev`), valamint a `viewerRole` (a UI ebből dönti el,
+  látszanak-e a javítás gombok). A `cim` a tárolt címből, régi soroknál a
+  típus+tó+faj fallbackből képződik.
 - **Hibák:** `400` érvénytelen azonosító/típus/dátum; `401/403` (`{ error }`).
 - **Mellékhatás:** nincs (csak olvasás).
+
+### PATCH /api/halaszatok/[hid]/naplo/[id]
+- **Cél:** naplóbejegyzés **javítása / érvénytelenítése / visszaállítása**.
+- **AUDIT-ELV:** a naplósor **fizikailag nem törölhető** — nincs `DELETE`
+  végpont. A hibás bejegyzést érvényteleníteni lehet: a sor megmarad, láthatóan
+  megjelölve, és kiesik az összegzésekből.
+- **Jogosultság:** bejelentkezés + halászat-tagság, **és `ADMIN`/`OWNER`**
+  (`canModositNaploEsemeny`, unit-tesztelt). STAFF rögzíthet műveletet, de a
+  napló utólagos javítását nem végezheti. Tenant-szűrt (közvetlen `halaszatId`
+  VAGY a tón keresztül).
+- **Request body:** `{ cim?: string (max 200), leiras?: string, ervenyes?: boolean, ervenytelenitesOka?: string (min 3, max 300) }`
+  - `ervenyes: false` → **kötelező** `ervenytelenitesOka`; rögzül a
+    `ervenytelenitveAt` + `ervenytelenitoFelhasznaloId` (sessionből).
+  - `ervenyes: true` → visszaállítás (az érvénytelenítés nyoma törlődik).
+  - `cim`/`leiras` módosításakor rögzül a `szerkesztveAt` +
+    `szerkesztoFelhasznaloId`.
+- **Csak szöveg szerkeszthető:** a `mennyisegKg`, `darab`, `tipus`, `datum`,
+  `toId` **nem** módosítható, mert azok a tényleges műveleti rekordot
+  (`Etetes`/`Kivetel`/`Telepites`/`TakarmanyMozgas`) tükrözik — felülírásuk azt
+  jelentené, hogy a napló hazudik a műveletről.
+- **Siker:** `200` `{ ok: true, bejegyzes: { id, cim, leiras, ervenyes, ervenytelenitveAt, ervenytelenitesOka, ervenytelenitoNev, szerkesztveAt, szerkesztoNev } }`.
+- **Hibák:** `400` üres cím / hiányzó vagy túl rövid indok / nincs módosítandó
+  mező; `403` nem ADMIN/OWNER; `404` nincs ilyen bejegyzés a halászatban;
+  `401/403` jogosultság.
+- **⚠️ Fontos korlát:** az érvénytelenítés a **naplóbejegyzést** érvényteleníti,
+  de **NEM állítja vissza** a hal- vagy takarmánykészletet. A készlet javítása
+  külön, **kompenzáló művelettel** történik (pl. korrekciós takarmány-bevétel
+  vagy telepítés/kivét). Az automatikus visszavezetés **tervezett**.
 
 ### GET /api/halaszatok/[hid]/naplo/export
 - **Cél:** **napi / heti / havi** napló-dokumentum export. Az MVP formátum
@@ -492,7 +525,10 @@ táblázatok az egyes végpontoknál pontosítják.
   (típusonkénti darabszám; etetés kg; telepítés/kivét db; takarmány-bevétel/-
   felhasználás kg), és az esemény-táblázat (időpont / típus / vízegység /
   faj-takarmány / mennyiség / rögzítette / részletek). Minden felhasználói
-  tartalom HTML-escape-elve (unit-tesztelt `htmlEscape`).
+  tartalom HTML-escape-elve (unit-tesztelt `htmlEscape`). Az **érvénytelenített**
+  bejegyzések áthúzva, „ÉRVÉNYTELENÍTVE" jelöléssel és indokkal szerepelnek a
+  táblában (auditálhatóság), de **nem számítanak bele** az összegzésekbe — a
+  darabszámuk külön fel van tüntetve.
 - **Hibák:** `400` érvénytelen period/date/típus vagy `format=pdf`; `401/403`;
   `404` nincs ilyen halászat.
 - **Mellékhatás:** nincs (csak olvasás).
@@ -620,6 +656,7 @@ táblázatok az egyes végpontoknál pontosítják.
 | GET | `/api/halaszatok/[hid]/toak/[toId]/timeline` | STAFF |
 | GET | `/api/halaszatok/[hid]/osszesito` | STAFF |
 | GET | `/api/halaszatok/[hid]/naplo` | STAFF |
+| PATCH | `/api/halaszatok/[hid]/naplo/[id]` | **ADMIN** (javítás / érvénytelenítés; törlés nincs) |
 | GET | `/api/halaszatok/[hid]/naplo/export` | STAFF |
 | GET | `/api/halaszatok/[hid]/naptar` | STAFF |
 | POST | `/api/halaszatok/[hid]/naptar` | STAFF |

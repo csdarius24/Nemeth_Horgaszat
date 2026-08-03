@@ -6,6 +6,7 @@ import {
     meetsHalaszatRole,
     canManageTarget,
     canUpdateHibabejelentesStatus,
+    canModositNaploEsemeny,
 } from "@/lib/roles";
 
 describe("szerepkör rangsorok", () => {
@@ -67,6 +68,21 @@ describe("canManageTarget()", () => {
     it("STAFF senkit nem kezelhet", () => {
         expect(canManageTarget("STAFF", "STAFF")).toBe(false);
         expect(canManageTarget("STAFF", "ADMIN")).toBe(false);
+    });
+});
+
+describe("canModositNaploEsemeny()", () => {
+    it("ADMIN és OWNER javíthatja/érvénytelenítheti a naplót", () => {
+        expect(canModositNaploEsemeny("ADMIN")).toBe(true);
+        expect(canModositNaploEsemeny("OWNER")).toBe(true);
+    });
+
+    it("STAFF nem módosíthatja a naplót", () => {
+        expect(canModositNaploEsemeny("STAFF")).toBe(false);
+    });
+
+    it("nem-tag (null szerepkör) nem módosíthatja a naplót", () => {
+        expect(canModositNaploEsemeny(null)).toBe(false);
     });
 });
 

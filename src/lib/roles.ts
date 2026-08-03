@@ -55,6 +55,18 @@ export function canManageTarget(actorRole: HalaszatSzerepkor, targetRole: Halasz
  * így a függvény tenant-átlépést nem enged (idegen halászatban szerzett ADMIN
  * nem ad jogot egy másik halászat bejelentéséhez).
  */
+/**
+ * Módosíthatja-e a hívó a halászati napló bejegyzéseit (szövegjavítás /
+ * érvénytelenítés / visszaállítás)?
+ *
+ * Szabály: **ADMIN vagy OWNER**. A napló hivatalos, kötelező adminisztrációt
+ * szolgáló nyilvántartás, ezért a korrekció vezetői jogosultsághoz kötött —
+ * a STAFF rögzíthet műveletet, de a napló utólagos javítását nem végezheti.
+ */
+export function canModositNaploEsemeny(viewerRole: HalaszatSzerepkor | null): boolean {
+    return viewerRole != null && meetsHalaszatRole(viewerRole, "ADMIN");
+}
+
 export function canUpdateHibabejelentesStatus(args: {
     bugHalaszatId: number | null;
     viewerRole: HalaszatSzerepkor | null;

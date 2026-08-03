@@ -147,11 +147,16 @@ export type OsszegzesBemenet = {
     tipus: string;
     darab?: number | null;
     mennyisegKg?: number | null;
+    /** Ha `false`, a bejegyzés érvénytelenített → kimarad az összegzésből. */
+    ervenyes?: boolean | null;
 };
 
 export type NaploOsszegzes = {
+    /** Csak az ÉRVÉNYES események száma. */
     osszesEsemeny: number;
-    /** Típusonkénti darabszám, előfordulás szerint csökkenő. */
+    /** Az érvénytelenített (kihagyott) bejegyzések száma. */
+    ervenytelenDarab: number;
+    /** Típusonkénti darabszám (csak érvényesek), előfordulás szerint csökkenő. */
     tipusonkent: Array<{ tipus: string; cimke: string; darab: number }>;
     etetesKg: number;
     telepitesDarab: number;
@@ -165,6 +170,11 @@ function k2(n: number): number {
     return Math.round((n + Number.EPSILON) * 100) / 100;
 }
 
+/**
+ * Export-összegzés. Az **érvénytelenített** (`ervenyes === false`) bejegyzések
+ * NEM számítanak bele semmilyen darab-/mennyiség-összegbe — csak külön
+ * `ervenytelenDarab` számlálóban jelennek meg, hogy a riport átlátható legyen.
+ */
 export function naploOsszegzes(esemenyek: OsszegzesBemenet[]): NaploOsszegzes {
     const tipusDarab = new Map<string, number>();
     let etetesKg = 0;
@@ -172,8 +182,16 @@ export function naploOsszegzes(esemenyek: OsszegzesBemenet[]): NaploOsszegzes {
     let kivetelDarab = 0;
     let takarmanyBevetelKg = 0;
     let takarmanyFelhasznalasKg = 0;
+    let ervenytelenDarab = 0;
+    let ervenyesDarab = 0;
 
     for (const e of esemenyek) {
+        // Érvénytelenített bejegyzés: csak számoljuk, de nem összegezzük.
+        if (e.ervenyes === false) {
+            ervenytelenDarab++;
+            continue;
+        }
+        ervenyesDarab++;
         tipusDarab.set(e.tipus, (tipusDarab.get(e.tipus) ?? 0) + 1);
         const kg = Number(e.mennyisegKg ?? 0) || 0;
         const db = Number(e.darab ?? 0) || 0;
@@ -186,7 +204,8 @@ export function naploOsszegzes(esemenyek: OsszegzesBemenet[]): NaploOsszegzes {
     }
 
     return {
-        osszesEsemeny: esemenyek.length,
+        osszesEsemeny: ervenyesDarab,
+        ervenytelenDarab,
         tipusonkent: [...tipusDarab.entries()]
             .map(([tipus, darab]) => ({ tipus, cimke: esemenyTipusCimke(tipus), darab }))
             .sort((a, b) => b.darab - a.darab),

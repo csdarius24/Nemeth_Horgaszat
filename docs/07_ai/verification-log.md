@@ -352,6 +352,40 @@ felügyelt és igazolt legyen, ne vakon elfogadott. Kapcsolódó: `ai-manifest.m
     **nem** keletkezik, mert nincs moduljuk.
   - Böngésző-ellenőrzés nem futott (a dev szerver a production DB-re csatlakozna).
 
+## V-19 — Naplóbejegyzés javítása / érvénytelenítése (audit-flow)
+
+- **Dátum:** 2026-06-27.
+- **AI kimenet:** `PATCH .../naplo/[id]` végpont (szövegjavítás, érvénytelenítés
+  kötelező indokkal, visszaállítás), `canModositNaploEsemeny` tiszta szabály,
+  `naploOsszegzes` kiegészítése (érvénytelen sorok kihagyása), UI-műveletek a
+  napló-oldalon, „Csak érvényes" szűrő, és a
+  `20260627140000_naplo_ervenytelenites` migráció.
+- **Kockázat, ha téves:** hivatalos napló csendes törlése/meghamisítása;
+  jogosulatlan módosítás; érvénytelen adat beszámítása a riportba.
+- **Tervezési döntés (audit-elv):** **nincs `DELETE` végpont** — a naplósor
+  fizikailag nem törölhető, csak érvényteleníthető, indokkal és actorral. A
+  mennyiségi mezők nem szerkeszthetők (a napló nem térhet el a tényleges
+  műveleti rekordtól).
+- **Ellenőrzés (pontos parancsok, tényleges futás ebben a munkamenetben):**
+  - `npx prisma generate` → **siker** (a három `Felhasznalo`-reláció nevesítve).
+  - `npx tsc --noEmit` → **exit 0**.
+  - `npm run test` → **10 fájl / 126 teszt passed** (120 + 3
+    `canModositNaploEsemeny` + 3 az összegzés érvénytelen-kezelésére).
+  - `npm run build` → **„Compiled successfully"**; route-manifest:
+    `ƒ /api/halaszatok/[hid]/naplo/[id]`.
+  - `npm run test:integration` — **nem futtatva** (nincs teszt-DB a munkamenetben).
+- **Eredmény:** ✅ Kódszinten kész; unit + typecheck + build zöld.
+- **Bizonyíték:** a fenti kimenetek; `src/app/api/halaszatok/[hid]/naplo/[id]/route.ts`,
+  `src/lib/roles.ts`, `tests/unit/roles.test.ts`, `tests/unit/naplo-format.test.ts`.
+- **Hatókör-korlát (őszinte):**
+  - A **migráció NINCS alkalmazva** (a `.env` productionre mutat).
+  - **Mező-szintű verziózás nincs:** a javítás *ténye* rögzül (`szerkesztveAt` +
+    szerkesztő), de a **korábbi érték nem őrződik meg**. Teljes verzió-előzmény
+    tervezett.
+  - Az érvénytelenítés **nem vezeti vissza** a hal-/takarmánykészletet —
+    kompenzáló művelet szükséges. Az automatikus visszavezetés tervezett.
+  - Böngésző-ellenőrzés nem futott (a dev szerver a production DB-re csatlakozna).
+
 ---
 
 ## Összegzés
@@ -376,6 +410,7 @@ felügyelt és igazolt legyen, ne vakon elfogadott. Kapcsolódó: `ai-manifest.m
 | V-16 | Actor Sprint 1 lezárva (2026-06-26) | ✅ migráció **teszt-DB → production** alkalmazva; integrációs tesztek a teszt-DB-n **lefutottak** (fejlesztői futtatás); edit/invalidate audit **hátra** |
 | V-17 | Vízegység-áttekintés (2026-06-27) | ✅ kód + 96 teszt + build zöld; a migráció azóta **alkalmazva** (Vercel deploy); vízminőség/egészség = „nincs adat" |
 | V-18 | Halászati napló 2.0 (2026-06-27) | ✅ kód + 120 teszt + build zöld; export = nyomtatható HTML (PDF tervezett); a napló-migráció **NEM alkalmazva** |
+| V-19 | Napló javítás/érvénytelenítés (2026-06-27) | ✅ kód + 126 teszt + build zöld; fizikai törlés nincs; migráció **NEM alkalmazva**; verziózás + készlet-visszavezetés tervezett |
 
 A nyitott bizonyítékok (V-04 CI-futás link, V-11 lefedettségi érték, V-13/V-14
 integrációs tesztek **valós teszt-DB elleni futtatása**) `TODO`-ként/tervezettként

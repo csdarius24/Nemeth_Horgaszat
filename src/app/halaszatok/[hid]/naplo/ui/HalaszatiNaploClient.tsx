@@ -19,6 +19,11 @@ type NaploBejegyzes = {
     mennyisegKg: number | null;
     darab: number | null;
     ervenyes: boolean;
+    ervenytelenitveAt: string | null;
+    ervenytelenitesOka: string | null;
+    ervenytelenitoNev: string | null;
+    szerkesztveAt: string | null;
+    szerkesztoNev: string | null;
     reszletek: unknown;
 };
 
@@ -27,6 +32,7 @@ type Valasz = {
     talalatOsszesen: number;
     tenantOsszesen: number;
     limit: number;
+    viewerRole: "OWNER" | "ADMIN" | "STAFF";
 };
 
 type ToOpcio = { azonosito: number; nev: string };
@@ -59,6 +65,228 @@ function maUtc(): string {
     return new Date().toISOString().slice(0, 10);
 }
 
+function idoSzoveg(iso: string | null): string {
+    if (!iso) return "";
+    return new Date(iso).toLocaleString("hu-HU", {
+        year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit",
+    });
+}
+
+// ─── Egy naplóbejegyzés (szerkesztés / érvénytelenítés) ──────────────────────
+
+function BejegyzesKartya({
+    e, hid, canModosit, onValtozas,
+}: {
+    e: NaploBejegyzes;
+    hid: string;
+    canModosit: boolean;
+    onValtozas: () => void;
+}) {
+    const [szerkeszt, setSzerkeszt] = useState(false);
+    const [cim, setCim] = useState(e.cim);
+    const [leiras, setLeiras] = useState(e.leiras ?? "");
+    const [ervTelNyitva, setErvTelNyitva] = useState(false);
+    const [oka, setOka] = useState("");
+    const [fut, setFut] = useState(false);
+    const [hiba, setHiba] = useState<string | null>(null);
+
+    const szin = TIPUS_SZIN[e.tipus] ?? "#8a8a8a";
+
+    async function kuldes(adat: Record<string, unknown>) {
+        setFut(true);
+        setHiba(null);
+        try {
+            const res = await fetch(`/api/halaszatok/${hid}/naplo/${e.id}`, {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(adat),
+            });
+            const json = await res.json().catch(() => ({}));
+            if (!res.ok) { setHiba(json?.error ?? "A módosítás nem sikerült."); return false; }
+            onValtozas();
+            return true;
+        } catch {
+            setHiba("Hálózati hiba.");
+            return false;
+        } finally {
+            setFut(false);
+        }
+    }
+
+    async function mentesSzerkesztes() {
+        if (cim.trim().length < 1) { setHiba("A cím nem lehet üres."); return; }
+        if (await kuldes({ cim: cim.trim(), leiras: leiras.trim() })) setSzerkeszt(false);
+    }
+
+    async function ervenytelenit() {
+        if (oka.trim().length < 3) { setHiba("Az indok kötelező (min. 3 karakter)."); return; }
+        if (await kuldes({ ervenyes: false, ervenytelenitesOka: oka.trim() })) {
+            setErvTelNyitva(false);
+            setOka("");
+        }
+    }
+
+    async function visszaallit() {
+        if (!confirm("Biztosan visszaállítod érvényesre ezt a bejegyzést?")) return;
+        await kuldes({ ervenyes: true });
+    }
+
+    return (
+        <div
+            className="glass card"
+            style={{
+                borderLeft: `3px solid ${e.ervenyes ? szin : "#8a8a8a"}`,
+                display: "grid", gap: 6, padding: "12px 16px",
+                opacity: e.ervenyes ? 1 : 0.72,
+            }}
+        >
+            <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+                <span className="badge" style={{ background: `${szin}22`, color: szin, border: `1px solid ${szin}55` }}>
+                    {e.tipusCimke}
+                </span>
+
+                {szerkeszt ? (
+                    <input
+                        value={cim}
+                        onChange={(ev) => setCim(ev.target.value)}
+                        style={{ ...mezoStilus, flex: 1, minWidth: 200 }}
+                        disabled={fut}
+                        placeholder="Cím"
+                    />
+                ) : (
+                    <span style={{ fontWeight: 700, textDecoration: e.ervenyes ? "none" : "line-through" }}>
+                        {e.cim}
+                    </span>
+                )}
+
+                <span className="badge" style={{
+                    background: e.ervenyes ? "rgba(76,175,80,0.15)" : "rgba(150,30,30,0.2)",
+                    color: e.ervenyes ? "#6bcb77" : "#ff9d9d",
+                    border: `1px solid ${e.ervenyes ? "rgba(76,175,80,0.3)" : "rgba(150,30,30,0.4)"}`,
+                    marginLeft: "auto",
+                }}>
+                    {e.ervenyes ? "Érvényes" : "Érvénytelenítve"}
+                </span>
+            </div>
+
+            <div style={{ display: "flex", gap: 14, flexWrap: "wrap", fontSize: 12 }} className="muted">
+                <span>{idoSzoveg(e.datum)}</span>
+                {e.toNev && <span>Vízegység: <strong style={{ color: "rgba(255,255,255,0.85)" }}>{e.toNev}</strong></span>}
+                {e.halfajNev && <span>Faj: <strong style={{ color: "rgba(255,255,255,0.85)" }}>{e.halfajNev}</strong></span>}
+                {e.mennyisegKg != null && <span>Mennyiség: <strong style={{ color: "rgba(255,255,255,0.85)" }}>{e.mennyisegKg} kg</strong></span>}
+                {e.darab != null && <span>Darab: <strong style={{ color: "rgba(255,255,255,0.85)" }}>{e.darab} db</strong></span>}
+                <span>
+                    {e.rogzitoNev
+                        ? <>Rögzítette: <strong style={{ color: "rgba(255,255,255,0.85)" }}>{e.rogzitoNev}</strong></>
+                        : <span style={{ opacity: 0.7 }}>Rögzítő: nincs adat</span>}
+                </span>
+            </div>
+
+            {szerkeszt ? (
+                <textarea
+                    value={leiras}
+                    onChange={(ev) => setLeiras(ev.target.value)}
+                    rows={2}
+                    style={{ ...mezoStilus, resize: "vertical" }}
+                    disabled={fut}
+                    placeholder="Leírás"
+                />
+            ) : e.leiras ? (
+                <div className="muted" style={{ fontSize: 13, textDecoration: e.ervenyes ? "none" : "line-through" }}>
+                    {e.leiras}
+                </div>
+            ) : null}
+
+            {/* Érvénytelenítés adatai */}
+            {!e.ervenyes && (
+                <div style={{
+                    fontSize: 12, padding: "8px 10px", borderRadius: 10,
+                    background: "rgba(150,30,30,0.14)", border: "1px solid rgba(150,30,30,0.3)",
+                }}>
+                    <strong style={{ color: "#ff9d9d" }}>Érvénytelenítve</strong>
+                    {e.ervenytelenitveAt && <span className="muted"> &bull; {idoSzoveg(e.ervenytelenitveAt)}</span>}
+                    {e.ervenytelenitoNev && <span className="muted"> &bull; {e.ervenytelenitoNev}</span>}
+                    {e.ervenytelenitesOka && <div style={{ marginTop: 3 }}>Indok: {e.ervenytelenitesOka}</div>}
+                </div>
+            )}
+
+            {e.szerkesztveAt && (
+                <div className="muted" style={{ fontSize: 11, fontStyle: "italic" }}>
+                    Szövege javítva: {idoSzoveg(e.szerkesztveAt)}{e.szerkesztoNev ? ` — ${e.szerkesztoNev}` : ""}
+                </div>
+            )}
+
+            {hiba && <div style={{ color: "#ff9d9d", fontSize: 12 }}>{hiba}</div>}
+
+            {/* Érvénytelenítés űrlap */}
+            {ervTelNyitva && (
+                <div style={{ display: "grid", gap: 8 }}>
+                    <input
+                        value={oka}
+                        onChange={(ev) => setOka(ev.target.value)}
+                        placeholder="Az érvénytelenítés indoka (kötelező)"
+                        style={mezoStilus}
+                        disabled={fut}
+                    />
+                    <div className="muted" style={{ fontSize: 11 }}>
+                        Az érvénytelenítés a naplóbejegyzést jelöli meg — a hal- vagy
+                        takarmánykészletet <strong>nem</strong> állítja vissza.
+                    </div>
+                    <div style={{ display: "flex", gap: 8 }}>
+                        <button className="btn" onClick={ervenytelenit} disabled={fut}>
+                            {fut ? "Mentés…" : "Érvénytelenítés"}
+                        </button>
+                        <button className="btn" onClick={() => { setErvTelNyitva(false); setHiba(null); }} disabled={fut} style={{ opacity: 0.7 }}>
+                            Mégse
+                        </button>
+                    </div>
+                </div>
+            )}
+
+            {/* Műveletek */}
+            {canModosit && !ervTelNyitva && (
+                <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 2 }}>
+                    {szerkeszt ? (
+                        <>
+                            <button className="btn" onClick={mentesSzerkesztes} disabled={fut} style={{ fontSize: 12 }}>
+                                {fut ? "Mentés…" : "Mentés"}
+                            </button>
+                            <button
+                                className="btn"
+                                onClick={() => { setSzerkeszt(false); setCim(e.cim); setLeiras(e.leiras ?? ""); setHiba(null); }}
+                                disabled={fut}
+                                style={{ fontSize: 12, opacity: 0.7 }}
+                            >
+                                Mégse
+                            </button>
+                        </>
+                    ) : (
+                        <>
+                            <button className="btn" onClick={() => setSzerkeszt(true)} disabled={fut} style={{ fontSize: 12 }}>
+                                Szöveg javítása
+                            </button>
+                            {e.ervenyes ? (
+                                <button
+                                    className="btn"
+                                    onClick={() => setErvTelNyitva(true)}
+                                    disabled={fut}
+                                    style={{ fontSize: 12, color: "#ff9d9d", borderColor: "rgba(150,30,30,0.4)" }}
+                                >
+                                    Érvénytelenítés
+                                </button>
+                            ) : (
+                                <button className="btn" onClick={visszaallit} disabled={fut} style={{ fontSize: 12, color: "#6bcb77" }}>
+                                    Visszaállítás
+                                </button>
+                            )}
+                        </>
+                    )}
+                </div>
+            )}
+        </div>
+    );
+}
+
 // ─── Fő komponens ────────────────────────────────────────────────────────────
 
 export default function HalaszatiNaploClient({ hid }: { hid: string }) {
@@ -73,6 +301,7 @@ export default function HalaszatiNaploClient({ hid }: { hid: string }) {
     const [periodus, setPeriodus] = useState<string>("");
     const [datum, setDatum] = useState(maUtc());
     const [toak, setToak] = useState<ToOpcio[]>([]);
+    const [csakErvenyes, setCsakErvenyes] = useState(false);
 
     // Kereső debounce
     useEffect(() => {
@@ -102,6 +331,7 @@ export default function HalaszatiNaploClient({ hid }: { hid: string }) {
             if (tipus) p.set("tipus", tipus);
             if (toId) p.set("toId", toId);
             if (periodus) { p.set("period", periodus); p.set("date", datum); }
+            if (csakErvenyes) p.set("csakErvenyes", "1");
             const res = await fetch(`/api/halaszatok/${hid}/naplo?${p}`, { cache: "no-store" });
             const json = await res.json().catch(() => null);
             if (!res.ok) throw new Error(json?.error ?? "Betöltési hiba.");
@@ -111,7 +341,7 @@ export default function HalaszatiNaploClient({ hid }: { hid: string }) {
         } finally {
             setLoading(false);
         }
-    }, [hid, debouncedQ, tipus, toId, periodus, datum]);
+    }, [hid, debouncedQ, tipus, toId, periodus, datum, csakErvenyes]);
 
     useEffect(() => { void betolt(); }, [betolt]);
 
@@ -124,6 +354,7 @@ export default function HalaszatiNaploClient({ hid }: { hid: string }) {
     }, [hid, periodus, datum, toId, tipus]);
 
     const esemenyek = data?.esemenyek ?? [];
+    const canModosit = data?.viewerRole === "OWNER" || data?.viewerRole === "ADMIN";
 
     return (
         <div style={{ display: "grid", gap: 18 }}>
@@ -205,6 +436,20 @@ export default function HalaszatiNaploClient({ hid }: { hid: string }) {
                         disabled={!periodus}
                         title={periodus ? "Az időszak dátuma" : "Előbb válassz időszakot"}
                     />
+
+                    <button
+                        className="btn"
+                        onClick={() => setCsakErvenyes((v) => !v)}
+                        style={{
+                            fontSize: 13,
+                            background: csakErvenyes ? "rgba(76,175,80,0.2)" : undefined,
+                            borderColor: csakErvenyes ? "rgba(76,175,80,0.6)" : undefined,
+                            color: csakErvenyes ? "#6bcb77" : undefined,
+                        }}
+                        title="Az érvénytelenített bejegyzések elrejtése"
+                    >
+                        {csakErvenyes ? "Csak érvényes ✓" : "Csak érvényes"}
+                    </button>
                 </div>
             </div>
 
@@ -236,48 +481,15 @@ export default function HalaszatiNaploClient({ hid }: { hid: string }) {
                 </div>
             ) : (
                 <div style={{ display: "grid", gap: 8 }}>
-                    {esemenyek.map((e) => {
-                        const szin = TIPUS_SZIN[e.tipus] ?? "#8a8a8a";
-                        return (
-                            <div key={e.id} className="glass card" style={{ borderLeft: `3px solid ${szin}`, display: "grid", gap: 6, padding: "12px 16px" }}>
-                                <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-                                    <span className="badge" style={{ background: `${szin}22`, color: szin, border: `1px solid ${szin}55` }}>
-                                        {e.tipusCimke}
-                                    </span>
-                                    <span style={{ fontWeight: 700 }}>{e.cim}</span>
-                                    <span className="badge" style={{
-                                        background: e.ervenyes ? "rgba(76,175,80,0.15)" : "rgba(150,30,30,0.2)",
-                                        color: e.ervenyes ? "#6bcb77" : "#ff9d9d",
-                                        border: `1px solid ${e.ervenyes ? "rgba(76,175,80,0.3)" : "rgba(150,30,30,0.4)"}`,
-                                        marginLeft: "auto",
-                                    }}>
-                                        {e.ervenyes ? "Érvényes" : "Érvénytelenítve"}
-                                    </span>
-                                </div>
-
-                                <div style={{ display: "flex", gap: 14, flexWrap: "wrap", fontSize: 12 }} className="muted">
-                                    <span>
-                                        {new Date(e.datum).toLocaleString("hu-HU", {
-                                            year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit",
-                                        })}
-                                    </span>
-                                    {e.toNev && <span>Vízegység: <strong style={{ color: "rgba(255,255,255,0.85)" }}>{e.toNev}</strong></span>}
-                                    {e.halfajNev && <span>Faj: <strong style={{ color: "rgba(255,255,255,0.85)" }}>{e.halfajNev}</strong></span>}
-                                    {e.mennyisegKg != null && <span>Mennyiség: <strong style={{ color: "rgba(255,255,255,0.85)" }}>{e.mennyisegKg} kg</strong></span>}
-                                    {e.darab != null && <span>Darab: <strong style={{ color: "rgba(255,255,255,0.85)" }}>{e.darab} db</strong></span>}
-                                    <span>
-                                        {e.rogzitoNev
-                                            ? <>Rögzítette: <strong style={{ color: "rgba(255,255,255,0.85)" }}>{e.rogzitoNev}</strong></>
-                                            : <span style={{ opacity: 0.7 }}>Rögzítő: nincs adat</span>}
-                                    </span>
-                                </div>
-
-                                {e.leiras && (
-                                    <div className="muted" style={{ fontSize: 13 }}>{e.leiras}</div>
-                                )}
-                            </div>
-                        );
-                    })}
+                    {esemenyek.map((e) => (
+                        <BejegyzesKartya
+                            key={e.id}
+                            e={e}
+                            hid={hid}
+                            canModosit={canModosit}
+                            onValtozas={betolt}
+                        />
+                    ))}
                 </div>
             )}
 
@@ -287,8 +499,16 @@ export default function HalaszatiNaploClient({ hid }: { hid: string }) {
                     <strong>Megjegyzés:</strong> a napló a ténylegesen megvalósított műveletekből épül
                     (telepítés, kivét, áttelepítés, etetés, takarmány-bevétel/-felhasználás). Az export
                     <strong> nyomtatóbarát HTML</strong> — a böngésző „Nyomtatás → Mentés PDF-ként"
-                    funkciójával menthető PDF-be; a közvetlen PDF-generálás tervezett. A bejegyzések
-                    érvénytelenítése (audit-flow) szintén tervezett — jelenleg minden bejegyzés „Érvényes".
+                    funkciójával menthető PDF-be; a közvetlen PDF-generálás tervezett.
+                    <br /><br />
+                    <strong>Javítás / érvénytelenítés:</strong> a naplósorok <strong>fizikailag nem
+                    törölhetők</strong> (ez a hivatalos napló lényege). Hibás rögzítés esetén ADMIN/OWNER
+                    <em> érvénytelenítheti</em> a bejegyzést kötelező indokkal — a sor áthúzva megmarad,
+                    és kimarad az összegzésekből. A szövege (cím, leírás) javítható, a mennyiségi mezők
+                    viszont nem, mert azok a tényleges műveletet tükrözik.
+                    <strong> Fontos:</strong> az érvénytelenítés a <em>naplóbejegyzést</em> érvényteleníti,
+                    a hal- vagy takarmánykészletet <strong>nem</strong> állítja vissza — ahhoz kompenzáló
+                    műveletet kell rögzíteni (pl. korrekciós takarmány-bevétel vagy telepítés/kivét).
                     A régi (a napló-bővítés előtti) eseményeknél a rögzítő „nincs adat" lehet.
                 </div>
             </div>

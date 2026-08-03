@@ -136,6 +136,9 @@ A cellák a **ténylegesen kikényszerített** minimum-szerepkört tükrözik. A
 | Halászat-szintű dashboard / összesítő | ✅ | ✅ | ✅ | `requireHalaszatRole(STAFF)` · `GET .../osszesito` |
 | Naptár megtekintése | ✅ | ✅ | ✅ | `requireHalaszatRole(STAFF)` · `GET .../naptar` |
 | Naptárbejegyzés létrehozása / szerkesztése / törlése | ✅ | ✅ | ✅ | `requireHalaszatRole(STAFF)` · `POST/PATCH/DELETE .../naptar[/id]` |
+| Halászati napló megtekintése (+ export) | ✅ | ✅ | ✅ | `requireHalaszatRole(STAFF)` · `GET .../naplo`, `GET .../naplo/export` |
+| Naplóbejegyzés szövegének javítása | ❌ | ✅ | ✅ | `canModositNaploEsemeny` (ADMIN+) · `PATCH .../naplo/[id]` — csak `cim`/`leiras` |
+| Naplóbejegyzés érvénytelenítése / visszaállítása | ❌ | ✅ | ✅ | `canModositNaploEsemeny` (ADMIN+) · `PATCH .../naplo/[id]` — kötelező indok; **fizikai törlés nincs** |
 
 > **Actor / nyomon követhetőség (Sprint 1, 2026-06-26).** A műveleti írások
 > (telepítés/kivét/etetés/áttelepítés) és a takarmánymozgások mostantól rögzítik a

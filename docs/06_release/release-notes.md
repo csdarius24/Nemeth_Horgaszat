@@ -88,6 +88,21 @@ ismert korlátai átláthatóan dokumentáltak (lásd lentebb és a
   a tó törlése többé nem törli a naplót (SetNull). Migráció:
   `20260627120000_halaszati_naplo_2` — **még nincs alkalmazva**.
 
+### Napló-bejegyzés javítása és érvénytelenítése (2026-06-27)
+- **Fizikai törlés nincs** — a hivatalos napló sorai nem tűnhetnek el. Hibás
+  rögzítés esetén **ADMIN/OWNER érvénytelenítheti** a bejegyzést **kötelező
+  indokkal**; rögzül, hogy ki, mikor és miért. Az érvénytelen sor áthúzva
+  megmarad, és **kimarad az összegzésekből** (a naplóban és az exportban is
+  látszik, külön feltüntetett darabszámmal). A művelet **visszaállítható**.
+- A bejegyzés **szövege** (cím, leírás) javítható; rögzül a `szerkesztveAt` és a
+  szerkesztő. A **mennyiségi mezők nem** módosíthatók, mert a tényleges műveleti
+  rekordot tükrözik.
+- Új szűrő: „Csak érvényes". Új végpont: `PATCH .../naplo/[id]`.
+- **Korlát:** az érvénytelenítés a *naplóbejegyzést* érvényteleníti, a
+  hal-/takarmánykészletet **nem** vezeti vissza — ahhoz kompenzáló műveletet kell
+  rögzíteni. Az automatikus visszavezetés és a mező-szintű verziózás **tervezett**.
+- Migráció: `20260627140000_naplo_ervenytelenites` — **még nincs alkalmazva**.
+
 ### Kiegészítő modulok
 - Naptár (havi bejegyzések), hibabejelentés státuszkövetéssel, beépített
   számológép segédeszköz.

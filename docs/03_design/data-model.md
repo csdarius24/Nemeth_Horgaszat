@@ -195,6 +195,11 @@ erDiagram
         string kapcsolodoEntitasTipus "nullable"
         int kapcsolodoEntitasId "nullable"
         bool ervenyes
+        datetime ervenytelenitveAt "nullable"
+        string ervenytelenitesOka "nullable"
+        int ervenytelenitoFelhasznaloId FK "nullable"
+        datetime szerkesztveAt "nullable"
+        int szerkesztoFelhasznaloId FK "nullable"
     }
     Takarmany {
         int azonosito PK
@@ -408,13 +413,26 @@ erDiagram
   a migráció backfillel tölti); `cim` (`VarChar(200)`, ember-olvasható cím);
   `reszletekJson` (`Json`, strukturált részletek — pl. takarmánynév, új készlet);
   `kapcsolodoEntitasTipus`/`kapcsolodoEntitasId` (pl. `"Etetes"`, `"Kivetel"`,
-  `"TakarmanyMozgas"` + rekord-azonosító); `ervenyes` (`Boolean`, alap `true` —
-  az érvénytelenítési audit-flow tervezett, jelenleg minden sor érvényes).
+  `"TakarmanyMozgas"` + rekord-azonosító).
+- **Javítás / érvénytelenítés (audit-flow, implementálva):** `ervenyes`
+  (`Boolean`, alap `true`), `ervenytelenitveAt`, `ervenytelenitesOka`
+  (`VarChar(300)`), `ervenytelenitoFelhasznaloId`, valamint a szövegjavítás
+  nyoma: `szerkesztveAt`, `szerkesztoFelhasznaloId` — mind **nullable**.
+  **AUDIT-ELV:** a naplósor **fizikailag sosem törlődik**; a hibás bejegyzést
+  ADMIN/OWNER érvénytelenítheti kötelező indokkal (`PATCH .../naplo/[id]`), a sor
+  megmarad és kiesik az összegzésekből. Csak a `cim`/`leiras` szerkeszthető — a
+  mennyiségi mezők a tényleges műveleti rekordot tükrözik.
+  **Korlát:** az érvénytelenítés a naplósort érinti, a hal-/takarmánykészletet
+  **nem** vezeti vissza (kompenzáló művelet szükséges; automatikus visszavezetés
+  tervezett).
 - **Indexek:** `@@index([toId, datum])`, `@@index([tipus, datum])`,
   `@@index([felhasznaloId])`, `@@index([halaszatId, datum])`.
 - **Relációk:** `to` (opcionális, **SetNull** — **audit-döntés:** a tó törlése
   többé nem törli a naplót), `halfaj` (opcionális, SetNull), `felhasznalo`
-  (opcionális, **SetNull**), `halaszat` (opcionális, Cascade).
+  (rögzítő, `"NaploRogzito"`, SetNull), `ervenytelenito`
+  (`"NaploErvenytelenito"`, SetNull), `szerkeszto` (`"NaploSzerkeszto"`, SetNull),
+  `halaszat` (opcionális, Cascade). A három `Felhasznalo`-reláció **nevesített**,
+  mert ugyanarra a modellre mutatnak.
 - **Megjegyzés (actor / nyomon követhetőség):** a `felhasznaloId` a **session**
   felhasználójából kerül beírásra a művelet-route-okban (nem a kérés törzséből),
   így „ki végezte/rögzítette" visszakereshető. Nullable a régi sorok és a

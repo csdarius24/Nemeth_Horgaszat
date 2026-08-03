@@ -7,7 +7,7 @@ forrása: `docs/01_product/scope-contract.md` (AC1–AC7).
 ## 1. Állapot — összefoglaló
 
 > **Unit szint zöld; az integrációs réteg a biztonságos teszt-DB-n lefutott.**
-> Jelenleg **120 unit teszt** fut **10 fájlban**, mind zöld (lásd 5. szakasz). Elkészült az **első DB-backed integrációs/workflow teszt-réteg** is
+> Jelenleg **126 unit teszt** fut **10 fájlban**, mind zöld (lásd 5. szakasz). Elkészült az **első DB-backed integrációs/workflow teszt-réteg** is
 > (takarmány-etetés workflow + jogosultság), biztonságos teszt-DB kezeléssel és
 > production-guarddal — ez **dedikált teszt-adatbázist igényel**, ezért jelenleg
 > **biztonságosan kihagyva** fut (lásd 8. szakasz). Az **e2e** réteg továbbra is
@@ -24,7 +24,7 @@ lefedettség, Playwright trace, endpoint-szintű integration) később illeszten
 | Tétel | Állapot |
 |---|---|
 | Teszt-keretrendszer | ✅ Vitest 3.2.6 (`vitest.config.ts`, node környezet) |
-| Unit tesztek | ✅ **120 teszt, 10 fájl** (`tests/unit/`) — korábban 96/9 |
+| Unit tesztek | ✅ **126 teszt, 10 fájl** (`tests/unit/`) — korábban 120/10 |
 | Integration tesztek | ✅ **Végrehajtva a biztonságos teszt-DB ellen** (feed-workflow + authorization, actor-assertekkel); teszt-DB nélkül továbbra is biztonságos skip — lásd 8. |
 | E2E tesztek | ❌ Nincs (tervezett, Playwright) |
 | Lefedettség mérés | ✅ Elérhető (`npm run test:coverage`, `@vitest/coverage-v8`) |
@@ -34,7 +34,8 @@ lefedettség, Playwright trace, endpoint-szintű integration) később illeszten
 | Production DB migráció | ✅ `20260626100000_link_etetes_takarmany` **alkalmazva** (`prisma migrate deploy`, 2026-06-26, `srv1695.hstgr.io`) — lásd `verification-log.md` V-13 |
 | Actor migráció (Sprint 1) | ✅ `20260626120000_actor_naplo_takarmanymozgas` **alkalmazva** — előbb a biztonságos **teszt-DB**-re, majd a **production**-re (`prisma migrate deploy`) — lásd `verification-log.md` V-16 |
 | Vízegység-migráció (Tavak és telelők) | ✅ `20260627090000_to_tipusok_es_muszaki_adatok` **alkalmazva** (Vercel `migrate deploy`, 2026-06-27) |
-| Halászati napló migráció | ⚠️ `20260627120000_halaszati_naplo_2` **létrehozva, de NEM alkalmazva** — `EsemenyTipus` bővítés, `toId` nullable (Cascade→SetNull), `halaszatId`/`cim`/`reszletekJson`/`kapcsolodo*`/`ervenyes` mezők + backfill |
+| Halászati napló migráció | ⚠️ `20260627120000_halaszati_naplo_2` **létrehozva** — `EsemenyTipus` bővítés, `toId` nullable (Cascade→SetNull), `halaszatId`/`cim`/`reszletekJson`/`kapcsolodo*`/`ervenyes` mezők + backfill |
+| Napló-érvénytelenítés migráció | ⚠️ `20260627140000_naplo_ervenytelenites` **létrehozva, de NEM alkalmazva** — `ervenytelenitveAt`/`ervenytelenitesOka`/`ervenytelenitoFelhasznaloId` + `szerkesztveAt`/`szerkesztoFelhasznaloId` (mind nullable) |
 | Kézi (manuális) ellenőrzés | ⚠️ Fejlesztés közben ad-hoc, nem dokumentált |
 
 **Jelenleg rendelkezésre álló minőségi jelek:** Vitest unit tesztek, ESLint
@@ -101,11 +102,14 @@ Legutóbbi tényleges futás — `npm run test` (Vitest 3.2.6, `environment: nod
  ✓ tests/unit/rogzito.test.ts           ( 6 tests)
  ✓ tests/unit/riasztasok.test.ts        (15 tests)
  ✓ tests/unit/toak-attekintes.test.ts   (29 tests)
- ✓ tests/unit/naplo-format.test.ts      (24 tests)
+ ✓ tests/unit/naplo-format.test.ts      (27 tests)
 
  Test Files  10 passed (10)
-      Tests  120 passed (120)
+      Tests  126 passed (126)
 ```
+(a `roles.test.ts` 15 → 18 teszt: `canModositNaploEsemeny`; a
+`naplo-format.test.ts` 24 → 27: az érvénytelenített bejegyzések kihagyása az
+összegzésből.)
 
 - **Típusellenőrzés:** `npx tsc --noEmit` → **exit 0** (0 típushiba).
 - **Production build:** `npm run build` (Next.js) → **sikeres** (2026-06-26).
@@ -202,7 +206,7 @@ A folyamatos integráció a `.github/workflows/ci.yml`-ben van definiálva, és
 4. `npx prisma generate` — Prisma kliens előállítása (a typecheckhez kell;
    nem csatlakozik adatbázishoz).
 5. `npx tsc --noEmit` — típusellenőrzés.
-6. `npm run test` — Vitest unit tesztek (120 teszt, 10 fájl).
+6. `npm run test` — Vitest unit tesztek (126 teszt, 10 fájl).
 
 A CI tehát **typecheck + unit teszt** szinten véd; valódi adatbázis nem
 szükséges (a workflow csak egy placeholder `DATABASE_URL`-t állít be a Prisma
