@@ -73,6 +73,7 @@ model Felhasznalo {
   naploErvenytelenitesek NaploEsemeny[]    @relation("NaploErvenytelenito")
   naploSzerkesztesek     NaploEsemeny[]    @relation("NaploSzerkeszto")
   takarmanyMozgasok      TakarmanyMozgas[]
+  halkeltetesCiklusok    HalkeltetesCiklus[]
 
   @@map("felhasznalok")
 }
@@ -108,6 +109,8 @@ model Halaszat {
   takarmanyok        Takarmany[]
   takarmanyMozgasok  TakarmanyMozgas[]
   naploEsemenyek     NaploEsemeny[]
+  halkeltetesCiklusok    HalkeltetesCiklus[]
+  halkeltetesProtokollok HalkeltetesProtokoll[]
 
   @@map("halaszatok")
 }
@@ -196,6 +199,8 @@ model Halfaj {
   telepitesek    Telepites[]
   kivetelek      Kivetel[]
   naploEsemenyek NaploEsemeny[]
+  halkeltetesCiklusok    HalkeltetesCiklus[]
+  halkeltetesProtokollok HalkeltetesProtokoll[]
 
   // tenanton belül legyen egyedi a név
   @@unique([halaszatId, nev])
@@ -342,6 +347,105 @@ enum HibabejelentesStatusz {
   FOLYAMATBAN
   MEGOLDVA
   ELUTASITVA
+}
+
+// ── Halkeltetés (Sprint 1: kézi ciklus-rögzítés) ────────────────────────────
+
+enum HalkeltetesStatusz {
+  TERVEZET
+  FOLYAMATBAN
+  LEZARVA
+}
+
+enum HalkeltetesIvar {
+  IKRAS // nőstény / ikrás
+  TEJES // hím / tejes
+}
+
+/// Egy ikráztatási/keltetési ciklus fejadatai (a keltetési munkalap "fejléce").
+model HalkeltetesCiklus {
+  azonosito    Int                @id @default(autoincrement())
+  halaszatId   Int
+  halfajId     Int?
+  protokollId  Int?
+  nev          String?            @db.VarChar(160)
+  datum        DateTime
+  oltasIdopont DateTime?
+  homersekletC Decimal?           @db.Decimal(4, 1)
+  statusz      HalkeltetesStatusz @default(TERVEZET)
+  megjegyzes   String?            @db.Text
+
+  // A protokoll értékei a ciklus rögzítésekor lemásolódnak (snapshot), hogy egy
+  // későbbi protokoll-módosítás ne írja át visszamenőleg a számított adagokat.
+  ikrasEloadagMgPerKg Decimal? @db.Decimal(8, 3)
+  ikrasDontoMgPerKg   Decimal? @db.Decimal(8, 3)
+  ikrasMlPerKg        Decimal? @db.Decimal(8, 3)
+  tejesMgPerKg        Decimal? @db.Decimal(8, 3)
+  tejesMlPerKg        Decimal? @db.Decimal(8, 3)
+  rahagyasSzorzo      Decimal? @db.Decimal(4, 2)
+
+  // actor / nyomon követhetőség
+  rogzitoFelhasznaloId Int?
+
+  letrehozva DateTime @default(now())
+  frissitve  DateTime @updatedAt
+
+  halaszat  Halaszat              @relation(fields: [halaszatId], references: [azonosito], onDelete: Cascade)
+  halfaj    Halfaj?               @relation(fields: [halfajId], references: [azonosito], onDelete: SetNull)
+  protokoll HalkeltetesProtokoll? @relation(fields: [protokollId], references: [azonosito], onDelete: SetNull)
+  rogzito   Felhasznalo?          @relation(fields: [rogzitoFelhasznaloId], references: [azonosito], onDelete: SetNull)
+  halak     HalkeltetesHal[]
+
+  @@index([halaszatId, datum])
+  @@index([halfajId])
+  @@map("halkeltetes_ciklusok")
+}
+
+/// Egy ciklus egy hala (ikrás vagy tejes sor a munkalapon).
+model HalkeltetesHal {
+  azonosito    Int             @id @default(autoincrement())
+  ciklusId     Int
+  ivar         HalkeltetesIvar
+  sorszam      Int?
+  chipAzonosito String?        @db.VarChar(80)
+  fajtaJeloles String?         @db.VarChar(120)
+  tomegKg      Decimal?        @db.Decimal(7, 2)
+  ikraKg       Decimal?        @db.Decimal(7, 2) // ikrás sornál: kifejt ikra tömege
+  tejMl        Decimal?        @db.Decimal(8, 2) // tejes sornál: tej mennyiség
+  megjegyzes   String?         @db.Text
+
+  letrehozva DateTime @default(now())
+  frissitve  DateTime @updatedAt
+
+  ciklus HalkeltetesCiklus @relation(fields: [ciklusId], references: [azonosito], onDelete: Cascade)
+
+  @@index([ciklusId, ivar])
+  @@map("halkeltetes_halak")
+}
+
+/// Konfigurálható oltási protokoll (mg/kg, ml/kg értékek + ráhagyás szorzó).
+/// Szándékosan NINCS beégetett "biológiai igazság" — halászatonként/fajonként állítható.
+model HalkeltetesProtokoll {
+  azonosito           Int      @id @default(autoincrement())
+  halaszatId          Int
+  halfajId            Int?
+  nev                 String   @db.VarChar(160)
+  ikrasEloadagMgPerKg Decimal  @default(0.000) @db.Decimal(8, 3)
+  ikrasDontoMgPerKg   Decimal  @default(0.000) @db.Decimal(8, 3)
+  ikrasMlPerKg        Decimal  @default(0.000) @db.Decimal(8, 3)
+  tejesMgPerKg        Decimal  @default(0.000) @db.Decimal(8, 3)
+  tejesMlPerKg        Decimal  @default(0.000) @db.Decimal(8, 3)
+  rahagyasSzorzo      Decimal  @default(1.10) @db.Decimal(4, 2)
+  aktiv               Boolean  @default(true)
+  letrehozva          DateTime @default(now())
+  frissitve           DateTime @updatedAt
+
+  halaszat Halaszat            @relation(fields: [halaszatId], references: [azonosito], onDelete: Cascade)
+  halfaj   Halfaj?             @relation(fields: [halfajId], references: [azonosito], onDelete: SetNull)
+  ciklusok HalkeltetesCiklus[]
+
+  @@index([halaszatId, aktiv])
+  @@map("halkeltetes_protokollok")
 }
 
 model NaptarBejegyzes {

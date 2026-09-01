@@ -144,13 +144,16 @@ Kapcsolódó: [`scope-contract.md`](scope-contract.md), [`capability-map.md`](ca
 
 | Ügyfél-igény | Állapot | Bizonyíték a repóban | Ajánlott kategória | Szükséges változás | Thesis-relevancia | Kockázat / megjegyzés |
 |---|---|---|---|---|---|---|
-| Külön halkeltetés menü | ⚠️ | **csak placeholder oldal** (`halaszatok/[hid]/halkeltes`, „hamarosan") | 🟡 P4 / Jövőbeli | teljes modul | Alacsony-Közepes | ne jelöljük késznek |
-| To-do lista, vezetett folyamat | 🟡 | nincs | P4 / Jövőbeli | folyamat-motor | Alacsony | — |
-| Faj + keltetési szezon fajonként | 🟡 | nincs | P4 | entitások | Alacsony | — |
-| Tenyészhal-szám, ivarok, súlyok | 🟡 | nincs | P4 / Jövőbeli | entitások | Alacsony | — |
-| Ikra-/tejmennyiség | 🟡 | nincs | Jövőbeli | — | Alacsony | — |
-| Egyedi tenyészhal-/chip-azonosító | 🔵 | nincs | Jövőbeli | egyed-nyilvántartás | Alacsony | nagy scope |
-| Össz ivadék fajonként, kihelyezés tóba | 🟡 | nincs | P4 | — | Alacsony | — |
+| Külön halkeltetés menü | ✅ | **Halkeltetés MVP (Sprint 1):** működő `/halaszatok/[hid]/halkeltes` oldal (a placeholder lecserélve) + `halkeltes/ciklusok` API-k | Kész | — | Közepes | — |
+| Kézi keltetési ciklus rögzítése | ✅ | `HalkeltetesCiklus` + `HalkeltetesHal` + `NaploEsemeny(HALKELTES)`; ciklus létrehozás/lista/részletek/státusz | Kész | — | Közepes | — |
+| Faj kiválasztása + fejadatok (dátum, hőmérséklet, oltás időpont) | ✅ | ciklus fejadatai (tenant-ellenőrzött `halfajId`) | Kész | — | Közepes | — |
+| Tenyészhal-sorok, ivarok, súlyok | ✅ | ikrás/tejes sorok `tomegKg`, `fajtaJeloles`, `sorszam` | Kész | — | Közepes | — |
+| Ikra-/tejmennyiség | ✅ | ikrás `ikraKg`, tejes `tejMl` sormezők + összegzés | Kész | — | Alacsony-Közepes | — |
+| Oltási adag számítás (konfigurálható protokoll) | ✅ | `HalkeltetesProtokoll` + snapshot + tiszta `szamitas.ts` (mg/kg, ml/kg, „Oltandó ×1,1"), unit-tesztelt | Kész | — | Közepes | nincs beégetett biológiai szabály |
+| Egyedi chip-azonosító a soron | ✅ | `HalkeltetesHal.chipAzonosito` (soronként) | Kész | különálló chip-törzsadat később | Alacsony | nem külön registry (Sprint 1) |
+| Excel-alapú import | 🟡 | **nincs** — a UI-n „Excel import előkészítve" (letiltva) | P4 / Sprint 2 | robusztus XLSX-parser | Közepes | tudatosan nem került be törékeny parser |
+| Dokumentum-export (keltetési munkalap) | 🟡 | nincs (a naplóban a HALKELTES esemény exportálható) | Sprint 3 | nyomtatható ciklus-nézet / PDF | Közepes | — |
+| Össz ivadék fajonként, kihelyezés tóba (állománynövelés) | 🟡 | **nincs** | P4 | ivadék-életciklus + automatikus telepítés | Alacsony | szándékosan kimaradt (kockázat) |
 | Keltetési mortalitás | 🟡 | nincs | P4 | — | Alacsony | — |
 | Grafikus keltetési haladás | 🔵 | nincs | Jövőbeli | — | Alacsony | — |
 
@@ -226,10 +229,14 @@ alapokra építenek.
 - **Naptár/feladat integráció** — az automatikus események (etetés, áthelyezés,
   vízminőség, bevét, mortalitás) a naptárban, actor-ral.
 
-### 4. fázis — térkép/időjárás és minimális keltetés
+### 4. fázis — térkép/időjárás és keltetés
 - **Térkép koordináták alapján + időjárás** (külső API-k).
-- **Minimális halkeltetés-tervezés** VAGY tudatos **jövőbeli-munka** döntés
-  (a teljes keltetési életciklus nem thesis-mag, hacsak nem ez lesz kiválasztva).
+- ~~**Minimális halkeltetés-tervezés**~~ ✅ **Leszállítva (Halkeltetés MVP,
+  Sprint 1):** kézi keltetési ciklus-rögzítés (ikrás/tejes sorok, konfigurálható
+  oltási protokoll + adagszámítás, összegzés, naplózás). *Hátra:* Excel-import
+  (Sprint 2), dokumentum-export (Sprint 3), ivadék-kihelyezés + automatikus
+  állománynövelés (P4), keltetési mortalitás. A **teljes** ivadék-életciklus
+  továbbra sem thesis-mag.
 
 ### Jövőbeli munka (thesis MVP-n túl)
 - **NDVI / műhold** nézet.
@@ -246,7 +253,7 @@ alapokra építenek.
 | **NDVI / műhold nézet** | Külső adat-pipeline, jelentős komplexitás és költség; a művelet-MVP-hez nem ad értéket, elviszi a fókuszt a menürobbanás irányába. |
 | **Gyógyszer / rendelhető kezelési javaslat** | Szakmai/állat-egészségügyi **felelősség**; lényegében marketplace-integráció — a thesis scope-ján kívül. |
 | **Teljes AI asszisztens** | Nincs termék-AI alap; validáció és megbízhatóság nélkül félrevezető javaslatokat adhat; nagy scope, kevés thesis-hozzáadott érték most. |
-| **Teljes keltetési életciklus** | Nagyon nagy adat- és folyamat-scope (tenyészhal, ikra/tej, chip-azonosító, mortalitás, haladás); a jelenlegi placeholderből komplett modul — csak akkor, ha ez a kiválasztott thesis-mag. |
+| **Teljes ivadék-életciklus + automatikus állománynövelés** | A **kézi keltetési MVP elkészült** (ciklus, sorok, adagszámítás, naplózás). A **teljes** életciklus (ivadéknevelés, kihelyezés → automatikus `HalAllomany`-növelés, mortalitás-követés, grafikus haladás) viszont nagy scope és állományt módosít — külön, óvatos sprint(ek), nem most. |
 | **IoT / szenzor-automatizálás** (páratartalom, automata vízmérés) | Hardver- és üzemeltetési függés, a `scope-contract.md` „Out of Scope"-ja; a szoftver-MVP nyomon-követhetőségi céljához nem szükséges. |
 
 Ezek mind **🔵 jövőbeli** vagy **❌ nem ajánlott** kategóriák — dokumentáltan, hogy

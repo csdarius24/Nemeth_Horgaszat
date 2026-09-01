@@ -257,6 +257,8 @@ erDiagram
 | `HalaszatSzerepkor` | `OWNER`, `ADMIN`, `STAFF` | `HalaszatTagsag.szerepkor` — halászat (tenant) szintű szerepkör. |
 | `ToTipus` | `TO`, `TELELO`, `IVADEKNEVELO`, `KELTETO_MEDENCE` | `To.tipus` — vízegység típusa. Az `IVADEKNEVELO` és `KELTETO_MEDENCE` a vízegység-áttekintéshez került be (visszafelé kompatibilis ENUM-bővítés). |
 | `TakarmanyMozgasTipus` | `BEVETEL`, `FELHASZNALVA` | `TakarmanyMozgas.tipus` — készletnövelő (bevétel) vagy készletcsökkentő (felhasználás) mozgás. |
+| `HalkeltetesStatusz` | `TERVEZET`, `FOLYAMATBAN`, `LEZARVA` | `HalkeltetesCiklus.statusz`. |
+| `HalkeltetesIvar` | `IKRAS`, `TEJES` | `HalkeltetesHal.ivar` — ikrás (nőstény) vagy tejes (hím) hal. |
 | `HibabejelentesStatusz` | `UJ`, `FOLYAMATBAN`, `MEGOLDVA`, `ELUTASITVA` | `Hibabejelentes.statusz` — a hibabejelentés állapota (alapérték `UJ`). |
 
 > Megjegyzés: a `Szerepkor` (tó-szintű, 5 fokozatú) enum és a `ToTagsag` modell
@@ -458,6 +460,38 @@ erDiagram
 - **Relációk:** `halaszat` (opcionális, SetNull), `felhasznalo` (opcionális,
   SetNull).
 
+### HalkeltetesCiklus (`halkeltetes_ciklusok`)
+- **Cél:** egy ikráztatási/keltetési ciklus fejadatai (a keltetési munkalap
+  fejléce) — **kézi rögzítés** (Halkeltetés MVP, Sprint 1).
+- **Fontos mezők:** `datum` (kötelező), `nev`, `halfajId` (opcionális, tenant-
+  ellenőrzött), `protokollId` (opcionális), `oltasIdopont`, `homersekletC`
+  (`Decimal(4,1)`), `statusz` (`HalkeltetesStatusz`, alap `TERVEZET`),
+  `megjegyzes`, `rogzitoFelhasznaloId` (actor sessionből).
+- **Protokoll-snapshot:** `ikrasEloadagMgPerKg`, `ikrasDontoMgPerKg`,
+  `ikrasMlPerKg`, `tejesMgPerKg`, `tejesMlPerKg`, `rahagyasSzorzo` — a ciklus
+  rögzítésekor **lemásolódnak** (nullable), hogy egy későbbi protokoll-módosítás
+  ne írja át visszamenőleg a számított adagokat.
+- **Indexek:** `@@index([halaszatId, datum])`, `@@index([halfajId])`.
+- **Relációk:** `halaszat` (Cascade), `halfaj` (SetNull), `protokoll` (SetNull),
+  `rogzito` (SetNull), `halak` (`HalkeltetesHal[]`).
+
+### HalkeltetesHal (`halkeltetes_halak`)
+- **Cél:** egy ciklus egy hala — ikrás (nőstény) vagy tejes (hím) sor.
+- **Fontos mezők:** `ivar` (`HalkeltetesIvar`), `sorszam`, `chipAzonosito`
+  (`VarChar(80)`), `fajtaJeloles`, `tomegKg` (`Decimal(7,2)`), `ikraKg` (ikrás
+  sornál kifejt ikra), `tejMl` (tejes sornál), `megjegyzes` — a számított adagok
+  NEM tárolódnak, hanem a protokoll-snapshotból számolódnak (pure helper).
+- **Indexek:** `@@index([ciklusId, ivar])`.
+- **Relációk:** `ciklus` (**Cascade** — a ciklus törlése törli a sorait).
+
+### HalkeltetesProtokoll (`halkeltetes_protokollok`)
+- **Cél:** konfigurálható oltási protokoll (mg/kg, ml/kg + ráhagyás-szorzó).
+  Szándékosan NINCS beégetett biológiai érték — halászatonként/fajonként állítható.
+- **Fontos mezők:** `nev`, `halfajId` (opcionális), az adag-értékek
+  (`Decimal(8,3)`), `rahagyasSzorzo` (`Decimal(4,2)`, alap `1.10`), `aktiv`.
+- **Indexek:** `@@index([halaszatId, aktiv])`.
+- **Relációk:** `halaszat` (Cascade), `halfaj` (SetNull), `ciklusok`.
+
 ## Törlési viselkedés (Cascade / Restrict / SetNull)
 
 A referenciális akciók a `schema.prisma` `onDelete` beállításaiból származnak.
@@ -492,6 +526,11 @@ A referenciális akciók a `schema.prisma` `onDelete` beállításaiból szárma
 | `NaptarBejegyzes.halaszat` | Cascade | Halászat törlésekor a naptárbejegyzések törlődnek. |
 | `Hibabejelentes.halaszat` | **SetNull** | Halászat törlésekor a kapcsolat nullára áll, a bejelentés megmarad. |
 | `Hibabejelentes.felhasznalo` | **SetNull** | Felhasználó törlésekor a kapcsolat nullára áll, a bejelentés megmarad. |
+| `HalkeltetesCiklus.halaszat` | Cascade | Halászat törlésekor a keltetési ciklusai törlődnek. |
+| `HalkeltetesCiklus.halfaj` / `.protokoll` / `.rogzito` | **SetNull** | A faj/protokoll/rögzítő törlése a ciklust megőrzi (a hivatkozás nullára áll). |
+| `HalkeltetesHal.ciklus` | Cascade | Ciklus törlésekor a sorai (ikrás/tejes halak) törlődnek. |
+| `HalkeltetesProtokoll.halaszat` | Cascade | Halászat törlésekor a protokolljai törlődnek. |
+| `HalkeltetesProtokoll.halfaj` | **SetNull** | Halfaj törlésekor a protokoll `halfajId`-ja nullára áll. |
 
 A `Restrict` szabályok miatt egy halfaj „kemény” törlése elbukik, ha bárhol
 hivatkozzák; az API ezt 409-es válasszal kezeli, és helyette inaktiválást javasol

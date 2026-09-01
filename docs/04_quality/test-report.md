@@ -7,7 +7,7 @@ forrása: `docs/01_product/scope-contract.md` (AC1–AC7).
 ## 1. Állapot — összefoglaló
 
 > **Unit szint zöld; az integrációs réteg a biztonságos teszt-DB-n lefutott.**
-> Jelenleg **126 unit teszt** fut **10 fájlban**, mind zöld (lásd 5. szakasz). Elkészült az **első DB-backed integrációs/workflow teszt-réteg** is
+> Jelenleg **138 unit teszt** fut **11 fájlban**, mind zöld (lásd 5. szakasz). Elkészült az **első DB-backed integrációs/workflow teszt-réteg** is
 > (takarmány-etetés workflow + jogosultság), biztonságos teszt-DB kezeléssel és
 > production-guarddal — ez **dedikált teszt-adatbázist igényel**, ezért jelenleg
 > **biztonságosan kihagyva** fut (lásd 8. szakasz). Az **e2e** réteg továbbra is
@@ -24,7 +24,7 @@ lefedettség, Playwright trace, endpoint-szintű integration) később illeszten
 | Tétel | Állapot |
 |---|---|
 | Teszt-keretrendszer | ✅ Vitest 3.2.6 (`vitest.config.ts`, node környezet) |
-| Unit tesztek | ✅ **126 teszt, 10 fájl** (`tests/unit/`) — korábban 120/10 |
+| Unit tesztek | ✅ **138 teszt, 11 fájl** (`tests/unit/`) — korábban 126/10 |
 | Integration tesztek | ✅ **Végrehajtva a biztonságos teszt-DB ellen** (feed-workflow + authorization, actor-assertekkel); teszt-DB nélkül továbbra is biztonságos skip — lásd 8. |
 | E2E tesztek | ❌ Nincs (tervezett, Playwright) |
 | Lefedettség mérés | ✅ Elérhető (`npm run test:coverage`, `@vitest/coverage-v8`) |
@@ -36,6 +36,7 @@ lefedettség, Playwright trace, endpoint-szintű integration) később illeszten
 | Vízegység-migráció (Tavak és telelők) | ✅ `20260627090000_to_tipusok_es_muszaki_adatok` **alkalmazva** (Vercel `migrate deploy`, 2026-06-27) |
 | Halászati napló migráció | ⚠️ `20260627120000_halaszati_naplo_2` **létrehozva** — `EsemenyTipus` bővítés, `toId` nullable (Cascade→SetNull), `halaszatId`/`cim`/`reszletekJson`/`kapcsolodo*`/`ervenyes` mezők + backfill |
 | Napló-érvénytelenítés migráció | ⚠️ `20260627140000_naplo_ervenytelenites` **létrehozva, de NEM alkalmazva** — `ervenytelenitveAt`/`ervenytelenitesOka`/`ervenytelenitoFelhasznaloId` + `szerkesztveAt`/`szerkesztoFelhasznaloId` (mind nullable) |
+| Halkeltetés MVP migráció | ⚠️ `20260628090000_halkeltetes_mvp` **létrehozva, de NEM alkalmazva** — 3 új tábla (`halkeltetes_ciklusok`, `halkeltetes_halak`, `halkeltetes_protokollok`); tisztán additív. **Sorrend-függőség:** a `HALKELTES` naplótípus a `20260627120000_halaszati_naplo_2` migrációból származik, azt előbb kell alkalmazni. |
 | Kézi (manuális) ellenőrzés | ⚠️ Fejlesztés közben ad-hoc, nem dokumentált |
 
 **Jelenleg rendelkezésre álló minőségi jelek:** Vitest unit tesztek, ESLint
@@ -103,9 +104,10 @@ Legutóbbi tényleges futás — `npm run test` (Vitest 3.2.6, `environment: nod
  ✓ tests/unit/riasztasok.test.ts        (15 tests)
  ✓ tests/unit/toak-attekintes.test.ts   (29 tests)
  ✓ tests/unit/naplo-format.test.ts      (27 tests)
+ ✓ tests/unit/halkeltes-szamitas.test.ts (12 tests)
 
- Test Files  10 passed (10)
-      Tests  126 passed (126)
+ Test Files  11 passed (11)
+      Tests  138 passed (138)
 ```
 (a `roles.test.ts` 15 → 18 teszt: `canModositNaploEsemeny`; a
 `naplo-format.test.ts` 24 → 27: az érvénytelenített bejegyzések kihagyása az
@@ -137,6 +139,7 @@ Legutóbbi tényleges futás — `npm run test` (Vitest 3.2.6, `environment: nod
 | `tests/unit/riasztasok.test.ts` | `src/lib/dashboard/riasztasok.ts` | dashboard riasztási szabályok: takarmány elfogyott/alacsony + küszöb-határeset, üres/inaktív tó, súlyosság-rendezés |
 | `tests/unit/toak-attekintes.test.ts` | `src/lib/toak/attekintes.ts` | vízegység-kártyák: becsült állomány kg (részleges/hiányzó súly), fő fajok (+N), takarmány-fedezet, telítettség, állapot-levezetés, „nincs adat" fallback, címkék |
 | `tests/unit/naplo-format.test.ts` | `src/lib/naplo/format.ts` | halászati napló: napi/heti/havi UTC időszak-határok, időszak-címke, típus-címkék, cím-fallback, export-összegzés, HTML-escape |
+| `tests/unit/halkeltes-szamitas.test.ts` | `src/lib/halkeltes/szamitas.ts` | halkeltetés adagszámítás: ikrás/tejes sor mg/ml, ciklus-összegzés, „Oltandó ×ráhagyás", hiányzó kg → null, kerekítés, státusz-helper |
 
 ### 5.2 Viselkedés-megőrző kiemelések (refaktor)
 
@@ -206,7 +209,7 @@ A folyamatos integráció a `.github/workflows/ci.yml`-ben van definiálva, és
 4. `npx prisma generate` — Prisma kliens előállítása (a typecheckhez kell;
    nem csatlakozik adatbázishoz).
 5. `npx tsc --noEmit` — típusellenőrzés.
-6. `npm run test` — Vitest unit tesztek (126 teszt, 10 fájl).
+6. `npm run test` — Vitest unit tesztek (138 teszt, 11 fájl).
 
 A CI tehát **typecheck + unit teszt** szinten véd; valódi adatbázis nem
 szükséges (a workflow csak egy placeholder `DATABASE_URL`-t állít be a Prisma

@@ -535,6 +535,50 @@ táblázatok az egyes végpontoknál pontosítják.
 
 ---
 
+## Halkeltetés végpontok (MVP — kézi ciklus-rögzítés)
+
+### GET /api/halaszatok/[hid]/halkeltes/ciklusok
+- **Cél:** keltetési ciklusok listája összegzésekkel (ikrás/tejes darab + kg, ikra kg).
+- **Jogosultság:** `requireHalaszatRole(hid, "STAFF")`; tenant-szűrt.
+- **Siker:** `200` `{ ciklusok: [{ id, nev, datum, homersekletC, statusz, halfajId, halfajNev, rogzitoNev, osszegzes }], osszesen, viewerRole }`.
+- **Hibák:** `400` hibás azonosító; `401/403` (`{ error }`).
+
+### POST /api/halaszatok/[hid]/halkeltes/ciklusok
+- **Cél:** új keltetési ciklus + ikrás/tejes sorok létrehozása egy tranzakcióban.
+- **Jogosultság:** `requireHalaszatRole(hid, "STAFF")`. **Döntés:** STAFF (nem
+  ADMIN), mert a ciklus rögzítése **napi hatchery-munka**, és **nem változtat
+  halállományt** ebben a sprintben (nincs ivadék-kihelyezés). Az actor a
+  **sessionből** származik, nem a kérés törzséből.
+- **Request body:** `{ datum (kötelező, ISO), nev?, halfajId?, protokollId?, oltasIdopont?, homersekletC?, statusz?, megjegyzes?, protokoll?: { ikrasEloadagMgPerKg, ikrasDontoMgPerKg, ikrasMlPerKg, tejesMgPerKg, tejesMlPerKg, rahagyasSzorzo }, ikrasSorok: [{ sorszam?, chipAzonosito?, fajtaJeloles?, tomegKg?, ikraKg?, megjegyzes? }], tejesSorok: [{ ..., tejMl? }] }`.
+  Ha `protokollId` adott, annak értékei **snapshotként** a ciklusra mentődnek
+  (tenant-ellenőrzött); egyébként az inline `protokoll` értékei. A `halfajId`
+  (ha adott) a halászathoz kell tartozzon (`404`, ha nem).
+- **Siker:** `201` `{ ok: true, ciklus: { id, nev, datum }, osszegzes }`. Az
+  `osszegzes` a tiszta, unit-tesztelt `ciklusOsszegzes` helperből (darab, kg,
+  adag-összegek, „Oltandó (×ráhagyás)").
+- **Mellékhatás (tranzakció):** `HalkeltetesCiklus` + `HalkeltetesHal[]` +
+  `NaploEsemeny(HALKELTES)` (tóhoz NEM kötött: `toId=null`, tenant a `halaszatId`-n;
+  actorral, faj/dátum/darab összefoglalóval).
+- **Hibák:** `400` hiányzó/érvénytelen dátum vagy időpont/státusz; `404` idegen
+  faj/protokoll; `401/403`; `500`.
+
+### GET /api/halaszatok/[hid]/halkeltes/ciklusok/[id]
+- **Cél:** egy ciklus teljes soradatokkal és **per-soros számított adagokkal**.
+- **Jogosultság:** `requireHalaszatRole(hid, "STAFF")` + tenant-szűrt.
+- **Siker:** `200` `{ ciklus: {...+ protokoll snapshot}, ikrasSorok: [{..., szamitott: { eloadagMg, dontoMg, ml }}], tejesSorok: [{..., szamitott: { mg, ml }}], osszegzes, viewerRole }`.
+- **Hibák:** `400`; `404` nincs ilyen ciklus a halászatban; `401/403`.
+
+### PATCH /api/halaszatok/[hid]/halkeltes/ciklusok/[id]
+- **Cél:** fejadatok / státusz módosítása (`nev`, `megjegyzes`, `homersekletC`,
+  `oltasIdopont`, `statusz`). A **sorok** újraszerkesztése későbbi sprint.
+- **Jogosultság:** `requireHalaszatRole(hid, "STAFF")` + tenant-szűrt.
+- **Siker:** `200` `{ ok: true, ciklus: {...} }`.
+- **Hibák:** `400` érvénytelen státusz / nincs módosítandó mező; `404`; `401/403`.
+- **Megjegyzés:** **nincs `DELETE`** (a projekt-konvenció szerint kerüljük a
+  kemény törlést; ciklus-archiválás a `LEZARVA` státusszal érhető el).
+
+---
+
 ## Naptár végpontok
 
 ### GET /api/halaszatok/[hid]/naptar
@@ -658,6 +702,10 @@ táblázatok az egyes végpontoknál pontosítják.
 | GET | `/api/halaszatok/[hid]/naplo` | STAFF |
 | PATCH | `/api/halaszatok/[hid]/naplo/[id]` | **ADMIN** (javítás / érvénytelenítés; törlés nincs) |
 | GET | `/api/halaszatok/[hid]/naplo/export` | STAFF |
+| GET | `/api/halaszatok/[hid]/halkeltes/ciklusok` | STAFF |
+| POST | `/api/halaszatok/[hid]/halkeltes/ciklusok` | STAFF |
+| GET | `/api/halaszatok/[hid]/halkeltes/ciklusok/[id]` | STAFF |
+| PATCH | `/api/halaszatok/[hid]/halkeltes/ciklusok/[id]` | STAFF |
 | GET | `/api/halaszatok/[hid]/naptar` | STAFF |
 | POST | `/api/halaszatok/[hid]/naptar` | STAFF |
 | PATCH | `/api/halaszatok/[hid]/naptar/[id]` | STAFF |

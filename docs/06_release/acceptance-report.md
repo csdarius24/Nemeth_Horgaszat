@@ -62,6 +62,18 @@ végpont-teszt nélkül · `TODO` = nincs még megvalósítva.
   hiányában a kritériumok nem kapnak `PASS`-t. Egy strukturált manuális
   átfutás (a `ux-flows.md` szerint) átmeneti bizonyítékként rögzíthető — **TODO.**
 
+## Modul-státusz kiegészítés — Halkeltetés MVP (2026-06-28)
+
+A **halkeltetési modul** (korábban placeholder) **kézi ciklus-rögzítésként
+megvalósult** (Sprint 1): keltetési ciklus + ikrás/tejes sorok + konfigurálható
+oltási protokoll szerinti adagszámítás + összegzés + `NaploEsemeny(HALKELTES)`
+naplózás (actorral). A számító logika **unit-tesztelt** (`halkeltes/szamitas.ts`,
+12 teszt). **Nem tartozik önálló AC-hez** (az AC1–AC7 az eredeti scope), és a
+verifikációja jelenleg **unit + build + typecheck** szintű; endpoint-szintű
+integration teszt tervezett. **Kifejezetten NEM része:** Excel-import (Sprint 2),
+dokumentum-export (Sprint 3), ivadék-kihelyezés / automatikus állománynövelés (P4).
+A migráció (`20260628090000_halkeltetes_mvp`) **még nincs alkalmazva**.
+
 ## Readiness — kiadási készültség értékelése
 
 ### Jelenlegi készültség

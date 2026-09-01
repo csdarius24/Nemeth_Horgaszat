@@ -103,6 +103,25 @@ ismert korlátai átláthatóan dokumentáltak (lásd lentebb és a
   rögzíteni. Az automatikus visszavezetés és a mező-szintű verziózás **tervezett**.
 - Migráció: `20260627140000_naplo_ervenytelenites` — **még nincs alkalmazva**.
 
+### Halkeltetés MVP — kézi keltetési ciklus (2026-06-28)
+- A placeholder oldal helyén **működő halkeltetési modul**: keltetési ciklusok
+  létrehozása, listája, részletei és státusza (`TERVEZET`/`FOLYAMATBAN`/`LEZARVA`).
+- Ciklus fejadatok: faj, dátum, oltás időpontja, hőmérséklet; **ikrás (nőstény)**
+  és **tejes (hím)** halsorok chip-azonosítóval, tömeggel, ikra-kg / tej-ml,
+  jelöléssel, megjegyzéssel; sorok hozzáadása/törlése.
+- **Oltási adagszámítás konfigurálható protokollból** (mg/kg, ml/kg + ráhagyás
+  szorzó): előadag/döntőadag/ml soronként, összegzés ivaronként, „Oltandó
+  (×ráhagyás)" tartalék. A protokoll értékei a ciklusra **snapshotolódnak**, így
+  utólagos protokoll-módosítás nem írja át a rögzített adagokat. **Nincs beégetett
+  biológiai szabály.** A számító logika unit-tesztelt.
+- A ciklus létrehozása **naplóesemény**t is ír (`HALKELTES`, tóhoz nem kötve,
+  actorral).
+- **Kézi rögzítés first:** az „Excel import" gomb **letiltva** („előkészítve").
+  Új séma: `HalkeltetesCiklus` / `HalkeltetesHal` / `HalkeltetesProtokoll`.
+  Migráció: `20260628090000_halkeltetes_mvp` — **még nincs alkalmazva**.
+- **Tervezett:** Excel-import (Sprint 2), dokumentum-export (Sprint 3),
+  ivadék-kihelyezés + automatikus állománynövelés (P4), keltetési mortalitás.
+
 ### Kiegészítő modulok
 - Naptár (havi bejegyzések), hibabejelentés státuszkövetéssel, beépített
   számológép segédeszköz.

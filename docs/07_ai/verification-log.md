@@ -386,6 +386,38 @@ felügyelt és igazolt legyen, ne vakon elfogadott. Kapcsolódó: `ai-manifest.m
     kompenzáló művelet szükséges. Az automatikus visszavezetés tervezett.
   - Böngésző-ellenőrzés nem futott (a dev szerver a production DB-re csatlakozna).
 
+## V-20 — Halkeltetés MVP (kézi keltetési ciklus)
+
+- **Dátum:** 2026-06-28.
+- **AI kimenet:** `halkeltes/ciklusok` (+`/[id]`) API-k, a `/halkeltes` oldal a
+  placeholder helyén (lista + űrlap + részletek), tiszta `halkeltes/szamitas.ts`
+  helper (12 unit teszt), 3 új Prisma-modell + a `20260628090000_halkeltetes_mvp`
+  migráció.
+- **Kockázat, ha téves:** hibás oltási adagszámítás; hamis „biológiai igazság"
+  beégetése; tenant-szivárgás; állomány-módosítás keltetésből (nem szabad).
+- **Interpretációs korlát (őszinte):** a keltetési **Excel-munkafüzetet magát nem
+  láttam** ebben a munkamenetben; a modell a promptban leírt oszlopstruktúrából
+  készült (ciklus fej + ikrás/tejes sorok + „Oltandó ×1,1" tartalék). A valós
+  fájl további oszlopai külön egyeztetést igényelnek.
+- **Ellenőrzés (pontos parancsok, tényleges futás ebben a munkamenetben):**
+  - `npx prisma generate` → **siker**.
+  - `npx tsc --noEmit` → **exit 0**.
+  - `npm run test` → **11 fájl / 138 teszt passed** (126 + 12 halkeltés).
+  - `npm run build` → **„Compiled successfully"**; route-manifest:
+    `ƒ /api/halaszatok/[hid]/halkeltes/ciklusok`, `.../[id]`, `ƒ /halaszatok/[hid]/halkeltes`.
+  - `npm run test:integration` → **5 teszt SKIPPED** (nincs teszt-DB; 0 DB-kapcsolat).
+- **Eredmény:** ✅ Kézi halkeltetés kódszinten kész; unit + typecheck + build zöld.
+- **Bizonyíték:** a fenti kimenetek; `src/lib/halkeltes/szamitas.ts`,
+  `tests/unit/halkeltes-szamitas.test.ts`, `prisma/migrations/20260628090000_halkeltetes_mvp/`.
+- **Naplózási döntés:** a `HALKELTES` naplóesemény **tóhoz nem kötött**
+  (`toId=null`, tenant a `halaszatId`-n) — nem hackelünk hamis tó-azonosítót. Ez
+  a `NaploEsemeny.toId` nullable mezőre épül (Halászati napló 2.0).
+- **Hatókör-korlát:** a migráció **NEM alkalmazva** (a `.env` productionre mutat).
+  **Sorrend-függőség:** a `HALKELTES` enum-érték a `20260627120000_halaszati_naplo_2`
+  migrációból jön — azt előbb kell alkalmazni. **Nincs** Excel-import (letiltva),
+  **nincs** dokumentum-export, **nincs** ivadék-kihelyezés/állománynövelés. Böngésző-
+  ellenőrzés nem futott (a dev szerver a production DB-re csatlakozna).
+
 ---
 
 ## Összegzés
@@ -411,6 +443,7 @@ felügyelt és igazolt legyen, ne vakon elfogadott. Kapcsolódó: `ai-manifest.m
 | V-17 | Vízegység-áttekintés (2026-06-27) | ✅ kód + 96 teszt + build zöld; a migráció azóta **alkalmazva** (Vercel deploy); vízminőség/egészség = „nincs adat" |
 | V-18 | Halászati napló 2.0 (2026-06-27) | ✅ kód + 120 teszt + build zöld; export = nyomtatható HTML (PDF tervezett); a napló-migráció **NEM alkalmazva** |
 | V-19 | Napló javítás/érvénytelenítés (2026-06-27) | ✅ kód + 126 teszt + build zöld; fizikai törlés nincs; migráció **NEM alkalmazva**; verziózás + készlet-visszavezetés tervezett |
+| V-20 | Halkeltetés MVP — kézi ciklus (2026-06-28) | ✅ kód + 138 teszt + build zöld; migráció **NEM alkalmazva**; Excel-import/export + ivadék-kihelyezés tervezett |
 
 A nyitott bizonyítékok (V-04 CI-futás link, V-11 lefedettségi érték, V-13/V-14
 integrációs tesztek **valós teszt-DB elleni futtatása**) `TODO`-ként/tervezettként
