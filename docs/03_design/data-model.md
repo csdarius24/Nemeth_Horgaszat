@@ -259,6 +259,8 @@ erDiagram
 | `TakarmanyMozgasTipus` | `BEVETEL`, `FELHASZNALVA` | `TakarmanyMozgas.tipus` — készletnövelő (bevétel) vagy készletcsökkentő (felhasználás) mozgás. |
 | `HalkeltetesStatusz` | `TERVEZET`, `FOLYAMATBAN`, `LEZARVA` | `HalkeltetesCiklus.statusz`. |
 | `HalkeltetesIvar` | `IKRAS`, `TEJES` | `HalkeltetesHal.ivar` — ikrás (nőstény) vagy tejes (hím) hal. |
+| `FeladatStatusz` | `UJ`, `FOLYAMATBAN`, `KESZ`, `ELHALASZTVA`, `TOROLVE` | `Feladat.statusz`. A `TOROLVE` soft-delete (nincs fizikai törlés). |
+| `FeladatPrioritas` | `ALACSONY`, `NORMAL`, `MAGAS`, `SURGOS` | `Feladat.prioritas`. |
 | `HibabejelentesStatusz` | `UJ`, `FOLYAMATBAN`, `MEGOLDVA`, `ELUTASITVA` | `Hibabejelentes.statusz` — a hibabejelentés állapota (alapérték `UJ`). |
 
 > Megjegyzés: a `Szerepkor` (tó-szintű, 5 fokozatú) enum és a `ToTagsag` modell
@@ -492,6 +494,23 @@ erDiagram
 - **Indexek:** `@@index([halaszatId, aktiv])`.
 - **Relációk:** `halaszat` (Cascade), `halfaj` (SetNull), `ciklusok`.
 
+### Feladat (`feladatok`)
+- **Cél:** feladatkezelés / csapat-koordináció — ADMIN/OWNER oszt ki feladatot
+  dolgozóknak, határidővel, prioritással, színnel; a dolgozó a **neki kiosztott**
+  feladat státuszát állíthatja.
+- **Fontos mezők:** `cim` (kötelező), `leiras`, `statusz` (`FeladatStatusz`, alap
+  `UJ`), `prioritas` (`FeladatPrioritas`, alap `NORMAL`), `szin` (`VarChar(20)`,
+  csak ellenőrzött preset/`#rrggbb`), `hatarido`, `felelosFelhasznaloId`,
+  `letrehozoFelhasznaloId` (sessionből), `elkeszultAt` (KESZ státusznál automatikus),
+  `toId` (opcionális kapcsolt vízegység).
+- **Indexek:** `@@index([halaszatId, statusz])`, `@@index([felelosFelhasznaloId, statusz])`,
+  `@@index([toId])`, `@@index([hatarido])`, `@@index([letrehozva])`.
+- **Relációk:** `halaszat` (**Cascade**), `to` (opcionális, **SetNull**),
+  `felelosFelhasznalo` (`"FeladatFelelos"`, **SetNull**), `letrehozoFelhasznalo`
+  (`"FeladatLetrehozo"`, **SetNull**) — a felhasználó/tó törlése a feladatot
+  megőrzi.
+- **Megjegyzés:** nincs fizikai törlés az API-n — a törlés `statusz=TOROLVE`.
+
 ## Törlési viselkedés (Cascade / Restrict / SetNull)
 
 A referenciális akciók a `schema.prisma` `onDelete` beállításaiból származnak.
@@ -531,6 +550,8 @@ A referenciális akciók a `schema.prisma` `onDelete` beállításaiból szárma
 | `HalkeltetesHal.ciklus` | Cascade | Ciklus törlésekor a sorai (ikrás/tejes halak) törlődnek. |
 | `HalkeltetesProtokoll.halaszat` | Cascade | Halászat törlésekor a protokolljai törlődnek. |
 | `HalkeltetesProtokoll.halfaj` | **SetNull** | Halfaj törlésekor a protokoll `halfajId`-ja nullára áll. |
+| `Feladat.halaszat` | Cascade | Halászat törlésekor a feladatai törlődnek. |
+| `Feladat.to` / `.felelosFelhasznalo` / `.letrehozoFelhasznalo` | **SetNull** | A kapcsolt tó/felelős/létrehozó törlése a feladatot megőrzi (a hivatkozás nullára áll). |
 
 A `Restrict` szabályok miatt egy halfaj „kemény” törlése elbukik, ha bárhol
 hivatkozzák; az API ezt 409-es válasszal kezeli, és helyette inaktiválást javasol

@@ -579,6 +579,51 @@ táblázatok az egyes végpontoknál pontosítják.
 
 ---
 
+## Feladatok végpontok
+
+### GET /api/halaszatok/[hid]/feladatok
+- **Cél:** feladatlista felelős/létrehozó megjelenítő nevekkel.
+- **Jogosultság:** `requireHalaszatRole(hid, "STAFF")`; tenant-izolált.
+- **Query:** `statusz`, `felelosFelhasznaloId`, `toId`, `q` (cím/leírás), `from`/`to`
+  (határidő ISO), `limit` (alap 100, max 200).
+- **Siker:** `200` `{ feladatok: [{ id, cim, leiras, statusz, prioritas, szin, hatarido, elkeszultAt, letrehozva, lejart, toId, toNev, felelosFelhasznaloId, felelosNev, letrehozoNev }], osszesen, nyitottDb, viewerRole }`.
+- **Hibák:** `400` hibás azonosító/státusz/dátum; `401/403` (`{ error }`).
+
+### POST /api/halaszatok/[hid]/feladatok
+- **Cél:** új feladat létrehozása és kiosztása.
+- **Jogosultság:** **ADMIN/OWNER** (`canManageFeladat`). A **létrehozó a
+  sessionből** származik, nem a kérés törzséből.
+- **Request body:** `{ cim (min 2, max 200), leiras?, felelosFelhasznaloId?, toId?, hatarido?, prioritas?, statusz?, szin? }`.
+  A `felelosFelhasznaloId` a halászat **aktív tagja** kell legyen (`404`, ha nem);
+  a `toId` a halászathoz kell tartozzon; a `szin` csak ellenőrzött preset/`#rrggbb`
+  (`normalizaltSzin`, egyébként alapszín — **CSS-injection kizárva**).
+- **Siker:** `201` `{ ok: true, feladat: { id } }`.
+- **Mellékhatás:** `Feladat` + `NaploEsemeny(FELADAT)` (tóhoz kötött, ha van tó;
+  cím/felelős/határidő összefoglalóval, actorral).
+- **Hibák:** `400` üres/hibás cím vagy dátum; `403` nem ADMIN/OWNER; `404` idegen
+  felelős/tó; `401/403`; `500`.
+
+### GET /api/halaszatok/[hid]/feladatok/[id]
+- **Cél:** egy feladat részletei.
+- **Jogosultság:** `requireHalaszatRole(hid, "STAFF")` + tenant-szűrt.
+- **Siker:** `200` `{ feladat: {...}, viewerRole }`. **Hibák:** `404`; `401/403`.
+
+### PATCH /api/halaszatok/[hid]/feladatok/[id]
+- **Cél:** feladat módosítása — **szerepkör-alapú mezőkorlátozással**.
+  - **ADMIN/OWNER:** minden mező (cím, leírás, felelős, tó, határidő, prioritás,
+    státusz, szín).
+  - **STAFF:** kizárólag a **neki kiosztott** feladat **státusza**, és csak
+    `UJ`/`FOLYAMATBAN`/`KESZ`-re. Bármely más mező küldése (átosztás, cím, stb.)
+    → `403`. (`canStaffFrissitStatusz` + `staffAllithatStatusz`.)
+- **Mellékhatás:** `KESZ`-re váltáskor `elkeszultAt = most`; `KESZ`-ről váltáskor
+  `elkeszultAt = null` (`elkeszultAtValtozas`, unit-tesztelt).
+- **Siker:** `200` `{ ok: true, feladat: {...} }`.
+- **Hibák:** `400` érvénytelen mező/nincs módosítandó; `403` STAFF tiltott mező /
+  nem saját feladat; `404`; `401/403`.
+- **Megjegyzés:** **nincs `DELETE`** — a törlés `statusz=TOROLVE` (soft-delete).
+
+---
+
 ## Naptár végpontok
 
 ### GET /api/halaszatok/[hid]/naptar
@@ -706,6 +751,10 @@ táblázatok az egyes végpontoknál pontosítják.
 | POST | `/api/halaszatok/[hid]/halkeltes/ciklusok` | STAFF |
 | GET | `/api/halaszatok/[hid]/halkeltes/ciklusok/[id]` | STAFF |
 | PATCH | `/api/halaszatok/[hid]/halkeltes/ciklusok/[id]` | STAFF |
+| GET | `/api/halaszatok/[hid]/feladatok` | STAFF |
+| POST | `/api/halaszatok/[hid]/feladatok` | ADMIN (kiosztás) |
+| GET | `/api/halaszatok/[hid]/feladatok/[id]` | STAFF |
+| PATCH | `/api/halaszatok/[hid]/feladatok/[id]` | STAFF (saját státusz) / ADMIN (minden mező) |
 | GET | `/api/halaszatok/[hid]/naptar` | STAFF |
 | POST | `/api/halaszatok/[hid]/naptar` | STAFF |
 | PATCH | `/api/halaszatok/[hid]/naptar/[id]` | STAFF |

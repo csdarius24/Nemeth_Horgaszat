@@ -122,6 +122,23 @@ ismert korlátai átláthatóan dokumentáltak (lásd lentebb és a
 - **Tervezett:** Excel-import (Sprint 2), dokumentum-export (Sprint 3),
   ivadék-kihelyezés + automatikus állománynövelés (P4), keltetési mortalitás.
 
+### Feladatok modul (feladatkezelés / csapat-koordináció, 2026-06-28)
+- Új `/halaszatok/[hid]/feladatok` oldal: feladatok listája (kártyák), státusz-
+  szűrők (Összes/Új/Folyamatban/Kész/Halasztva), keresés, felelős- és
+  vízegység-szűrő.
+- **ADMIN/OWNER** feladatot hoz létre és **oszt ki dolgozónak** (felelős,
+  határidő, prioritás, **szín**, kapcsolt vízegység, leírás). A **dolgozó** a
+  **neki kiosztott** feladat státuszát állíthatja (Indítás → Folyamatban, Kész),
+  más mezőt nem — a szerver ezt kikényszeríti.
+- `KESZ` státuszra váltáskor rögzül az elkészülés ideje; visszanyitáskor törlődik.
+  A törlés **soft-delete** (`TOROLVE`), nincs fizikai törlés.
+- A **szín** csak biztonságos preset/`#rrggbb` érték lehet (CSS-injection kizárva).
+- A feladat kiosztása **naplóesemény**t is ír (`FELADAT`, actorral).
+- Új séma: `Feladat` modell + `FeladatStatusz`/`FeladatPrioritas` enumok.
+  Migráció: `20260628140000_feladatok` — **még nincs alkalmazva**.
+- **Tervezett:** push/e-mail értesítés, ismétlődő feladatok, naptár-integráció,
+  dashboard „következő feladatok".
+
 ### Kiegészítő modulok
 - Naptár (havi bejegyzések), hibabejelentés státuszkövetéssel, beépített
   számológép segédeszköz.

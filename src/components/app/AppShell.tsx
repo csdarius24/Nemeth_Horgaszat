@@ -5,7 +5,7 @@ import { usePathname, useRouter } from "next/navigation";
 import HibabejelentesModal from "@/components/HibabejelentesModal";
 import KalkulatorModal from "@/components/app/KalkulatorModal";
 
-function Icon({ name }: { name: "home" | "users" | "fish" | "lake" | "settings" | "alert" | "calculator" | "calendar" | "wheat" | "hatchery" | "book" }) {
+function Icon({ name }: { name: "home" | "users" | "fish" | "lake" | "settings" | "alert" | "calculator" | "calendar" | "wheat" | "hatchery" | "book" | "task" }) {
     const common = { width: 18, height: 18, fill: "none", stroke: "currentColor", strokeWidth: 2 };
     switch (name) {
         case "home":
@@ -93,6 +93,15 @@ function Icon({ name }: { name: "home" | "users" | "fish" | "lake" | "settings" 
                     <path d="M4 4a2 2 0 0 1 2-2h14v18H6a2 2 0 0 0-2 2Z" />
                     <path d="M4 20V4" />
                     <path d="M9 7h7M9 11h7" />
+                </svg>
+            );
+        case "task":
+            return (
+                <svg {...common} viewBox="0 0 24 24">
+                    <rect x="4" y="3" width="16" height="18" rx="2" />
+                    <path d="M9 8l1.5 1.5L13 7" />
+                    <path d="M9 15l1.5 1.5L13 14" />
+                    <path d="M16 8.5h1M16 15.5h1" strokeLinecap="round" />
                 </svg>
             );
     }
@@ -204,6 +213,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                             <NavItem href={`${base}/takarmanyok`}      icon={<Icon name="wheat" />}      label="Takarmányok"       active={pathname.includes("/takarmanyok")} />
                             <NavItem href={`${base}/halkeltes`}        icon={<Icon name="hatchery" />}   label="Halkeltetés"       active={pathname.includes("/halkeltes")} />
                             <NavItem href={`${base}/dolgozok`}         icon={<Icon name="users" />}      label="Dolgozók"          active={pathname.includes("/dolgozok")} />
+                            <NavItem href={`${base}/feladatok`}        icon={<Icon name="task" />}       label="Feladatok"         active={pathname.includes("/feladatok")} />
                             <NavItem href={`${base}/naplo`}            icon={<Icon name="book" />}       label="Halászati napló"   active={pathname.includes("/naplo")} />
                             <NavItem href={`${base}/naptar`}           icon={<Icon name="calendar" />}   label="Naptár"            active={pathname.includes("/naptar")} />
                             <NavItem href={`${base}/hibabejelentesek`} icon={<Icon name="alert" />}      label="Hibabejelentések"  active={pathname.includes("/hibabejelentesek")} />

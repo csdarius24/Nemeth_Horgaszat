@@ -136,6 +136,10 @@ A cellák a **ténylegesen kikényszerített** minimum-szerepkört tükrözik. A
 | Halászat-szintű dashboard / összesítő | ✅ | ✅ | ✅ | `requireHalaszatRole(STAFF)` · `GET .../osszesito` |
 | Naptár megtekintése | ✅ | ✅ | ✅ | `requireHalaszatRole(STAFF)` · `GET .../naptar` |
 | Naptárbejegyzés létrehozása / szerkesztése / törlése | ✅ | ✅ | ✅ | `requireHalaszatRole(STAFF)` · `POST/PATCH/DELETE .../naptar[/id]` |
+| Feladatok megtekintése | ✅ | ✅ | ✅ | `requireHalaszatRole(STAFF)` · `GET .../feladatok[/id]` |
+| Feladat létrehozása / kiosztása | ❌ | ✅ | ✅ | `canManageFeladat` (ADMIN+) · `POST .../feladatok` — felelős/tó tenant-ellenőrzött |
+| Feladat teljes szerkesztése (cím, felelős, határidő, prioritás, szín…) | ❌ | ✅ | ✅ | `canManageFeladat` · `PATCH .../feladatok/[id]` |
+| Saját feladat státuszának állítása (Indítás/Kész) | ⚠️ | ✅ | ✅ | STAFF **csak a neki kiosztott** feladaton, csak `UJ`/`FOLYAMATBAN`/`KESZ` (`canStaffFrissitStatusz`); más mező → `403` |
 | Halászati napló megtekintése (+ export) | ✅ | ✅ | ✅ | `requireHalaszatRole(STAFF)` · `GET .../naplo`, `GET .../naplo/export` |
 | Naplóbejegyzés szövegének javítása | ❌ | ✅ | ✅ | `canModositNaploEsemeny` (ADMIN+) · `PATCH .../naplo/[id]` — csak `cim`/`leiras` |
 | Naplóbejegyzés érvénytelenítése / visszaállítása | ❌ | ✅ | ✅ | `canModositNaploEsemeny` (ADMIN+) · `PATCH .../naplo/[id]` — kötelező indok; **fizikai törlés nincs** |

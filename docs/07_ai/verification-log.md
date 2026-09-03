@@ -418,6 +418,33 @@ felügyelt és igazolt legyen, ne vakon elfogadott. Kapcsolódó: `ai-manifest.m
   **nincs** dokumentum-export, **nincs** ivadék-kihelyezés/állománynövelés. Böngésző-
   ellenőrzés nem futott (a dev szerver a production DB-re csatlakozna).
 
+## V-21 — Feladatok modul (feladatkezelés / csapat-koordináció)
+
+- **Dátum:** 2026-06-28.
+- **AI kimenet:** `Feladat` modell + `FeladatStatusz`/`FeladatPrioritas` enumok,
+  `feladatok` (+`/[id]`) API-k, `/feladatok` oldal (lista + kiosztó űrlap + gyors
+  státusz-műveletek), tiszta `feladatok/format.ts` helper (19 unit teszt),
+  sidebar-nav, `20260628140000_feladatok` migráció.
+- **Kockázat, ha téves:** jogosulatlan átosztás/szerkesztés; CSS-injection a
+  szín-mezőn; tenant-szivárgás (idegen felelős/tó).
+- **Ellenőrzés (pontos parancsok, tényleges futás ebben a munkamenetben):**
+  - `npx prisma generate` → **siker**.
+  - `npx tsc --noEmit` → **exit 0**.
+  - `npm run test` → **12 fájl / 157 teszt passed** (138 + 19 feladatok).
+  - `npm run build` → **„Compiled successfully"**; route-manifest:
+    `ƒ /api/halaszatok/[hid]/feladatok`, `.../[id]`, `ƒ /halaszatok/[hid]/feladatok`.
+  - `npm run test:integration` → **5 teszt SKIPPED** (nincs teszt-DB; 0 DB-kapcsolat).
+- **Eredmény:** ✅ Feladatok modul kódszinten kész; unit + typecheck + build zöld.
+- **Bizonyíték:** a fenti kimenetek; `src/lib/feladatok/format.ts`,
+  `tests/unit/feladatok-format.test.ts`, `prisma/migrations/20260628140000_feladatok/`.
+- **Szerepkör-döntés:** GET STAFF+, létrehozás/teljes szerkesztés ADMIN/OWNER,
+  STAFF csak a **saját** feladata státuszát (`UJ`/`FOLYAMATBAN`/`KESZ`) —
+  szerveroldalon kikényszerítve, unit-tesztelt (`canStaffFrissitStatusz`).
+- **Hatókör-korlát (őszinte):** a migráció **NEM alkalmazva** (a `.env`
+  productionre mutat). **Nincs** push/e-mail értesítés, ismétlődő feladat,
+  drag-and-drop, külső naptár-szinkron — mind tervezett. Böngésző-ellenőrzés nem
+  futott (a dev szerver a production DB-re csatlakozna).
+
 ---
 
 ## Összegzés
@@ -444,6 +471,7 @@ felügyelt és igazolt legyen, ne vakon elfogadott. Kapcsolódó: `ai-manifest.m
 | V-18 | Halászati napló 2.0 (2026-06-27) | ✅ kód + 120 teszt + build zöld; export = nyomtatható HTML (PDF tervezett); a napló-migráció **NEM alkalmazva** |
 | V-19 | Napló javítás/érvénytelenítés (2026-06-27) | ✅ kód + 126 teszt + build zöld; fizikai törlés nincs; migráció **NEM alkalmazva**; verziózás + készlet-visszavezetés tervezett |
 | V-20 | Halkeltetés MVP — kézi ciklus (2026-06-28) | ✅ kód + 138 teszt + build zöld; migráció **NEM alkalmazva**; Excel-import/export + ivadék-kihelyezés tervezett |
+| V-21 | Feladatok modul (2026-06-28) | ✅ kód + 157 teszt + build zöld; migráció **NEM alkalmazva**; értesítés/ismétlődés/naptár-sync tervezett |
 
 A nyitott bizonyítékok (V-04 CI-futás link, V-11 lefedettségi érték, V-13/V-14
 integrációs tesztek **valós teszt-DB elleni futtatása**) `TODO`-ként/tervezettként

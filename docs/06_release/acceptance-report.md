@@ -74,6 +74,19 @@ integration teszt tervezett. **Kifejezetten NEM része:** Excel-import (Sprint 2
 dokumentum-export (Sprint 3), ivadék-kihelyezés / automatikus állománynövelés (P4).
 A migráció (`20260628090000_halkeltetes_mvp`) **még nincs alkalmazva**.
 
+## Modul-státusz kiegészítés — Feladatok (2026-06-28)
+
+A **Feladatok modul** (feladatkezelés / csapat-koordináció) **megvalósult**:
+ADMIN/OWNER feladatot oszthat ki dolgozóknak (felelős, határidő, prioritás, szín,
+kapcsolt vízegység), a dolgozó a **neki kiosztott** feladat státuszát állíthatja
+(Indítás/Kész); a kiosztás `NaploEsemeny(FELADAT)`-ot is ír (actorral). A szín
+csak ellenőrzött preset/`#rrggbb` (CSS-injection kizárva). A jogosultsági és
+formázó logika **unit-tesztelt** (`feladatok/format.ts`, 19 teszt). **Nem tartozik
+önálló AC-hez**; részben az AC5 (RBAC — a szerepkör-alapú mezőkorlátozás)
+bizonyítékát is erősíti kód+unit szinten. **Kifejezetten NEM része:** push/e-mail
+értesítés, ismétlődő feladat, drag-and-drop, külső naptár-szinkron. A migráció
+(`20260628140000_feladatok`) **még nincs alkalmazva**.
+
 ## Readiness — kiadási készültség értékelése
 
 ### Jelenlegi készültség

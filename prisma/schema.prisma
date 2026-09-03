@@ -74,6 +74,8 @@ model Felhasznalo {
   naploSzerkesztesek     NaploEsemeny[]    @relation("NaploSzerkeszto")
   takarmanyMozgasok      TakarmanyMozgas[]
   halkeltetesCiklusok    HalkeltetesCiklus[]
+  felelosFeladatok       Feladat[]         @relation("FeladatFelelos")
+  letrehozottFeladatok   Feladat[]         @relation("FeladatLetrehozo")
 
   @@map("felhasznalok")
 }
@@ -111,6 +113,7 @@ model Halaszat {
   naploEsemenyek     NaploEsemeny[]
   halkeltetesCiklusok    HalkeltetesCiklus[]
   halkeltetesProtokollok HalkeltetesProtokoll[]
+  feladatok          Feladat[]
 
   @@map("halaszatok")
 }
@@ -160,6 +163,7 @@ model To {
   etetesek          Etetes[]
   naploEsemenyek    NaploEsemeny[]
   takarmanyMozgasok TakarmanyMozgas[]
+  feladatok         Feladat[]
 
   @@index([halaszatId])
   @@map("toak")
@@ -446,6 +450,53 @@ model HalkeltetesProtokoll {
 
   @@index([halaszatId, aktiv])
   @@map("halkeltetes_protokollok")
+}
+
+// ── Feladatok (feladatkezelés / csapat-koordináció) ─────────────────────────
+
+enum FeladatStatusz {
+  UJ
+  FOLYAMATBAN
+  KESZ
+  ELHALASZTVA
+  TOROLVE
+}
+
+enum FeladatPrioritas {
+  ALACSONY
+  NORMAL
+  MAGAS
+  SURGOS
+}
+
+/// Egy feladat, amelyet ADMIN/OWNER oszthat ki dolgozóknak, határidővel és színnel.
+model Feladat {
+  azonosito              Int              @id @default(autoincrement())
+  halaszatId             Int
+  toId                   Int?
+  cim                    String           @db.VarChar(200)
+  leiras                 String?          @db.Text
+  statusz                FeladatStatusz   @default(UJ)
+  prioritas              FeladatPrioritas @default(NORMAL)
+  szin                   String?          @db.VarChar(20)
+  hatarido               DateTime?
+  felelosFelhasznaloId   Int?
+  letrehozoFelhasznaloId Int?
+  elkeszultAt            DateTime?
+  letrehozva             DateTime         @default(now())
+  frissitve              DateTime         @updatedAt
+
+  halaszat          Halaszat     @relation(fields: [halaszatId], references: [azonosito], onDelete: Cascade)
+  to                To?          @relation(fields: [toId], references: [azonosito], onDelete: SetNull)
+  felelosFelhasznalo   Felhasznalo? @relation("FeladatFelelos", fields: [felelosFelhasznaloId], references: [azonosito], onDelete: SetNull)
+  letrehozoFelhasznalo Felhasznalo? @relation("FeladatLetrehozo", fields: [letrehozoFelhasznaloId], references: [azonosito], onDelete: SetNull)
+
+  @@index([halaszatId, statusz])
+  @@index([felelosFelhasznaloId, statusz])
+  @@index([toId])
+  @@index([hatarido])
+  @@index([letrehozva])
+  @@map("feladatok")
 }
 
 model NaptarBejegyzes {

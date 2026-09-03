@@ -180,21 +180,23 @@ Kapcsolódó: [`scope-contract.md`](scope-contract.md), [`capability-map.md`](ca
 | Jogosultságkezelés | ✅ | `requireHalaszatRole`, `role-matrix.md` | Kész | — | Magas | — |
 | Csak-etetés szerepkör | 🟡 | nincs szűk „etetés-only" szerepkör (STAFF etethet, de tágabb) | P1/P2 | új szerepkör vagy jog-granularitás | Közepes | — |
 | Teljes hozzáférés szerepkör | ✅ | `OWNER` | Kész | — | Magas | — |
-| Csapat-kezelés | ✅ | `dolgozok` CRUD | Kész | — | Magas | — |
-| Felelős személy műveletenként | ⚠️ | **Sprint 1:** a művelet rögzítője (actor) eltárolva; külön „felelős-kijelölés" még nincs | P1 | felelős-kötés + megjelenítés | **Magas** | — |
+| Csapat-kezelés | ✅ | `dolgozok` CRUD; **Feladatok modul:** feladat-kiosztás dolgozóknak, felelős + státusz | Kész | — | Magas | — |
+| Feladatok kiosztása dolgozóknak | ✅ | **Feladatok modul:** `Feladat` + `/feladatok` oldal + API; ADMIN/OWNER oszt ki, STAFF a saját feladatát zárja | Kész | — | Magas | — |
+| Felelős személy műveletenként | ⚠️ | a művelet **rögzítője** (actor) eltárolva; a **Feladatoknál** külön **felelős** is kijelölhető; a nem-feladat műveletekhez külön „felelős" mező még nincs | P1 | felelős-kötés a többi művelethez is | **Magas** | — |
 | Ki rögzített minden adatot | ⚠️ | **Sprint 1:** a fő műveletekre igen (actor); nem minden adat-CRUD-ra | P1 | actor a törzsadat-CRUD-ra is | **Magas** | — |
 
 ## 11. Naptár és feladatkövetés
 
 | Ügyfél-igény | Állapot | Bizonyíték a repóban | Ajánlott kategória | Szükséges változás | Thesis-relevancia | Kockázat / megjegyzés |
 |---|---|---|---|---|---|---|
+| **Feladatok menü + feladatkövetés** | ✅ | **Feladatok modul:** `/feladatok` oldal (szűrők, keresés, kártyák), `Feladat` modell, státusz (Új/Folyamatban/Kész/Halasztva), prioritás, szín, határidő, felelős | Kész | — | Magas | push/naptár-integráció tervezett |
 | Naptár menü | ✅ | `naptar` (`NaptarBejegyzes` CRUD) | Kész | — | Közepes | — |
 | Ki, mit, mikor | ⚠️ | a **művelet-idővonalon** már van actor + időbélyeg (Sprint 1); a **naptár** viszont manuális, actor/auto nélkül | P3 | actor + auto-események a naptárba | Közepes | — |
 | Keresés adott napra | ⚠️ | havi nézet + napi bejegyzések, nincs kereső | P3 | nap-kereső | Alacsony-Közepes | — |
 | Előzmény tárolása a naptárban | ⚠️ | manuális bejegyzések | P3 | auto-esemény gyűjtés | Közepes | — |
 | Egyedi események megnyitása | ✅ | `BejegyzesModal` | Kész | — | Alacsony | — |
 | Admin módosíthat eseményt | ✅ | `naptar` `PATCH` (STAFF+) | Kész | — | Alacsony | — |
-| Tartalmazza: etetés/vízminőség/áthelyezés/hatchery/bevét/mortalitás/dolgozói feladat | 🟡 | jelenleg csak manuális naptár, nincs auto-integráció | P3 | esemény-aggregáció a naptárba | Közepes | függ a P2/P4-től |
+| Tartalmazza: etetés/vízminőség/áthelyezés/hatchery/bevét/mortalitás/dolgozói feladat | ⚠️ | a **dolgozói feladat** külön modulban kész; a naptárba történő **auto-esemény aggregáció** még nincs | P3 | esemény-aggregáció a naptárba | Közepes | függ a P2/P4-től |
 
 ---
 
