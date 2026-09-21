@@ -120,18 +120,18 @@ function NavItem({ href, icon, label, active }: { href: string; icon: React.Reac
     );
 }
 
+/**
+ * Alkalmazás-keret (sidebar + topbar).
+ *
+ * FONTOS (React hook-sorrend): ez a komponens KIZÁRÓLAG az `app/(app)/layout.tsx`
+ * alól renderelődik, és NINCS benne feltételes korai visszatérés a hookok előtt.
+ * A bejelentkezés/regisztráció külön route-groupban (`app/(auth)/**`) fut, keret
+ * nélkül — így az AppShell sosem vált "keret" és "csak children" mód között
+ * ugyanazon a mountolt fán, ami korábban hook-sorrend hibát okozott.
+ */
 export default function AppShell({ children }: { children: React.ReactNode }) {
     const pathname = usePathname();
     const router = useRouter();
-
-    const isAuth = pathname?.startsWith("/login") || pathname?.startsWith("/register");
-    if (isAuth) return <>{children}</>;
-
-    const isHalaszat = pathname?.startsWith("/halaszatok");
-    const hidMatch = pathname?.match(/^\/halaszatok\/(\d+)/);
-    const hid = hidMatch?.[1];
-
-    const base = hid ? `/halaszatok/${hid}` : "/halaszatok";
 
     const [me, setMe] = useState<{
         azonosito: number;
@@ -142,6 +142,12 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     const [loggingOut, setLoggingOut] = useState(false);
     const [hibaModalNyitva, setHibaModalNyitva] = useState(false);
     const [kalkulatorNyitva, setKalkulatorNyitva] = useState(false);
+
+    const isHalaszat = pathname?.startsWith("/halaszatok");
+    const hidMatch = pathname?.match(/^\/halaszatok\/(\d+)/);
+    const hid = hidMatch?.[1];
+
+    const base = hid ? `/halaszatok/${hid}` : "/halaszatok";
 
     useEffect(() => {
         let mounted = true;

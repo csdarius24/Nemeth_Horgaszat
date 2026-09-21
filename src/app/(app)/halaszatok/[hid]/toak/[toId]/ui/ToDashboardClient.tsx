@@ -14,10 +14,12 @@ import {
     Cell,
     Legend,
 } from "recharts";
-import EtetesModal from "@/app/halaszatok/[hid]/toak/[toId]/ui/actions/EtetesModal";
-import TelepitesModal from "@/app/halaszatok/[hid]/toak/[toId]/ui/actions/TelepitesModal";
-import KivetelModal from "@/app/halaszatok/[hid]/toak/[toId]/ui/actions/KivetelModal";
-import AttelepitesModal from "@/app/halaszatok/[hid]/toak/[toId]/ui/actions/AttelepitesModal";
+// Relatív importok: a modálok ugyanabban a mappafában élnek, így a route-group
+// átrendezés (app/(app)/...) nem töri el őket.
+import EtetesModal from "./actions/EtetesModal";
+import TelepitesModal from "./actions/TelepitesModal";
+import KivetelModal from "./actions/KivetelModal";
+import AttelepitesModal from "./actions/AttelepitesModal";
 
 // ─── Típusok ────────────────────────────────────────────────────────────────
 

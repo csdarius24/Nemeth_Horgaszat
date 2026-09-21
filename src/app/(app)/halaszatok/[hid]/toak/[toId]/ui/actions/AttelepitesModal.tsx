@@ -58,15 +58,9 @@ export default function AttelepitesModal(props: {
     const halfajUrl = useMemo(() => `/api/halaszatok/${hid}/halfajok?active=1`, [hid]);
     const toakUrl = useMemo(() => `/api/halaszatok/${hid}/toak?active=1`, [hid]);
 
-    // Debug
-    const [dbgHalfaj, setDbgHalfaj] = useState<string>("");
-    const [dbgToak, setDbgToak] = useState<string>("");
-
     async function loadLists() {
         setLoading(true);
         setError(null);
-        setDbgHalfaj("");
-        setDbgToak("");
 
         try {
             const [halfajRes, toakRes] = await Promise.all([
@@ -74,27 +68,8 @@ export default function AttelepitesModal(props: {
                 fetch(toakUrl, { cache: "no-store" }),
             ]);
 
-            const halfajText = await halfajRes.text();
-            const toakText = await toakRes.text();
-
-            setDbgHalfaj(`GET ${halfajUrl} -> ${halfajRes.status}\n` + halfajText.slice(0, 500));
-            setDbgToak(`GET ${toakUrl} -> ${toakRes.status}\n` + toakText.slice(0, 500));
-
-            const halfajJson = (() => {
-                try {
-                    return JSON.parse(halfajText);
-                } catch {
-                    return null;
-                }
-            })();
-
-            const toakJson = (() => {
-                try {
-                    return JSON.parse(toakText);
-                } catch {
-                    return null;
-                }
-            })();
+            const halfajJson = await halfajRes.json().catch(() => null);
+            const toakJson = await toakRes.json().catch(() => null);
 
             if (!halfajRes.ok) throw new Error(halfajJson?.error ?? "Hiba a halfajok lekérésekor.");
             if (!toakRes.ok) throw new Error(toakJson?.error ?? "Hiba a tavak lekérésekor.");
@@ -112,10 +87,10 @@ export default function AttelepitesModal(props: {
             setCelToId(filtered.length ? filtered[0].azonosito : 0);
 
             if (toItemsAll.length > 0 && filtered.length === 0) {
-                setError("Van tólista, de a forrás tó kiszűrése után nem maradt cél. (Lehet csak 1 tó van.)");
+                setError("Nincs másik vízegység, ahová áttelepíthetnél — ehhez legalább két tó/telelő szükséges.");
             }
             if (toItemsAll.length === 0) {
-                setError("A tólista üres. Nézd a Debug részt lent.");
+                setError("Ehhez a halászathoz még nincs vízegység rögzítve.");
             }
         } catch (e: any) {
             setError(e?.message ?? "Ismeretlen hiba");
@@ -280,19 +255,6 @@ export default function AttelepitesModal(props: {
                         <div className="muted">{error}</div>
                     </div>
                 ) : null}
-
-                <details className="glass" style={{ padding: 12, borderRadius: 16, background: "rgba(255,255,255,0.06)" }}>
-                    <summary style={{ cursor: "pointer" }}>Debug (tólista / halfaj lista)</summary>
-                    <pre style={{ whiteSpace: "pre-wrap", fontSize: 12, marginTop: 10 }}>
-{dbgHalfaj || "(halfaj debug üres)"}
-
-                        {dbgToak || "(to debug üres)"}
-
-                        {"Forrás toId param: " + toId}
-                        {"\nHalfajok: " + halfajok.length}
-                        {"\nCél toak: " + toak.length}
-          </pre>
-                </details>
 
                 <div className="muted" style={{ fontSize: 12 }}>
                     Megjegyzés: áttelepítést csak ADMIN/OWNER tud rögzíteni.
