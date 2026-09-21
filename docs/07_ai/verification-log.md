@@ -445,6 +445,66 @@ felügyelt és igazolt legyen, ne vakon elfogadott. Kapcsolódó: `ai-manifest.m
   drag-and-drop, külső naptár-szinkron — mind tervezett. Böngésző-ellenőrzés nem
   futott (a dev szerver a production DB-re csatlakozna).
 
+## V-22 — Phase 0: release-blokkolók elhárítása (stabilizáció)
+
+- **Dátum:** 2026-09-21.
+- **Kiindulás:** a `main` (`5eec7f9`) teljes technikai/UX auditja négy P0-t
+  azonosított. Ez a fázis **kizárólag** ezeket kezelte — nincs új modul, nincs
+  képernyő-újratervezés, nincs séma-változás.
+- **AI kimenet (5 tétel):**
+  1. **AppShell hook-sorrend (P0-1).** Az `AppShell` feltételesen tért vissza a
+     `/login`/`/register` útvonalakon **a 4 hookja előtt**, miközben a gyökér
+     layoutban élt → kliensoldali navigációnál (login/register/logout) a hook-szám
+     megváltozott ugyanazon a mountolt fán. Megoldás: **route-groupok** —
+     `app/(auth)/**` (keret nélkül) és `app/(app)/**` (AppShell-lel); a gyökér
+     layout már nem renderel keretet, az `AppShell`-ből a feltételes korai
+     visszatérés megszűnt. **ESLint-elnyomás nem történt.**
+  2. **Takarmány-törlés audit-védelme (P0-2).** Alkalmazás-szintű ellenőrzés a
+     törlés előtt (lásd `threat-model.md` 7. táblázat) + tiszta
+     `lib/takarmany/torles.ts` helper, 7 unit teszttel.
+  3. **`/demo` útvonal törölve (P0-3)** — nem létező API-kat (`/api/toak`,
+     `/api/halfajok`) hívott, nem létező CSS-osztályokat használt.
+  4. **Áttelepítés debug-panel eltávolítva (P0-4)** — a modál nyers HTTP-státuszt
+     és API-válasz-részletet jelenített meg a felhasználónak.
+  5. **Lint-alapvonal helyreállítva (P0-5)** — lásd `test-report.md` 6.1.
+- **Kockázat, ha téves:** az útvonal-átrendezés eltörhetné az URL-eket vagy az
+  importokat; a törlés-védelem tévesen tilthatna jogos törlést.
+- **Ellenőrzés (pontos parancsok, tényleges futás ebben a munkamenetben):**
+  - `npx tsc --noEmit` → **exit 0**.
+  - `npm run test` → **13 fájl / 164 teszt passed** (157 + 7 `takarmany-torles`).
+  - `npm run lint` → **87 hiba / 6 figyelmeztetés**, **121 fájl** vizsgálva;
+    `src/` + `tests/` körön kívül **0 találat**; **`react-hooks/rules-of-hooks`: 0**
+    (korábban 5, mind `AppShell.tsx`).
+  - `npm run build` → **„Compiled successfully"**; **52 route** (korábban 53 — a
+    `/demo` kiesett). Az URL-ek változatlanok: a route-groupok nem jelennek meg
+    az útvonalban (`/login`, `/register`, `/halaszatok/...` mind megmaradt).
+  - `npm run test:integration` → **5 teszt SKIPPED** (nincs teszt-DB; 0 DB-kapcsolat).
+  - **Futásidejű ellenőrzés production DB érintése nélkül:** `npx next start -p 3111`
+    (csak olvasó, bejelentkezés nélküli GET-ek; a szerver-log szerint **nem történt
+    adatbázis-hozzáférés**):
+    `/login` → **200, sidebar/topbar: 0** · `/register` → **200, sidebar/topbar: 0** ·
+    `/halaszatok` → **200, sidebar: 1, topbar: 1** · `/demo` → **404** ·
+    `/` → **307 → /login**. A `.next` build-kimenetben a `dbgHalfaj` / `dbgToak` /
+    „Debug (tólista" sztringek előfordulása: **0**.
+- **Eredmény:** ✅ mind a négy P0 elhárítva; a lint mostantól megbízható jelzés.
+- **Bizonyíték:** a fenti kimenetek; `src/app/(auth)/layout.tsx`,
+  `src/app/(app)/layout.tsx`, `src/lib/takarmany/torles.ts`,
+  `tests/unit/takarmany-torles.test.ts`, `eslint.config.mjs`.
+- **Séma / migráció:** **NINCS** séma-változás és **NINCS** új migráció
+  (`prisma/schema.prisma` érintetlen; a migrációk száma továbbra is 14).
+- **Hatókör-korlát (őszinte):**
+  - A **bejelentkezési/kijelentkezési folyamat végponti (DB-t igénylő) manuális
+    próbája NEM futott**, mert az a production adatbázisba írna `Session` sort.
+    Amit ténylegesen igazoltunk: (a) az ESLint szerint nincs több feltételes hook,
+    (b) a renderelt HTML szerint az `AppShell` az auth-útvonalakon **nincs**, az
+    alkalmazás-útvonalakon **van** — vagyis a két ág külön layout-fán fut, ami a
+    hiba oka volt. A teljes login→app→logout kattintásos próba **teszt-DB-vel**
+    pótolandó.
+  - A takarmány-törlés védelme **alkalmazás-szintű**; az FK `RESTRICT`-re
+    szigorítása migrációval **szándékosan elhalasztva** (Phase 0: nincs séma-változás).
+  - A maradék **87 lint-hiba** pre-existing adósság; a CI viselkedése
+    **változatlan** (a lint továbbra sem blokkoló lépés).
+
 ---
 
 ## Összegzés
@@ -472,6 +532,7 @@ felügyelt és igazolt legyen, ne vakon elfogadott. Kapcsolódó: `ai-manifest.m
 | V-19 | Napló javítás/érvénytelenítés (2026-06-27) | ✅ kód + 126 teszt + build zöld; fizikai törlés nincs; migráció **NEM alkalmazva**; verziózás + készlet-visszavezetés tervezett |
 | V-20 | Halkeltetés MVP — kézi ciklus (2026-06-28) | ✅ kód + 138 teszt + build zöld; migráció **NEM alkalmazva**; Excel-import/export + ivadék-kihelyezés tervezett |
 | V-21 | Feladatok modul (2026-06-28) | ✅ kód + 157 teszt + build zöld; migráció **NEM alkalmazva**; értesítés/ismétlődés/naptár-sync tervezett |
+| V-22 | **Phase 0 — release-blokkolók (2026-09-21)** | ✅ 4/4 P0 elhárítva (AppShell route-groupok, takarmány-törlés audit-védelem, `/demo` törölve, debug-panel törölve) + lint-alapvonal; **164 teszt**, `tsc` exit 0, build zöld, **nincs séma-/migráció-változás**; login/logout **DB-s** manuális próbája teszt-DB-re vár |
 
 A nyitott bizonyítékok (V-04 CI-futás link, V-11 lefedettségi érték, V-13/V-14
 integrációs tesztek **valós teszt-DB elleni futtatása**) `TODO`-ként/tervezettként

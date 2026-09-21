@@ -24,13 +24,13 @@ lefedettség, Playwright trace, endpoint-szintű integration) később illeszten
 | Tétel | Állapot |
 |---|---|
 | Teszt-keretrendszer | ✅ Vitest 3.2.6 (`vitest.config.ts`, node környezet) |
-| Unit tesztek | ✅ **157 teszt, 12 fájl** (`tests/unit/`) — korábban 138/11 |
+| Unit tesztek | ✅ **164 teszt, 13 fájl** (`tests/unit/`) — korábban 157/12 (Phase 0: +7 `takarmany-torles`) |
 | Integration tesztek | ✅ **Végrehajtva a biztonságos teszt-DB ellen** (feed-workflow + authorization, actor-assertekkel); teszt-DB nélkül továbbra is biztonságos skip — lásd 8. |
 | E2E tesztek | ❌ Nincs (tervezett, Playwright) |
 | Lefedettség mérés | ✅ Elérhető (`npm run test:coverage`, `@vitest/coverage-v8`) |
-| CI tesztlépés | ❌ Nincs (nincs `.github/` pipeline — tervezett) |
-| Statikus ellenőrzés | ⚠️ `tsc --noEmit` zöld; `npm run lint` **pre-existing hibák miatt piros** (lásd 6.1) |
-| Production build | ✅ `npm run build` (Next.js) sikeres — 2026-06-26 |
+| CI tesztlépés | ⚠️ `.github/workflows/ci.yml` fut (`prisma generate` → `tsc --noEmit` → `npm run test`); a **lint és a build NEM CI-lépés** |
+| Statikus ellenőrzés | ⚠️ `tsc --noEmit` zöld; `npm run lint` **fut és megbízható** (Phase 0), de **87 pre-existing hiba** miatt piros (lásd 6.1) |
+| Production build | ✅ `npm run build` (Next.js 16.1.1) sikeres — 2026-09-21 (Phase 0) |
 | Production DB migráció | ✅ `20260626100000_link_etetes_takarmany` **alkalmazva** (`prisma migrate deploy`, 2026-06-26, `srv1695.hstgr.io`) — lásd `verification-log.md` V-13 |
 | Actor migráció (Sprint 1) | ✅ `20260626120000_actor_naplo_takarmanymozgas` **alkalmazva** — előbb a biztonságos **teszt-DB**-re, majd a **production**-re (`prisma migrate deploy`) — lásd `verification-log.md` V-16 |
 | Vízegység-migráció (Tavak és telelők) | ✅ `20260627090000_to_tipusok_es_muszaki_adatok` **alkalmazva** (Vercel `migrate deploy`, 2026-06-27) |
@@ -107,16 +107,18 @@ Legutóbbi tényleges futás — `npm run test` (Vitest 3.2.6, `environment: nod
  ✓ tests/unit/naplo-format.test.ts      (27 tests)
  ✓ tests/unit/halkeltes-szamitas.test.ts (12 tests)
  ✓ tests/unit/feladatok-format.test.ts  (19 tests)
+ ✓ tests/unit/takarmany-torles.test.ts  ( 7 tests)
 
- Test Files  12 passed (12)
-      Tests  157 passed (157)
+ Test Files  13 passed (13)
+      Tests  164 passed (164)
 ```
 (a `roles.test.ts` 15 → 18 teszt: `canModositNaploEsemeny`; a
 `naplo-format.test.ts` 24 → 27: az érvénytelenített bejegyzések kihagyása az
-összegzésből.)
+összegzésből; **Phase 0**: +7 `takarmany-torles.test.ts` — a takarmány
+fizikai törlésének audit-védelme.)
 
 - **Típusellenőrzés:** `npx tsc --noEmit` → **exit 0** (0 típushiba).
-- **Production build:** `npm run build` (Next.js) → **sikeres** (2026-06-26).
+- **Production build:** `npm run build` (Next.js 16.1.1) → **sikeres** (2026-09-21).
 - **Integrációs tesztek:** `npm run test:integration` → **5 teszt SKIPPED** (nincs
   teszt-DB) — biztonságos, production-érintés nélkül (lásd 8. szakasz).
 - **Környezet:** Node (lokális), DB **nem szükséges** a unit réteghez (tiszta
@@ -171,17 +173,34 @@ A `tsc --noEmit` zöld, ami igazolja, hogy a kiemelések nem törték a típusok
 
 ## 6. TODO — jövőbeli bizonyítékok
 
-### 6.1 Ismert hiányosság — `npm run lint` jelenleg piros (pre-existing)
+### 6.1 `npm run lint` — megbízható, de pre-existing adósság miatt piros
 
-Az `npm run lint` **136 hibát** jelez, de ezek **mind a meglévő alkalmazáskódban**
-vannak (pl. `src/lib/tenantDb.ts`, több route handler `any` típusa,
-`components/app/AppShell.tsx` feltételes React hook-ok), **nem** az új teszt-setup
-okozza. Bizonyíték: az új/módosított fájlokra futtatott ESLint **0 hibát** ad
-(`npx eslint src/lib/roles.ts src/lib/password.ts src/lib/utils/slug.ts
-src/lib/auth.ts src/lib/guards.ts ... tests/unit/*.ts` → exit 0). Ez elfogadott
-ismert hiányosságként, de **később javítandó**, vagy a CI-ban átmenetileg külön
-kezelendő (pl. csak a változott fájlokra futó lint, amíg a meglévő hibák
-felszámolásra nem kerülnek).
+**Phase 0 előtt** a lint **használhatatlan** volt: az `eslint.config.mjs`
+`globalIgnores` mintái a repo gyökeréhez voltak kötve (`.next/**`), ezért az
+ESLint bejárta a `.claude/worktrees/*/.next/**` alatti **generált JS-t** is, és
+több ezer értelmetlen hibát adott (`no-require-imports` a build-kimenetre). A
+valódi forráshibák ebben elvesztek — emiatt lett a lint a CI-ból kihagyva.
+
+**Phase 0-ban a minták `**/` előtagot kaptak** (`**/.next/**`, `**/out/**`,
+`**/build/**`, `**/coverage/**`, `**/next-env.d.ts`, `**/.claude/**`), így az
+ESLint **kizárólag a valódi forrást** vizsgálja: **121 fájl**, és a `src/` +
+`tests/` körön **kívül 0 találat**.
+
+Aktuális állapot (2026-09-21): **87 hiba + 6 figyelmeztetés**, mind
+**pre-existing** adósság:
+
+| Kategória | Db | Megjegyzés |
+|---|---:|---|
+| `@typescript-eslint/no-explicit-any` | 84 | főleg `catch (e: any)` és típusozatlan API-válaszok a nagy kliensekben |
+| `@typescript-eslint/no-unused-vars` | 5 | `asInt`, `useMemo`, `useRef`, `canManage`, `GlassCard` (figyelmeztetés) |
+| `react/no-unescaped-entities` | 3 | idézőjelek JSX-szövegben |
+| `react-hooks/exhaustive-deps` | 1 | `ToakAttekintesClient` |
+| **`react-hooks/rules-of-hooks`** | **0** | **Phase 0-ban megszűnt** (korábban 5, `AppShell.tsx`) |
+
+A korábbi 5 `rules-of-hooks` hiba **release blocker** volt, és a route-group
+átalakítással megszűnt. A maradék 87 hiba **nem blokkoló**, de a lint emiatt
+**még nem tehető kötelező CI-lépéssé** — a CI viselkedése Phase 0-ban
+szándékosan **változatlan** maradt.
 
 ### 6.2 Hátralévő tételek
 
