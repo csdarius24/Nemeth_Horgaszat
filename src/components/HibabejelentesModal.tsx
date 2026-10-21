@@ -2,7 +2,10 @@
 
 import { usePathname } from "next/navigation";
 import { useState } from "react";
-import GlassModal from "@/components/ui/GlassModal";
+import { Modal } from "@/components/ui/Modal";
+import { Input } from "@/components/ui/Input";
+import { Button } from "@/components/ui/Button";
+import { CheckCircle2, AlertCircle } from "lucide-react";
 
 type Props = {
     open: boolean;
@@ -11,22 +14,12 @@ type Props = {
     halaszatId: number | null;
 };
 
-const mezoStilus: React.CSSProperties = {
-    width: "100%",
-    padding: "12px 14px",
-    borderRadius: 14,
-    background: "rgba(0,0,0,0.18)",
-    border: "1px solid rgba(255,255,255,0.14)",
-    color: "var(--text)",
-    outline: "none",
-};
-
 export default function HibabejelentesModal({
-                                                open,
-                                                onClose,
-                                                felhasznaloId,
-                                                halaszatId,
-                                            }: Props) {
+    open,
+    onClose,
+    felhasznaloId,
+    halaszatId,
+}: Props) {
     const pathname = usePathname();
 
     const [targy, setTargy] = useState("");
@@ -70,7 +63,7 @@ export default function HibabejelentesModal({
             setTimeout(() => {
                 setSikerUzenet("");
                 onClose();
-            }, 900);
+            }, 1200);
         } catch (error) {
             console.error(error);
             setHibaUzenet("Hálózati hiba történt.");
@@ -80,119 +73,85 @@ export default function HibabejelentesModal({
     }
 
     return (
-        <GlassModal
+        <Modal
             open={open}
-            onCloseAction={onClose}
+            onClose={onClose}
             title="Hibabejelentés"
             subtitle="Írd le röviden és érthetően, mi történt, hogy könnyen vissza tudjam követni."
-            width={620}
+            maxWidth="lg"
             footer={
-                <div
-                    style={{
-                        display: "flex",
-                        justifyContent: "flex-end",
-                        gap: 10,
-                    }}
-                >
-                    <button
+                <>
+                    <Button
                         type="button"
-                        className="btn"
+                        variant="ghost"
                         onClick={onClose}
                         disabled={kuldesFolyamatban}
                     >
                         Mégse
-                    </button>
-
-                    <button
+                    </Button>
+                    <Button
                         type="submit"
                         form="hibabejelentes-form"
-                        className="btn btn-primary"
-                        disabled={kuldesFolyamatban}
+                        variant="primary"
+                        isLoading={kuldesFolyamatban}
                     >
                         {kuldesFolyamatban ? "Küldés..." : "Beküldés"}
-                    </button>
-                </div>
+                    </Button>
+                </>
             }
         >
-            <form
-                id="hibabejelentes-form"
-                onSubmit={handleSubmit}
-                style={{ display: "grid", gap: 14 }}
-            >
-                <div style={{ display: "grid", gap: 6 }}>
-                    <label style={{ fontWeight: 700, fontSize: 14 }}>Tárgy</label>
-                    <input
+            <form id="hibabejelentes-form" onSubmit={handleSubmit} className="grid gap-5">
+                
+                <div className="grid gap-2">
+                    <label className="text-sm font-bold text-foreground">Tárgy</label>
+                    <Input
                         type="text"
                         value={targy}
                         onChange={(e) => setTargy(e.target.value)}
                         maxLength={150}
                         required
                         placeholder="Pl. Nem mentődik a telepítés"
-                        style={mezoStilus}
                     />
                 </div>
 
-                <div style={{ display: "grid", gap: 6 }}>
-                    <label style={{ fontWeight: 700, fontSize: 14 }}>Leírás</label>
+                <div className="grid gap-2">
+                    <label className="text-sm font-bold text-foreground">Leírás</label>
                     <textarea
                         value={leiras}
                         onChange={(e) => setLeiras(e.target.value)}
                         required
-                        rows={7}
+                        rows={5}
                         placeholder="Írd le részletesen, mit csináltál, mi történt, és mit vártál volna."
-                        style={{
-                            ...mezoStilus,
-                            resize: "vertical",
-                            minHeight: 150,
-                        }}
+                        className="flex w-full rounded-xl border-2 border-slate-200 bg-white px-4 py-3 text-sm text-foreground transition-all duration-200 placeholder:text-slate-400 hover:border-slate-300 focus:border-primary focus:outline-none focus:ring-4 focus:ring-primary/10 disabled:cursor-not-allowed disabled:opacity-50 resize-y min-h-[120px]"
                     />
                 </div>
 
-                <div style={{ display: "grid", gap: 6 }}>
-                    <label style={{ fontWeight: 700, fontSize: 14 }}>Oldal</label>
-                    <input
+                <div className="grid gap-2">
+                    <label className="text-sm font-bold text-foreground">Oldal</label>
+                    <Input
                         type="text"
                         value={pathname}
                         readOnly
-                        style={{
-                            ...mezoStilus,
-                            opacity: 0.75,
-                        }}
+                        className="bg-slate-50/50 text-slate-500 border-slate-200 shadow-none pointer-events-none"
                     />
                 </div>
 
-                {sikerUzenet ? (
-                    <div
-                        style={{
-                            borderRadius: 14,
-                            padding: "10px 12px",
-                            background: "rgba(34,197,94,0.12)",
-                            border: "1px solid rgba(34,197,94,0.25)",
-                            color: "#d1fae5",
-                            fontSize: 14,
-                            fontWeight: 600,
-                        }}
-                    >
-                        {sikerUzenet}
+                {/* Siker üzenet */}
+                {sikerUzenet && (
+                    <div className="flex items-start gap-2.5 p-3.5 rounded-xl bg-emerald-50 border border-emerald-100 text-emerald-700 mt-2">
+                        <CheckCircle2 className="w-5 h-5 mt-0.5 shrink-0" />
+                        <div className="text-sm font-semibold">{sikerUzenet}</div>
                     </div>
-                ) : null}
+                )}
 
-                {hibaUzenet ? (
-                    <div
-                        style={{
-                            borderRadius: 14,
-                            padding: "10px 12px",
-                            background: "rgba(239,68,68,0.12)",
-                            border: "1px solid rgba(239,68,68,0.25)",
-                            color: "#fecaca",
-                            fontSize: 14,
-                            fontWeight: 600,
-                        }}
-                    >
-                        {hibaUzenet}
+                {/* Hiba üzenet */}
+                {hibaUzenet && (
+                    <div className="flex items-start gap-2.5 p-3.5 rounded-xl bg-red-50 border border-red-100 text-danger mt-2">
+                        <AlertCircle className="w-5 h-5 mt-0.5 shrink-0" />
+                        <div className="text-sm font-semibold">{hibaUzenet}</div>
                     </div>
-                ) : null}
+                )}
             </form>
-        </GlassModal>
+        </Modal>
     );
 }

@@ -1,8 +1,17 @@
 import "./globals.css";
-import { Inter, Sora } from "next/font/google";
+import { Inter, Plus_Jakarta_Sans } from "next/font/google";
 
-const inter = Inter({ subsets: ["latin"], variable: "--font-body" });
-const sora = Sora({ subsets: ["latin"], variable: "--font-display" });
+const inter = Inter({ 
+  subsets: ["latin"], 
+  variable: "--font-body",
+  display: "swap",
+});
+
+const jakarta = Plus_Jakarta_Sans({ 
+  subsets: ["latin"], 
+  variable: "--font-display",
+  display: "swap",
+});
 
 /**
  * Gyökér layout — SZÁNDÉKOSAN nem renderel alkalmazás-keretet (AppShell).
@@ -16,7 +25,7 @@ const sora = Sora({ subsets: ["latin"], variable: "--font-display" });
  */
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-      <html lang="hu" className={`${inter.variable} ${sora.variable}`}>
+      <html lang="hu" className={`${inter.variable} ${jakarta.variable}`}>
       <body>{children}</body>
       </html>
   );

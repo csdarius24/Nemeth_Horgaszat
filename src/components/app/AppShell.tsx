@@ -4,323 +4,239 @@ import React, { useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import HibabejelentesModal from "@/components/HibabejelentesModal";
 import KalkulatorModal from "@/components/app/KalkulatorModal";
+import { Input } from "@/components/ui/Input";
+import { 
+    Home, Users, Fish, Map, AlertCircle, 
+    Calculator, Calendar, Wheat, Droplets, Book, CheckSquare, 
+    Search, Plus, LogOut, ChevronLeft, ChevronRight, Menu
+} from "lucide-react";
 
-function Icon({ name }: { name: "home" | "users" | "fish" | "lake" | "settings" | "alert" | "calculator" | "calendar" | "wheat" | "hatchery" | "book" | "task" }) {
-    const common = { width: 18, height: 18, fill: "none", stroke: "currentColor", strokeWidth: 2 };
-    switch (name) {
-        case "home":
-            return (
-                <svg {...common} viewBox="0 0 24 24">
-                    <path d="M3 10.5 12 3l9 7.5" />
-                    <path d="M6 10v10h12V10" />
-                </svg>
-            );
-        case "users":
-            return (
-                <svg {...common} viewBox="0 0 24 24">
-                    <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
-                    <circle cx="9" cy="7" r="4" />
-                    <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
-                    <path d="M16 3.13a4 4 0 0 1 0 7.75" />
-                </svg>
-            );
-        case "lake":
-            return (
-                <svg {...common} viewBox="0 0 24 24">
-                    <path d="M3 16c3 0 3-2 6-2s3 2 6 2 3-2 6-2" />
-                    <path d="M3 20c3 0 3-2 6-2s3 2 6 2 3-2 6-2" />
-                </svg>
-            );
-        case "fish":
-            return (
-                <svg {...common} viewBox="0 0 24 24">
-                    <path d="M22 12s-4-6-10-6S2 12 2 12s4 6 10 6 10-6 10-6Z" />
-                    <path d="M2 12l-2-2 2 2-2 2 2-2Z" />
-                    <circle cx="9" cy="12" r="1" />
-                </svg>
-            );
-        case "settings":
-            return (
-                <svg {...common} viewBox="0 0 24 24">
-                    <path d="M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Z" />
-                    <path d="M19.4 15a1.8 1.8 0 0 0 .36 1.98l.04.04-1.7 1.7-.04-.04A1.8 1.8 0 0 0 16 19.4a1.8 1.8 0 0 0-1 .2l-.06.02V22h-2v-2.38l-.06-.02a1.8 1.8 0 0 0-1-.2 1.8 1.8 0 0 0-1.98.36l-.04.04-1.7-1.7.04-.04A1.8 1.8 0 0 0 4.6 16a1.8 1.8 0 0 0-.2-1l-.02-.06H2v-2h2.38l.02-.06a1.8 1.8 0 0 0 .2-1 1.8 1.8 0 0 0-.36-1.98l-.04-.04 1.7-1.7.04.04A1.8 1.8 0 0 0 8 4.6a1.8 1.8 0 0 0 1-.2l.06-.02V2h2v2.38l.06.02a1.8 1.8 0 0 0 1 .2 1.8 1.8 0 0 0 1.98-.36l.04-.04 1.7 1.7-.04.04A1.8 1.8 0 0 0 19.4 8c.1.33.1.67 0 1l-.02.06H22v2h-2.62l.02.06c.1.33.1.67 0 1Z" />
-                </svg>
-            );
-        case "alert":
-            return (
-                <svg {...common} viewBox="0 0 24 24">
-                    <path d="M12 9v4" />
-                    <path d="M12 17h.01" />
-                    <path d="M10.3 3.84 1.82 18A2 2 0 0 0 3.53 21h16.94a2 2 0 0 0 1.71-3L13.7 3.84a2 2 0 0 0-3.4 0Z" />
-                </svg>
-            );
-        case "calculator":
-            return (
-                <svg {...common} viewBox="0 0 24 24">
-                    <rect x="4" y="2" width="16" height="20" rx="3" />
-                    <path d="M8 6h8M8 10h2m4 0h2M8 14h2m4 0h2M8 18h2m4 0h2" />
-                </svg>
-            );
-        case "calendar":
-            return (
-                <svg {...common} viewBox="0 0 24 24">
-                    <rect x="3" y="4" width="18" height="18" rx="3" />
-                    <path d="M16 2v4M8 2v4M3 10h18" />
-                    <path d="M8 14h.01M12 14h.01M16 14h.01M8 18h.01M12 18h.01M16 18h.01" strokeWidth={2.5} strokeLinecap="round" />
-                </svg>
-            );
-        case "wheat":
-            return (
-                <svg {...common} viewBox="0 0 24 24">
-                    <path d="M12 22V12" />
-                    <path d="M12 12C12 12 8 10 8 6a4 4 0 0 1 8 0c0 4-4 6-4 6Z" />
-                    <path d="M12 12C12 12 8.5 14.5 6 14a3.5 3.5 0 0 1 3-6c2.5.5 3 4 3 4Z" />
-                    <path d="M12 12C12 12 15.5 14.5 18 14a3.5 3.5 0 0 0-3-6c-2.5.5-3 4-3 4Z" />
-                    <path d="M6 20c1.5-1 4-1.5 6-1s4.5 0 6 1" />
-                </svg>
-            );
-        case "hatchery":
-            return (
-                <svg {...common} viewBox="0 0 24 24">
-                    <ellipse cx="12" cy="13" rx="6" ry="7" />
-                    <path d="M12 6C12 6 10 3 12 2s2 4 2 4" />
-                    <path d="M9 10c0 1.5 1 3 3 3s3-1.5 3-3" />
-                </svg>
-            );
-        case "book":
-            return (
-                <svg {...common} viewBox="0 0 24 24">
-                    <path d="M4 4a2 2 0 0 1 2-2h14v18H6a2 2 0 0 0-2 2Z" />
-                    <path d="M4 20V4" />
-                    <path d="M9 7h7M9 11h7" />
-                </svg>
-            );
-        case "task":
-            return (
-                <svg {...common} viewBox="0 0 24 24">
-                    <rect x="4" y="3" width="16" height="18" rx="2" />
-                    <path d="M9 8l1.5 1.5L13 7" />
-                    <path d="M9 15l1.5 1.5L13 14" />
-                    <path d="M16 8.5h1M16 15.5h1" strokeLinecap="round" />
-                </svg>
-            );
-    }
-}
-
-function NavItem({ href, icon, label, active }: { href: string; icon: React.ReactNode; label: string; active: boolean }) {
+// NavItem: Világos témához igazítva, keretek nélkül, puha hover effekttel
+function NavItem({ href, icon, label, active, collapsed }: { href: string; icon: React.ReactNode; label: string; active: boolean; collapsed: boolean }) {
     return (
         <a
             href={href}
-            className={"sidebar-nav-item" + (active ? " sidebar-nav-item--active" : "")}
             title={label}
+            className={`flex items-center gap-3.5 px-4 py-3.5 rounded-xl font-bold transition-all duration-200 group ${
+                active 
+                ? "bg-primary/10 text-primary" 
+                : "text-slate-500 hover:bg-slate-100 hover:text-slate-900"
+            } ${collapsed ? "justify-center px-0" : ""}`}
         >
-            <span className="sidebar-nav-icon">{icon}</span>
-            <span className="sidebar-nav-label">{label}</span>
+            <span className={`flex items-center justify-center [&_svg]:w-5 [&_svg]:h-5 shrink-0 transition-transform duration-200 ${
+                active ? "scale-110" : "group-hover:scale-110"
+            }`}>
+                {icon}
+            </span>
+            <span className={`truncate ${collapsed ? "hidden" : "block"}`}>{label}</span>
         </a>
     );
 }
 
-/**
- * Alkalmazás-keret (sidebar + topbar).
- *
- * FONTOS (React hook-sorrend): ez a komponens KIZÁRÓLAG az `app/(app)/layout.tsx`
- * alól renderelődik, és NINCS benne feltételes korai visszatérés a hookok előtt.
- * A bejelentkezés/regisztráció külön route-groupban (`app/(auth)/**`) fut, keret
- * nélkül — így az AppShell sosem vált "keret" és "csak children" mód között
- * ugyanazon a mountolt fán, ami korábban hook-sorrend hibát okozott.
- */
 export default function AppShell({ children }: { children: React.ReactNode }) {
     const pathname = usePathname();
     const router = useRouter();
 
-    const [me, setMe] = useState<{
-        azonosito: number;
-        nev: string | null;
-        email: string;
-    } | null>(null);
-
+    const [me, setMe] = useState<{ azonosito: number; nev: string | null; email: string; } | null>(null);
     const [loggingOut, setLoggingOut] = useState(false);
     const [hibaModalNyitva, setHibaModalNyitva] = useState(false);
     const [kalkulatorNyitva, setKalkulatorNyitva] = useState(false);
+    
+    const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+    const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
 
     const isHalaszat = pathname?.startsWith("/halaszatok");
     const hidMatch = pathname?.match(/^\/halaszatok\/(\d+)/);
     const hid = hidMatch?.[1];
-
     const base = hid ? `/halaszatok/${hid}` : "/halaszatok";
 
     useEffect(() => {
         let mounted = true;
-
         (async () => {
             try {
                 const res = await fetch("/api/auth/me", { cache: "no-store" });
                 const data = await res.json().catch(() => ({}));
                 if (!mounted) return;
                 setMe(data?.user ?? null);
-            } catch {
-                // ignore
-            }
+            } catch {}
         })();
-
-        return () => {
-            mounted = false;
-        };
+        return () => { mounted = false; };
     }, [pathname]);
+
+    useEffect(() => { setMobileMenuOpen(false); }, [pathname]);
 
     async function logout() {
         setLoggingOut(true);
-        try {
-            await fetch("/api/auth/logout", { method: "POST" });
-        } finally {
+        try { await fetch("/api/auth/logout", { method: "POST" }); } 
+        finally {
             setLoggingOut(false);
             router.push("/login");
             router.refresh();
         }
     }
 
-    const avatarLetter =
-        me?.nev?.trim()?.[0]?.toUpperCase() ??
-        me?.email?.trim()?.[0]?.toUpperCase() ??
-        "U";
+    const avatarLetter = me?.nev?.trim()?.[0]?.toUpperCase() ?? me?.email?.trim()?.[0]?.toUpperCase() ?? "U";
+    const sidebarWidth = isSidebarCollapsed ? "lg:w-[100px]" : "lg:w-[320px]";
 
     return (
-        <div className="container-app">
-            <aside className="sidebar">
-                <div style={{ display: "flex", flexDirection: "column", gap: 4, height: "100%" }}>
-
-                    {/* Brand */}
-                    <div style={{ marginBottom: 8 }}>
-                        <div className="sidebar-nav-item" style={{ pointerEvents: "none" }}>
-                            <span className="sidebar-nav-icon">
-                                <div style={{
-                                    width: 34, height: 34, borderRadius: 12,
-                                    background: "rgba(255,255,255,0.18)",
-                                    display: "grid", placeItems: "center",
-                                    fontWeight: 800, fontSize: 13,
-                                }}>
-                                    NH
-                                </div>
-                            </span>
-                            <span className="sidebar-nav-label" style={{ fontWeight: 800, fontSize: 14 }}>
-                                Németh Horgászat
-                            </span>
+        <div className="flex h-screen bg-slate-50 overflow-hidden text-foreground">
+            
+            {/* 1. OLDALSÁV (Világos, tiszta fehér háttérrel) */}
+            <aside className={`fixed inset-y-0 left-0 z-40 bg-white border-r border-slate-200 transform transition-all duration-300 ease-in-out lg:relative flex flex-col overflow-hidden ${sidebarWidth} ${mobileMenuOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"}`}>
+                
+                {/* Fejléc / Logó */}
+                <div className={`relative z-10 flex items-center h-28 shrink-0 border-b border-slate-100 transition-all ${isSidebarCollapsed ? "justify-center" : "justify-between px-8"}`}>
+                    
+                    <div className={`flex items-center gap-3.5 ${isSidebarCollapsed ? "hidden" : "flex"}`}>
+                        <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-sky-400 to-primary flex items-center justify-center shadow-[0_0_20px_rgba(14,165,233,0.2)] shrink-0">
+                            <Fish className="w-6 h-6 text-white" strokeWidth={2.5} />
                         </div>
+                        <span className="text-2xl font-extrabold tracking-tight text-foreground truncate">
+                            Fish App
+                        </span>
                     </div>
 
-                    {/* Fő navigáció */}
-                    <NavItem href="/halaszatok" icon={<Icon name="home" />} label="Halászatok" active={pathname === "/halaszatok"} />
-                    <NavItem href={base} icon={<Icon name="lake" />} label="Halászat" active={isHalaszat && pathname === base} />
-
-                    {hid && (
-                        <>
-                            <NavItem href={`${base}/toak`}            icon={<Icon name="lake" />}       label="Tavak és telelők"  active={/\/toak\/?$/.test(pathname ?? "")} />
-                            <NavItem href={`${base}/halfajok`}         icon={<Icon name="fish" />}       label="Halfajok"          active={pathname.includes("/halfajok")} />
-                            <NavItem href={`${base}/takarmanyok`}      icon={<Icon name="wheat" />}      label="Takarmányok"       active={pathname.includes("/takarmanyok")} />
-                            <NavItem href={`${base}/halkeltes`}        icon={<Icon name="hatchery" />}   label="Halkeltetés"       active={pathname.includes("/halkeltes")} />
-                            <NavItem href={`${base}/dolgozok`}         icon={<Icon name="users" />}      label="Dolgozók"          active={pathname.includes("/dolgozok")} />
-                            <NavItem href={`${base}/feladatok`}        icon={<Icon name="task" />}       label="Feladatok"         active={pathname.includes("/feladatok")} />
-                            <NavItem href={`${base}/naplo`}            icon={<Icon name="book" />}       label="Halászati napló"   active={pathname.includes("/naplo")} />
-                            <NavItem href={`${base}/naptar`}           icon={<Icon name="calendar" />}   label="Naptár"            active={pathname.includes("/naptar")} />
-                            <NavItem href={`${base}/hibabejelentesek`} icon={<Icon name="alert" />}      label="Hibabejelentések"  active={pathname.includes("/hibabejelentesek")} />
-                        </>
+                    {isSidebarCollapsed && (
+                        <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-sky-400 to-primary flex items-center justify-center shadow-[0_0_20px_rgba(14,165,233,0.2)] shrink-0 mx-auto">
+                            <Fish className="w-6 h-6 text-white" strokeWidth={2.5} />
+                        </div>
                     )}
 
-                    {/* Spacer */}
-                    <div style={{ flex: 1 }} />
-
-                    {/* Számológép */}
+                    {/* Összecsukó gomb */}
                     <button
-                        className={"sidebar-nav-item" + (kalkulatorNyitva ? " sidebar-nav-item--active" : "")}
+                        onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+                        className={`hidden lg:flex items-center justify-center w-8 h-8 rounded-xl bg-slate-50 hover:bg-slate-100 text-slate-400 hover:text-slate-700 transition-colors border border-slate-200 ${isSidebarCollapsed ? "absolute -right-4 top-10 bg-white z-50 shadow-sm" : ""}`}
+                    >
+                        {isSidebarCollapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
+                    </button>
+                </div>
+
+                {/* Navigáció */}
+                <div className="flex-1 overflow-y-auto px-5 py-6 space-y-2 custom-scrollbar">
+                    <NavItem href="/halaszatok" icon={<Home />} label="Kezdőlap" active={pathname === "/halaszatok"} collapsed={isSidebarCollapsed} />
+                    
+                    {hid && (
+                        <div className="pt-6 mt-6 border-t border-slate-100">
+                            <div className={`px-4 mb-4 text-xs font-bold text-slate-400 uppercase tracking-widest truncate ${isSidebarCollapsed ? "text-center px-0" : ""}`}>
+                                {isSidebarCollapsed ? "Akt." : "Aktuális Halászat"}
+                            </div>
+                            <div className="space-y-1.5">
+                                <NavItem href={base}                      icon={<Map />}           label="Áttekintés"        active={pathname === base} collapsed={isSidebarCollapsed} />
+                                <NavItem href={`${base}/toak`}            icon={<Map />}           label="Tavak és telelők"  active={/\/toak\/?$/.test(pathname ?? "")} collapsed={isSidebarCollapsed} />
+                                <NavItem href={`${base}/halfajok`}         icon={<Fish />}          label="Halfajok"          active={pathname.includes("/halfajok")} collapsed={isSidebarCollapsed} />
+                                <NavItem href={`${base}/takarmanyok`}      icon={<Wheat />}         label="Takarmányok"       active={pathname.includes("/takarmanyok")} collapsed={isSidebarCollapsed} />
+                                <NavItem href={`${base}/halkeltes`}        icon={<Droplets />}      label="Halkeltetés"       active={pathname.includes("/halkeltes")} collapsed={isSidebarCollapsed} />
+                                <NavItem href={`${base}/dolgozok`}         icon={<Users />}         label="Dolgozók"          active={pathname.includes("/dolgozok")} collapsed={isSidebarCollapsed} />
+                                <NavItem href={`${base}/feladatok`}        icon={<CheckSquare />}   label="Feladatok"         active={pathname.includes("/feladatok")} collapsed={isSidebarCollapsed} />
+                                <NavItem href={`${base}/naplo`}            icon={<Book />}          label="Halászati napló"   active={pathname.includes("/naplo")} collapsed={isSidebarCollapsed} />
+                                <NavItem href={`${base}/naptar`}           icon={<Calendar />}      label="Naptár"            active={pathname.includes("/naptar")} collapsed={isSidebarCollapsed} />
+                                <NavItem href={`${base}/hibabejelentesek`} icon={<AlertCircle />}   label="Hibabejelentések"  active={pathname.includes("/hibabejelentesek")} collapsed={isSidebarCollapsed} />
+                            </div>
+                        </div>
+                    )}
+                </div>
+
+                {/* Alsó panel (Számológép) */}
+                <div className="p-5 border-t border-slate-100 bg-white">
+                    <button
                         title="Számológép"
                         onClick={() => setKalkulatorNyitva((v) => !v)}
-                        style={{
-                            background: kalkulatorNyitva ? "rgba(208,138,91,0.22)" : undefined,
-                            borderColor: kalkulatorNyitva ? "rgba(208,138,91,0.55)" : undefined,
-                            color: kalkulatorNyitva ? "#d08a5b" : undefined,
-                        }}
+                        className={`w-full flex items-center gap-3.5 px-4 py-3.5 rounded-xl font-bold transition-all duration-200 group ${
+                            kalkulatorNyitva 
+                            ? "bg-amber-50 text-amber-600" 
+                            : "bg-slate-50 text-slate-500 hover:bg-slate-100 hover:text-slate-900"
+                        } ${isSidebarCollapsed ? "justify-center px-0" : ""}`}
                     >
-                        <span className="sidebar-nav-icon"><Icon name="calculator" /></span>
-                        <span className="sidebar-nav-label">Számológép</span>
+                        <span className={`flex items-center justify-center [&_svg]:w-5 [&_svg]:h-5 shrink-0 transition-transform group-hover:scale-110 ${kalkulatorNyitva ? "text-amber-500" : ""}`}>
+                            <Calculator />
+                        </span>
+                        <span className={`truncate ${isSidebarCollapsed ? "hidden" : "block"}`}>Számológép</span>
                     </button>
-
                 </div>
             </aside>
 
-            <KalkulatorModal
-                open={kalkulatorNyitva}
-                onClose={() => setKalkulatorNyitva(false)}
-            />
+            {/* Mobilos Backdrop */}
+            {mobileMenuOpen && (
+                <div 
+                    className="fixed inset-0 z-30 bg-slate-900/60 backdrop-blur-sm lg:hidden" 
+                    onClick={() => setMobileMenuOpen(false)}
+                />
+            )}
 
-            <main className="main">
-                <div className="topbar">
-                    <div className="search">
-                        <span style={{ opacity: 0.7 }}>⌕</span>
-                        <input placeholder="Keresés…" />
+            <KalkulatorModal open={kalkulatorNyitva} onClose={() => setKalkulatorNyitva(false)} />
+
+            {/* 2. FŐ TARTALOM (Világos) */}
+            <main className="flex-1 flex flex-col h-screen min-w-0 bg-slate-50 relative">
+                
+                {/* Felső sáv (Topbar) - Nincsenek felesleges keretek! */}
+                <header className="sticky top-0 z-20 flex items-center justify-between h-24 px-6 sm:px-10 bg-white/80 backdrop-blur-xl border-b border-slate-200">
+                    
+                    <div className="flex items-center gap-4 flex-1">
+                        <button 
+                            className="lg:hidden flex items-center justify-center w-12 h-12 rounded-xl text-slate-500 hover:bg-slate-100 hover:text-primary transition-all"
+                            onClick={() => setMobileMenuOpen(true)}
+                        >
+                            <Menu className="w-6 h-6" />
+                        </button>
+
+                        <div className="hidden sm:block w-full max-w-[350px]">
+                            <Input 
+                                placeholder="Keresés a rendszerben..." 
+                                icon={<Search />}
+                            />
+                        </div>
                     </div>
 
-                    <div className="spacer" />
+                    <div className="flex items-center gap-2 sm:gap-4">
+                        
+                        {/* Akció gombok: csak ikon, finom hover háttérrel, keret nélkül */}
+                        <div className="flex items-center">
+                            <button className="flex items-center justify-center w-11 h-11 rounded-xl text-slate-400 hover:bg-primary/10 hover:text-primary transition-all group" title="Gyors rögzítés">
+                                <Plus className="w-5 h-5 group-hover:scale-110 transition-transform" />
+                            </button>
+                            <button 
+                                className="flex items-center justify-center w-11 h-11 rounded-xl text-slate-400 hover:bg-amber-50 hover:text-amber-500 transition-all group" 
+                                title="Hibabejelentés"
+                                onClick={() => setHibaModalNyitva(true)}
+                            >
+                                <AlertCircle className="w-5 h-5 group-hover:scale-110 transition-transform" />
+                            </button>
+                        </div>
 
-                    <button className="iconbtn" title="Gyors művelet">＋</button>
-                    <button
-                        className="iconbtn"
-                        title="Hibabejelentés"
-                        onClick={() => setHibaModalNyitva(true)}
-                    >
-                        !
-                    </button>
+                        <div className="w-px h-8 bg-slate-200 hidden sm:block mx-2" />
 
-                    <div
-                        className="glass"
-                        style={{
-                            display: "flex",
-                            alignItems: "center",
-                            gap: 10,
-                            padding: "8px 10px",
-                            borderRadius: 16,
-                            minWidth: 240,
-                        }}
-                    >
-                        <div
-                            style={{
-                                width: 34,
-                                height: 34,
-                                borderRadius: 12,
-                                background: "rgba(255,255,255,0.18)",
-                                display: "grid",
-                                placeItems: "center",
-                                fontWeight: 800,
-                            }}
-                            title="Profil"
+                        {/* Profil - Egyszerű, tiszta (nincs lefelé nyíl, nincs Adminisztrátor szöveg) */}
+                        <div className="flex items-center gap-3">
+                            <div className="w-11 h-11 rounded-xl bg-primary text-white flex items-center justify-center font-bold text-lg shadow-sm shrink-0">
+                                {avatarLetter}
+                            </div>
+                            <div className="hidden md:block min-w-0">
+                                <div className="text-sm font-bold text-foreground truncate">
+                                    {me?.nev || "Felhasználó"}
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Kilépés gomb */}
+                        <button 
+                            onClick={logout} 
+                            disabled={loggingOut} 
+                            title="Kilépés"
+                            className="flex items-center justify-center w-11 h-11 rounded-xl text-slate-400 hover:bg-red-50 hover:text-danger transition-all ml-2"
                         >
-                            {avatarLetter}
-                        </div>
-
-                        <div style={{ lineHeight: 1.1, minWidth: 0 }}>
-                            <div style={{ fontWeight: 800, fontSize: 13, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                                {me?.nev || "Felhasználó"}
-                            </div>
-                            <div className="muted" style={{ fontSize: 12, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                                {me?.email || "—"}
-                            </div>
-                        </div>
-
-                        <div style={{ flex: 1 }} />
-
-                        <button className="btn" onClick={logout} disabled={loggingOut} title="Kilépés">
-                            {loggingOut ? "..." : "Kilépés"}
+                            <LogOut className="w-5 h-5" />
                         </button>
+                    </div>
+                </header>
+
+                {/* Oldal tartalma */}
+                <div className="flex-1 overflow-y-auto p-6 sm:p-10 custom-scrollbar">
+                    <div className="max-w-[1400px] mx-auto">
+                        {children}
                     </div>
                 </div>
 
-                <div style={{ marginTop: 18 }}>{children}</div>
-
-                <HibabejelentesModal
-                    open={hibaModalNyitva}
-                    onClose={() => setHibaModalNyitva(false)}
-                    felhasznaloId={me?.azonosito ?? null}
-                    halaszatId={hid ? Number(hid) : null}
-                />
+                <HibabejelentesModal open={hibaModalNyitva} onClose={() => setHibaModalNyitva(false)} felhasznaloId={me?.azonosito ?? null} halaszatId={hid ? Number(hid) : null} />
             </main>
         </div>
     );

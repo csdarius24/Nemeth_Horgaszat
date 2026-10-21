@@ -3,15 +3,9 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-
-const inputStyle: React.CSSProperties = {
-    padding: 12,
-    borderRadius: 16,
-    border: "1px solid rgba(255,255,255,0.14)",
-    background: "rgba(0,0,0,0.16)",
-    color: "rgba(255,255,255,0.92)",
-    outline: "none",
-};
+import { Mail, Lock, AlertCircle, Fish } from "lucide-react";
+import { Button } from "@/components/ui/Button";
+import { Input } from "@/components/ui/Input";
 
 export default function LoginPage() {
     const router = useRouter();
@@ -35,7 +29,8 @@ export default function LoginPage() {
             const data = await res.json().catch(() => ({}));
 
             if (!res.ok) {
-                setHiba(data?.hiba ?? "Sikertelen bejelentkezés.");
+                setHiba(data?.error ?? "Sikertelen bejelentkezés.");
+                setLoading(false);
                 return;
             }
 
@@ -43,82 +38,97 @@ export default function LoginPage() {
             router.refresh();
         } catch {
             setHiba("Hálózati hiba.");
-        } finally {
             setLoading(false);
         }
     }
 
     return (
-        <div
-            style={{
-                minHeight: "100vh",
-                display: "grid",
-                placeItems: "center",
-                padding: 18,
-            }}
-        >
-            <div style={{ width: "min(520px, 100%)", display: "grid", gap: 16 }}>
-                {/* Brand / header */}
-                <div className="glass card" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
-                    <div>
-                        <h1 className="h1">Bejelentkezés</h1>
-                        <div className="muted" style={{ marginTop: 6 }}>
-                            Lépj be a Németh Horgászat rendszerbe.
-                        </div>
+        <div className="min-h-screen w-full flex bg-white">
+
+            {/* BAL OLDAL - Brand Panel */}
+            <div className="hidden lg:flex w-1/2 bg-slate-900 relative flex-col justify-between p-12 overflow-hidden">
+                <div className="absolute inset-0 bg-primary/10" />
+                <div className="absolute -left-1/4 -top-1/4 w-[800px] h-[800px] rounded-full bg-primary/20 blur-[120px]" />
+
+                {/* Prémium Logó terület */}
+                <div className="relative z-10 flex items-center gap-3.5">
+                    <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-sky-400 to-primary flex items-center justify-center shadow-[0_0_30px_rgba(14,165,233,0.3)] border border-white/20">
+                        <Fish className="w-6 h-6 text-white" strokeWidth={2.5} />
                     </div>
-                    <span className="badge">NH</span>
+                    <span className="text-2xl font-extrabold tracking-tight text-white drop-shadow-sm">
+                        Fish App
+                    </span>
                 </div>
 
-                {/* Form */}
-                <div className="glass card">
-                    <form onSubmit={onSubmit} style={{ display: "grid", gap: 12 }}>
-                        <label style={{ display: "grid", gap: 6 }}>
-                            <span className="muted">Email</span>
-                            <input
+                {/* Hero Szöveg */}
+                <div className="relative z-10 max-w-lg mb-12 text-white">
+                    <h2 className="text-4xl font-bold leading-tight mb-5">
+                        Professzionális halgazdálkodás és vízegység kezelés.
+                    </h2>
+                    <p className="text-slate-300 text-lg leading-relaxed">
+                        Kezeld a tavakat, kövesd a takarmányozást és vezesd a halászati naplót egyetlen modern felületen.
+                    </p>
+                </div>
+
+            </div>
+
+            {/* JOBB OLDAL - Auth Form */}
+            <div className="flex-1 flex items-center justify-center p-6 sm:p-12 relative">
+                <div className="w-full max-w-[400px] grid gap-8">
+
+                    <div className="grid gap-2">
+                        <h1 className="text-3xl font-bold text-foreground">Bejelentkezés</h1>
+                        <p className="text-slate-500 font-medium">Lépj be a fiókodba a folytatáshoz.</p>
+                    </div>
+
+                    <form onSubmit={onSubmit} className="grid gap-5">
+                        <div className="grid gap-2">
+                            <label className="text-sm font-bold text-foreground">Email cím</label>
+                            <Input
+                                type="email"
                                 value={email}
                                 onChange={(e) => setEmail(e.target.value)}
                                 autoComplete="email"
-                                style={inputStyle}
-                                placeholder="pl. sanyi@email.com"
+                                placeholder="pelda@email.com"
+                                icon={<Mail />}
+                                required
                             />
-                        </label>
+                        </div>
 
-                        <label style={{ display: "grid", gap: 6 }}>
-                            <span className="muted">Jelszó</span>
-                            <input
+                        <div className="grid gap-2">
+                            <div className="flex items-center justify-between">
+                                <label className="text-sm font-bold text-foreground">Jelszó</label>
+                                <Link href="#" className="text-sm font-bold text-primary hover:text-primary-hover transition-colors">
+                                    Elfelejtett jelszó?
+                                </Link>
+                            </div>
+                            <Input
                                 type="password"
                                 value={password}
                                 onChange={(e) => setPassword(e.target.value)}
                                 autoComplete="current-password"
-                                style={inputStyle}
                                 placeholder="••••••••"
+                                icon={<Lock />}
+                                required
                             />
-                        </label>
+                        </div>
 
                         {hiba && (
-                            <div
-                                className="glass"
-                                style={{
-                                    padding: 12,
-                                    borderRadius: 16,
-                                    border: "1px solid rgba(255,120,120,0.35)",
-                                    background: "rgba(120,20,20,0.22)",
-                                }}
-                            >
-                                <div style={{ fontWeight: 800, marginBottom: 6 }}>Hiba</div>
-                                <div className="muted">{hiba}</div>
+                            <div className="flex items-start gap-2.5 p-3.5 rounded-xl bg-red-50 border border-red-100 text-danger">
+                                <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" />
+                                <div className="text-sm font-semibold">{hiba}</div>
                             </div>
                         )}
 
-                        <button type="submit" className="btn btn-primary" disabled={loading}>
+                        <Button type="submit" variant="primary" size="lg" isLoading={loading} className="w-full mt-2">
                             {loading ? "Beléptetés…" : "Belépés"}
-                        </button>
+                        </Button>
                     </form>
 
-                    <div style={{ marginTop: 14, display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
-                        <span className="muted">Nincs még fiókod?</span>
-                        <Link className="btn" href="/register">
-                            Regisztráció →
+                    <div className="text-center text-sm text-slate-500 font-medium mt-2">
+                        Nincs még fiókod?{" "}
+                        <Link href="/register" className="text-primary hover:text-primary-hover transition-colors font-bold">
+                            Regisztrálj most
                         </Link>
                     </div>
                 </div>

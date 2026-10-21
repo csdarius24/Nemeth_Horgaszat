@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useCallback } from "react";
+import { useEffect, useCallback, useState } from "react";
+import { X } from "lucide-react";
 
 // ─── Típusok ─────────────────────────────────────────────────────────────────
 
@@ -9,15 +10,11 @@ interface Props {
     onClose: () => void;
 }
 
-// ─── Segéd: számológép logika hook ───────────────────────────────────────────
-
-import { useState } from "react";
-
 type KalcState = {
-    kijelzes: string;       // amit a display mutat
-    elozo: string | null;   // előző szám string-ként
+    kijelzes: string;
+    elozo: string | null;
     operator: string | null;
-    ujSzamVarando: boolean; // következő digit felülírja a kijelzőt
+    ujSzamVarando: boolean;
 };
 
 const KEZDO: KalcState = {
@@ -26,6 +23,8 @@ const KEZDO: KalcState = {
     operator: null,
     ujSzamVarando: false,
 };
+
+// ─── Segéd: számológép logika ───────────────────────────────────────────────
 
 function szamit(a: number, b: number, op: string): number {
     switch (op) {
@@ -39,7 +38,6 @@ function szamit(a: number, b: number, op: string): number {
 
 function formatKimenet(n: number): string {
     if (!Number.isFinite(n)) return "Hiba";
-    // Ha az eredmény egész, mutassuk egészként, egyébként max 10 tizedessel
     const s = Number.isInteger(n) ? String(n) : n.toPrecision(10).replace(/\.?0+$/, "");
     return s.length > 13 ? n.toExponential(6) : s;
 }
@@ -49,7 +47,6 @@ function formatKimenet(n: number): string {
 export default function KalkulatorModal({ open, onClose }: Props) {
     const [allapot, beallitAllapot] = useState<KalcState>(KEZDO);
 
-    // Billentyűzet kezelés
     useEffect(() => {
         if (!open) return;
         function onKey(e: KeyboardEvent) {
@@ -67,8 +64,7 @@ export default function KalkulatorModal({ open, onClose }: Props) {
         }
         window.addEventListener("keydown", onKey);
         return () => window.removeEventListener("keydown", onKey);
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [open, allapot]);
+    }, [open, allapot, onClose]);
 
     const digitNyomas = useCallback((d: string) => {
         beallitAllapot((prev) => {
@@ -135,105 +131,73 @@ export default function KalkulatorModal({ open, onClose }: Props) {
     const { kijelzes, operator } = allapot;
 
     return (
-        <>
-            {/* Backdrop */}
+        <div className="fixed inset-0 z-[999] flex items-center justify-center sm:items-end sm:justify-start sm:p-8 p-4 pointer-events-none">
+            
+            {/* Backdrop: finom elhomályosítás, események engedélyezése a bezáráshoz */}
             <div
                 onClick={onClose}
-                style={{
-                    position: "fixed", inset: 0,
-                    zIndex: 999,
-                    background: "rgba(0,0,0,0.25)",
-                    backdropFilter: "blur(2px)",
-                    WebkitBackdropFilter: "blur(2px)",
-                }}
+                className="absolute inset-0 bg-slate-900/10 backdrop-blur-[2px] transition-opacity pointer-events-auto"
             />
 
-            {/* Kalkulátor ablak */}
-            <div
-                style={{
-                    position: "fixed",
-                    bottom: 24,
-                    left: 104,          // sidebar (84px) + 20px gap
-                    zIndex: 1000,
-                    width: 280,
-                    borderRadius: 22,
-                    background: "rgba(26,10,7,0.92)",
-                    border: "1px solid rgba(255,255,255,0.18)",
-                    boxShadow: "0 24px 64px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,255,255,0.06)",
-                    backdropFilter: "blur(24px)",
-                    WebkitBackdropFilter: "blur(24px)",
-                    overflow: "hidden",
-                    userSelect: "none",
-                }}
-            >
-                {/* Fejléc */}
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "14px 16px 8px" }}>
-                    <span style={{ fontWeight: 700, fontSize: 13, color: "rgba(255,255,255,0.6)", letterSpacing: "0.06em", textTransform: "uppercase" }}>
+            {/* Kalkulátor Kártya: Nincsenek vastag keretek, tiszta fehér lebegő panel */}
+            <div className="relative z-[1000] w-full max-w-[320px] bg-white rounded-[24px] shadow-[0_20px_60px_-15px_rgba(0,0,0,0.1)] border border-slate-100 overflow-hidden animate-in slide-in-from-bottom-8 sm:slide-in-from-left-8 fade-in duration-300 pointer-events-auto">
+                
+                {/* Fejléc: teljesen egybeolvad a kártyával, nincs szürke csík */}
+                <div className="flex items-center justify-between px-6 pt-5 pb-2">
+                    <span className="text-[11px] font-bold text-slate-400 uppercase tracking-widest">
                         Számológép
                     </span>
                     <button
                         onClick={onClose}
-                        style={{ background: "none", border: "none", color: "rgba(255,255,255,0.5)", cursor: "pointer", fontSize: 18, lineHeight: 1, padding: "2px 4px" }}
+                        className="p-1.5 -mr-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-xl transition-colors"
                     >
-                        ×
+                        <X className="w-4 h-4" />
                     </button>
                 </div>
 
-                {/* Kijelző */}
-                <div style={{ padding: "4px 16px 16px", textAlign: "right" }}>
-                    {operator && (
-                        <div style={{ fontSize: 13, color: "rgba(208,138,91,0.8)", marginBottom: 2, minHeight: 18 }}>
-                            {allapot.elozo} {operator}
-                        </div>
-                    )}
-                    <div
-                        style={{
-                            fontSize: kijelzes.length > 10 ? 22 : kijelzes.length > 7 ? 28 : 36,
-                            fontWeight: 700,
-                            color: "rgba(255,255,255,0.95)",
-                            lineHeight: 1.1,
-                            letterSpacing: "-0.02em",
-                            minHeight: 42,
-                            wordBreak: "break-all",
-                        }}
+                {/* Kijelző: Tágas, tiszta */}
+                <div className="px-6 pt-2 pb-6 text-right">
+                    <div className="h-5 text-[13px] font-medium text-primary/70 mb-1">
+                        {operator && `${allapot.elozo} ${operator}`}
+                    </div>
+                    <div 
+                        className={`font-semibold text-slate-800 tracking-tight break-all ${
+                            kijelzes.length > 10 ? "text-3xl" : kijelzes.length > 7 ? "text-4xl" : "text-[44px]"
+                        }`}
+                        style={{ fontVariantNumeric: "tabular-nums" }}
                     >
                         {kijelzes}
                     </div>
                 </div>
 
-                {/* Gombok rács */}
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 1, background: "rgba(255,255,255,0.06)", padding: 1 }}>
-                    {/* Sor 1 */}
-                    <KalcGomb label="AC" onClick={() => beallitAllapot(KEZDO)} tipusStilus="utility" />
-                    <KalcGomb label="+/−" onClick={plusMinuszNyomas} tipusStilus="utility" />
-                    <KalcGomb label="%" onClick={szazalekNyomas} tipusStilus="utility" />
-                    <KalcGomb label="÷" onClick={() => operatorNyomas("÷")} aktiv={operator === "÷"} tipusStilus="operator" />
+                {/* Gombok Rács: Nincs szürke háttér (bg-slate-100 kivéve), csak a gombok maguk adnak formát */}
+                <div className="px-4 pb-4 grid grid-cols-4 gap-2">
+                    <KalcGomb label="AC" onClick={() => beallitAllapot(KEZDO)} tipus="utility" />
+                    <KalcGomb label="+/−" onClick={plusMinuszNyomas} tipus="utility" />
+                    <KalcGomb label="%" onClick={szazalekNyomas} tipus="utility" />
+                    <KalcGomb label="÷" onClick={() => operatorNyomas("÷")} aktiv={operator === "÷"} tipus="operator" />
 
-                    {/* Sor 2 */}
                     <KalcGomb label="7" onClick={() => digitNyomas("7")} />
                     <KalcGomb label="8" onClick={() => digitNyomas("8")} />
                     <KalcGomb label="9" onClick={() => digitNyomas("9")} />
-                    <KalcGomb label="×" onClick={() => operatorNyomas("×")} aktiv={operator === "×"} tipusStilus="operator" />
+                    <KalcGomb label="×" onClick={() => operatorNyomas("×")} aktiv={operator === "×"} tipus="operator" />
 
-                    {/* Sor 3 */}
                     <KalcGomb label="4" onClick={() => digitNyomas("4")} />
                     <KalcGomb label="5" onClick={() => digitNyomas("5")} />
                     <KalcGomb label="6" onClick={() => digitNyomas("6")} />
-                    <KalcGomb label="−" onClick={() => operatorNyomas("−")} aktiv={operator === "−"} tipusStilus="operator" />
+                    <KalcGomb label="−" onClick={() => operatorNyomas("−")} aktiv={operator === "−"} tipus="operator" />
 
-                    {/* Sor 4 */}
                     <KalcGomb label="1" onClick={() => digitNyomas("1")} />
                     <KalcGomb label="2" onClick={() => digitNyomas("2")} />
                     <KalcGomb label="3" onClick={() => digitNyomas("3")} />
-                    <KalcGomb label="+" onClick={() => operatorNyomas("+")} aktiv={operator === "+"} tipusStilus="operator" />
+                    <KalcGomb label="+" onClick={() => operatorNyomas("+")} aktiv={operator === "+"} tipus="operator" />
 
-                    {/* Sor 5 */}
                     <KalcGomb label="0" onClick={() => digitNyomas("0")} span2 />
-                    <KalcGomb label="⌫" onClick={backspaceNyomas} />
-                    <KalcGomb label="=" onClick={egyenloNyomas} tipusStilus="egyenlo" />
+                    <KalcGomb label="." onClick={pontNyomas} />
+                    <KalcGomb label="=" onClick={egyenloNyomas} tipus="egyenlo" />
                 </div>
             </div>
-        </>
+        </div>
     );
 }
 
@@ -242,56 +206,33 @@ export default function KalkulatorModal({ open, onClose }: Props) {
 function KalcGomb({
     label,
     onClick,
-    tipusStilus = "szam",
+    tipus = "szam",
     aktiv = false,
     span2 = false,
 }: {
     label: string;
     onClick: () => void;
-    tipusStilus?: "szam" | "operator" | "utility" | "egyenlo";
+    tipus?: "szam" | "operator" | "utility" | "egyenlo";
     aktiv?: boolean;
     span2?: boolean;
 }) {
-    const alap: React.CSSProperties = {
-        gridColumn: span2 ? "span 2" : undefined,
-        padding: "18px 8px",
-        border: "none",
-        cursor: "pointer",
-        fontSize: 17,
-        fontWeight: 600,
-        transition: "background 0.1s ease",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: span2 ? "flex-start" : "center",
-        paddingLeft: span2 ? 28 : undefined,
-    };
-
-    const stilus: Record<string, React.CSSProperties> = {
-        szam: { background: "rgba(255,255,255,0.09)", color: "rgba(255,255,255,0.92)" },
-        utility: { background: "rgba(255,255,255,0.14)", color: "rgba(255,255,255,0.75)" },
-        operator: {
-            background: aktiv ? "rgba(208,138,91,0.85)" : "rgba(208,138,91,0.35)",
-            color: aktiv ? "#1b0b08" : "#d08a5b",
-        },
-        egyenlo: { background: "rgba(178,75,37,0.9)", color: "#fff" },
+    
+    // Nincs border, csak finom háttérszínek és tiszta kerekítések (rounded-xl)
+    const baseStyle = "flex items-center justify-center text-[22px] font-medium rounded-xl h-14 transition-all duration-150 active:scale-95";
+    
+    const styles = {
+        szam: "bg-slate-50 text-slate-700 hover:bg-slate-100 hover:text-slate-900",
+        utility: "bg-slate-100 text-slate-600 hover:bg-slate-200 hover:text-slate-800",
+        operator: aktiv 
+            ? "bg-primary text-white shadow-md shadow-primary/20" 
+            : "bg-primary/10 text-primary hover:bg-primary/20",
+        egyenlo: "bg-primary text-white shadow-md shadow-primary/20 hover:bg-primary/90",
     };
 
     return (
         <button
             onClick={onClick}
-            style={{ ...alap, ...stilus[tipusStilus] }}
-            onMouseEnter={(e) => {
-                (e.currentTarget as HTMLButtonElement).style.filter = "brightness(1.15)";
-            }}
-            onMouseLeave={(e) => {
-                (e.currentTarget as HTMLButtonElement).style.filter = "";
-            }}
-            onMouseDown={(e) => {
-                (e.currentTarget as HTMLButtonElement).style.transform = "scale(0.94)";
-            }}
-            onMouseUp={(e) => {
-                (e.currentTarget as HTMLButtonElement).style.transform = "";
-            }}
+            className={`${baseStyle} ${styles[tipus]} ${span2 ? "col-span-2 aspect-auto" : "aspect-square"}`}
         >
             {label}
         </button>
