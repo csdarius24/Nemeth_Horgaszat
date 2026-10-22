@@ -1,454 +1,369 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { Eye, EyeOff, Fish, MoreHorizontal, Pencil, Plus, Search, SearchX, Trash2 } from "lucide-react";
 
-// ─── Tipusok ─────────────────────────────────────────────────────────────────
+import { cn } from "@/lib/utils";
+import { useFajSzinek } from "@/components/app/fajSzinek";
+import { HibaAlert } from "@/components/app/urlap";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuSeparator,
+    DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
+import { Input } from "@/components/ui/input";
+import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group";
+import { Label } from "@/components/ui/label";
+import { Modal } from "@/components/ui/modal";
+import { PageHeader } from "@/components/ui/page-header";
+import { Skeleton } from "@/components/ui/skeleton";
+import { EmptyState, ErrorState } from "@/components/ui/states";
+import { Switch } from "@/components/ui/switch";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { toast } from "@/components/ui/toast";
+
+// ─── Típusok ─────────────────────────────────────────────────────────────────
 
 type Halfaj = { azonosito: number; nev: string; aktiv: boolean };
 type ViewerRole = "OWNER" | "ADMIN" | "STAFF";
 
-// ─── Ikonok ──────────────────────────────────────────────────────────────────
+// ─── Név modál (új / átnevezés) ──────────────────────────────────────────────
 
-function EditIcon() {
+function NevModal({ hid, cel, onClose, onMentve }: {
+    hid: string;
+    /** "uj" = új halfaj, Halfaj = átnevezés, null = zárva */
+    cel: "uj" | Halfaj | null;
+    onClose: () => void;
+    onMentve: () => void;
+}) {
+    const [nev, setNev] = useState("");
+    const [fut, setFut] = useState(false);
+    const [hiba, setHiba] = useState<string | null>(null);
+    const uj = cel === "uj";
+
+    useEffect(() => {
+        if (!cel) return;
+        setNev(cel === "uj" ? "" : cel.nev);
+        setHiba(null);
+    }, [cel]);
+
+    async function mentes(e: React.FormEvent) {
+        e.preventDefault();
+        const n = nev.trim();
+        if (!n || !cel) return;
+        setFut(true);
+        setHiba(null);
+        try {
+            const res = await fetch(
+                uj ? `/api/halaszatok/${hid}/halfajok` : `/api/halaszatok/${hid}/halfajok/${(cel as Halfaj).azonosito}`,
+                {
+                    method: uj ? "POST" : "PATCH",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ nev: n }),
+                }
+            );
+            const json = await res.json().catch(() => ({}));
+            if (!res.ok) return setHiba(json?.error ?? "Nem sikerült menteni.");
+            toast.success(uj ? "Halfaj hozzáadva" : "Halfaj átnevezve", { description: n });
+            onClose();
+            onMentve();
+        } catch {
+            setHiba("Hálózati hiba.");
+        } finally {
+            setFut(false);
+        }
+    }
+
     return (
-        <svg width={14} height={14} fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-            <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
-            <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5Z" />
-        </svg>
+        <Modal
+            open={cel != null}
+            onOpenChange={(v) => !v && onClose()}
+            title={uj ? "Új halfaj" : "Halfaj átnevezése"}
+            description={uj ? "A halfaj ezután választható telepítésnél és kivételnél." : undefined}
+            size="sm"
+            preventClose={fut}
+            footer={
+                <>
+                    <Button variant="outline" onClick={onClose} disabled={fut}>Mégse</Button>
+                    <Button type="submit" form="halfaj-nev" loading={fut} disabled={!nev.trim()}>
+                        {uj ? "Hozzáadás" : "Mentés"}
+                    </Button>
+                </>
+            }
+        >
+            <form id="halfaj-nev" onSubmit={mentes}>
+                <FieldGroup>
+                    <Field>
+                        <FieldLabel htmlFor="halfaj-nev-input">Név</FieldLabel>
+                        <Input
+                            id="halfaj-nev-input"
+                            value={nev}
+                            onChange={(e) => setNev(e.target.value)}
+                            placeholder="pl. Ponty, Amur, Németh Hybrid 1"
+                            disabled={fut}
+                            required
+                            autoFocus
+                        />
+                    </Field>
+                    <HibaAlert uzenet={hiba} />
+                </FieldGroup>
+            </form>
+        </Modal>
     );
 }
 
-function TrashIcon() {
-    return (
-        <svg width={14} height={14} fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-            <polyline points="3 6 5 6 21 6" />
-            <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
-            <path d="M10 11v6M14 11v6" />
-            <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" />
-        </svg>
-    );
-}
-
-function EyeOffIcon() {
-    return (
-        <svg width={14} height={14} fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-            <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94" />
-            <path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19" />
-            <line x1="1" y1="1" x2="23" y2="23" />
-        </svg>
-    );
-}
-
-function EyeIcon() {
-    return (
-        <svg width={14} height={14} fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8Z" />
-            <circle cx="12" cy="12" r="3" />
-        </svg>
-    );
-}
-
-// ─── Fo komponens ─────────────────────────────────────────────────────────────
+// ─── Fő komponens ─────────────────────────────────────────────────────────────
 
 export default function HalfajokClient({ hid }: { hid: string }) {
     const [loading, setLoading] = useState(true);
-    const [saving, setSaving] = useState(false);
+    const [elsoBetoltes, setElsoBetoltes] = useState(true);
     const [hiba, setHiba] = useState<string | null>(null);
 
     const [viewerRole, setViewerRole] = useState<ViewerRole>("STAFF");
     const canEdit = viewerRole === "OWNER" || viewerRole === "ADMIN";
 
     const [items, setItems] = useState<Halfaj[]>([]);
-    const [ujNev, setUjNev] = useState("");
     const [q, setQ] = useState("");
     const [inaktivakMutatasa, setInaktivakMutatasa] = useState(false);
 
-    // Szerkesztes allapot
-    const [szerkesztettId, setSzerkesztettId] = useState<number | null>(null);
-    const [szerkesztettNev, setSzerkesztettNev] = useState("");
-    const szerkesztesInput = useRef<HTMLInputElement>(null);
+    const [nevCel, setNevCel] = useState<"uj" | Halfaj | null>(null);
+    const [torlendo, setTorlendo] = useState<Halfaj | null>(null);
+    const [inaktivalando, setInaktivalando] = useState<Halfaj | null>(null);
+    const [muveletFut, setMuveletFut] = useState(false);
 
-    // Muvelet folyamatban (torlés / aktivalas) — melyik sorban
-    const [muveletId, setMuveletId] = useState<number | null>(null);
+    // ── Betöltés ──────────────────────────────────────────────────────────────
 
-    // ── Betoltes ──────────────────────────────────────────────────────────────
-
-    async function load() {
+    const load = useCallback(async () => {
         setLoading(true);
         setHiba(null);
         try {
             const url = `/api/halaszatok/${hid}/halfajok${inaktivakMutatasa ? "?active=0" : ""}`;
             const res = await fetch(url, { cache: "no-store" });
             const json = await res.json().catch(() => ({}));
-            if (!res.ok) throw new Error(json?.error ?? "Hiba a halfajok lekeresekor.");
+            if (!res.ok) throw new Error(json?.error ?? "Hiba a halfajok lekérésekor.");
             setItems(json?.items ?? []);
             if (json?.viewerRole) setViewerRole(json.viewerRole);
-        } catch (e: any) {
-            setHiba(e?.message ?? "Ismeretlen hiba");
+        } catch (e) {
+            setHiba(e instanceof Error ? e.message : "Ismeretlen hiba");
         } finally {
             setLoading(false);
+            setElsoBetoltes(false);
         }
-    }
+    }, [hid, inaktivakMutatasa]);
 
-    useEffect(() => { void load(); }, [hid, inaktivakMutatasa]); // eslint-disable-line react-hooks/exhaustive-deps
+    useEffect(() => { void load(); }, [load]);
 
-    // ── Letrehozas ────────────────────────────────────────────────────────────
+    // ── Aktív váltás / törlés ─────────────────────────────────────────────────
 
-    async function create() {
-        const n = ujNev.trim();
-        if (!n) return;
-        setSaving(true);
-        setHiba(null);
-        try {
-            const res = await fetch(`/api/halaszatok/${hid}/halfajok`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ nev: n }),
-            });
-            const json = await res.json().catch(() => ({}));
-            if (!res.ok) throw new Error(json?.error ?? "Letrehozasi hiba.");
-            setUjNev("");
-            await load();
-        } catch (e: any) {
-            setHiba(e?.message ?? "Ismeretlen hiba");
-        } finally {
-            setSaving(false);
-        }
-    }
-
-    // ── Szerkesztes ───────────────────────────────────────────────────────────
-
-    function szerkesztesInditas(h: Halfaj) {
-        setSzerkesztettId(h.azonosito);
-        setSzerkesztettNev(h.nev);
-        setTimeout(() => szerkesztesInput.current?.focus(), 50);
-    }
-
-    function szerkesztesMegse() {
-        setSzerkesztettId(null);
-        setSzerkesztettNev("");
-    }
-
-    async function szerkesztesKuldes(azonosito: number) {
-        const nev = szerkesztettNev.trim();
-        if (!nev) return;
-        setMuveletId(azonosito);
-        setHiba(null);
-        try {
-            const res = await fetch(`/api/halaszatok/${hid}/halfajok/${azonosito}`, {
-                method: "PATCH",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ nev }),
-            });
-            const json = await res.json().catch(() => ({}));
-            if (!res.ok) throw new Error(json?.error ?? "Frissitesi hiba.");
-            setSzerkesztettId(null);
-            await load();
-        } catch (e: any) {
-            setHiba(e?.message ?? "Ismeretlen hiba");
-        } finally {
-            setMuveletId(null);
-        }
-    }
-
-    // ── Aktiv toggle ──────────────────────────────────────────────────────────
-
-    async function aktivToggle(h: Halfaj) {
-        setMuveletId(h.azonosito);
-        setHiba(null);
+    async function aktivValtas(h: Halfaj, ujAktiv = !h.aktiv) {
+        setMuveletFut(true);
         try {
             const res = await fetch(`/api/halaszatok/${hid}/halfajok/${h.azonosito}`, {
                 method: "PATCH",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ aktiv: !h.aktiv }),
+                body: JSON.stringify({ aktiv: ujAktiv }),
             });
             const json = await res.json().catch(() => ({}));
-            if (!res.ok) throw new Error(json?.error ?? "Frissitesi hiba.");
-            // Optimista frissites
-            setItems((prev) => prev.map((x) => x.azonosito === h.azonosito ? { ...x, aktiv: !h.aktiv } : x));
-        } catch (e: any) {
-            setHiba(e?.message ?? "Ismeretlen hiba");
+            if (!res.ok) throw new Error(json?.error ?? "Frissítési hiba.");
+            toast.success(ujAktiv ? "Halfaj aktiválva" : "Halfaj inaktiválva", { description: h.nev });
+            await load();
+        } catch (e) {
+            toast.error("Nem sikerült módosítani", { description: e instanceof Error ? e.message : undefined });
         } finally {
-            setMuveletId(null);
+            setMuveletFut(false);
         }
     }
 
-    // ── Torles ────────────────────────────────────────────────────────────────
-
-    async function torol(h: Halfaj) {
-        if (!confirm(`Torlod ezt a halfajt?\n"${h.nev}"\n\nHa allomanyhoz vagy esemenyhoz kotodik, az alkalmazas felajanlja az inaktivalast.`)) return;
-        setMuveletId(h.azonosito);
-        setHiba(null);
+    async function torles(h: Halfaj) {
+        setMuveletFut(true);
         try {
             const res = await fetch(`/api/halaszatok/${hid}/halfajok/${h.azonosito}`, { method: "DELETE" });
             const json = await res.json().catch(() => ({}));
-
+            setTorlendo(null);
+            // Ha állományhoz vagy eseményhez kötődik, nem törölhető — inaktiválást ajánlunk.
             if (res.status === 409 && json?.inaktivalhatjuk) {
-                // Nem torolheto mert hasznalt — felajanljuk az inaktivalast
-                const igen = confirm(
-                    `"${h.nev}" nem torolheto, mert halallomanyhoz vagy esemenyhez kotodik.\n\nSzeretned helyette inaktivalni?`
-                );
-                if (igen) {
-                    await aktivToggle({ ...h, aktiv: true });
-                }
+                setInaktivalando(h);
                 return;
             }
-
-            if (!res.ok) throw new Error(json?.error ?? "Torlesi hiba.");
+            if (!res.ok) throw new Error(json?.error ?? "Törlési hiba.");
+            toast.success("Halfaj törölve", { description: h.nev });
             await load();
-        } catch (e: any) {
-            setHiba(e?.message ?? "Ismeretlen hiba");
+        } catch (e) {
+            toast.error("Nem sikerült törölni", { description: e instanceof Error ? e.message : undefined });
         } finally {
-            setMuveletId(null);
+            setMuveletFut(false);
         }
     }
 
-    // ── Szures ────────────────────────────────────────────────────────────────
+    // ── Szűrés ────────────────────────────────────────────────────────────────
 
     const filtered = useMemo(() => {
         const s = q.trim().toLowerCase();
         return s ? items.filter((h) => h.nev.toLowerCase().includes(s)) : items;
     }, [items, q]);
 
-    const stats = useMemo(() => ({
-        total: items.length,
-        active: items.filter((x) => x.aktiv).length,
-    }), [items]);
+    const aktivDb = items.filter((x) => x.aktiv).length;
+    const fajSzinek = useFajSzinek(hid, items.map((h) => h.nev));
 
     // ── Render ────────────────────────────────────────────────────────────────
 
     return (
-        <div style={{ display: "grid", gap: 18 }}>
-
-            {/* Hiba */}
-            {hiba && (
-                <div className="glass card" style={{ borderColor: "rgba(255,120,120,0.35)", background: "rgba(120,20,20,0.22)", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
-                    <div>
-                        <div style={{ fontWeight: 700, marginBottom: 4 }}>Hiba</div>
-                        <div className="muted">{hiba}</div>
-                    </div>
-                    <button className="btn" onClick={() => setHiba(null)} style={{ flexShrink: 0 }}>&#10005;</button>
-                </div>
-            )}
-
-            {/* Attekintes + kereses */}
-            <div className="grid-2">
-                <div className="glass card">
-                    <h2 className="h2">Attekintes</h2>
-                    <div className="muted" style={{ marginTop: 6 }}>
-                        Szerepkor: <span className="badge">{viewerRole}</span>
-                    </div>
-                    <div style={{ marginTop: 12, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-                        <div className="glass" style={{ padding: "12px 14px", borderRadius: 16, background: "rgba(255,255,255,0.07)" }}>
-                            <div className="muted" style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: "0.08em" }}>Halfajok</div>
-                            <div style={{ fontSize: 26, fontWeight: 800, marginTop: 4 }}>{stats.total}</div>
-                        </div>
-                        <div className="glass" style={{ padding: "12px 14px", borderRadius: 16, background: "rgba(255,255,255,0.07)" }}>
-                            <div className="muted" style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: "0.08em" }}>Aktiv</div>
-                            <div style={{ fontSize: 26, fontWeight: 800, marginTop: 4 }}>{stats.active}</div>
-                        </div>
-                    </div>
-                    <div className="muted" style={{ marginTop: 12, fontSize: 12 }}>
-                        {canEdit ? "Szerkesztes es torles engedélyezett (ADMIN/OWNER)." : "STAFF-kent csak a lista elerheto."}
-                    </div>
-                </div>
-
-                <div className="glass card">
-                    <h2 className="h2">Kereses</h2>
-                    <div className="muted" style={{ marginTop: 6 }}>Szures halfaj nev alapjan.</div>
-                    <div style={{ marginTop: 12 }} className="search">
-                        <span style={{ opacity: 0.7 }}>&#9906;</span>
-                        <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Pl. ponty, amur..." />
-                    </div>
-                    <div style={{ marginTop: 12, display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
-                        <button className="btn" onClick={() => setQ("")} disabled={!q.trim()}>Szuro torlese</button>
-                        <span className="badge">Talalat: {filtered.length}</span>
-                        <button
-                            className={inaktivakMutatasa ? "btn btn-primary" : "btn"}
-                            onClick={() => setInaktivakMutatasa((v) => !v)}
-                            style={{ fontSize: 12 }}
-                        >
-                            {inaktivakMutatasa ? "Inaktivak elrejtese" : "Inaktivak mutatasa"}
-                        </button>
-                    </div>
-                </div>
-            </div>
-
-            {/* Uj halfaj (csak ADMIN/OWNER) */}
-            {canEdit && (
-                <div className="glass card">
-                    <h2 className="h2">Uj halfaj</h2>
-                    <div style={{ marginTop: 12, display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
-                        <input
-                            value={ujNev}
-                            onChange={(e) => setUjNev(e.target.value)}
-                            onKeyDown={(e) => { if (e.key === "Enter") create(); }}
-                            placeholder="pl. Ponty / Nemeth Hybrid 1"
-                            disabled={saving}
-                            style={inputStil}
-                        />
-                        <button className="btn btn-primary" onClick={create} disabled={saving || !ujNev.trim()}>
-                            {saving ? "Mentes..." : "+ Hozzaadas"}
-                        </button>
-                        <button className="btn" onClick={load} disabled={loading}>&#8635; Frissites</button>
-                    </div>
-                </div>
-            )}
-
-            {/* Lista */}
-            <div className="glass card">
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap", marginBottom: 12 }}>
-                    <h2 className="h2">Halfaj lista</h2>
-                    <span className="badge">Osszes: {items.length}</span>
-                </div>
-
-                {loading ? (
-                    <div className="muted">Betoltes...</div>
-                ) : filtered.length === 0 ? (
-                    <div className="muted">
-                        {items.length === 0
-                            ? "Meg nincs halfaj rogzitve ehhez a halaszathoz."
-                            : "Nincs talalat."}
-                    </div>
-                ) : (
-                    <table className="table">
-                        <thead>
-                            <tr>
-                                <th>Nev</th>
-                                <th style={{ textAlign: "center" }}>Allapot</th>
-                                {canEdit && <th style={{ textAlign: "right" }}>Muveletek</th>}
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {filtered.map((h) => {
-                                const folyamatban = muveletId === h.azonosito;
-                                const szerkesztesben = szerkesztettId === h.azonosito;
-
-                                return (
-                                    <tr
-                                        key={h.azonosito}
-                                        style={{ opacity: !h.aktiv ? 0.55 : 1, transition: "opacity 0.2s" }}
-                                    >
-                                        {/* Nev / szerkesztés */}
-                                        <td>
-                                            {szerkesztesben ? (
-                                                <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                                                    <input
-                                                        ref={szerkesztesInput}
-                                                        value={szerkesztettNev}
-                                                        onChange={(e) => setSzerkesztettNev(e.target.value)}
-                                                        onKeyDown={(e) => {
-                                                            if (e.key === "Enter") szerkesztesKuldes(h.azonosito);
-                                                            if (e.key === "Escape") szerkesztesMegse();
-                                                        }}
-                                                        style={{ ...inputStil, minWidth: 180, padding: "6px 12px", fontSize: 13 }}
-                                                        disabled={folyamatban}
-                                                    />
-                                                    <button
-                                                        className="btn btn-primary"
-                                                        onClick={() => szerkesztesKuldes(h.azonosito)}
-                                                        disabled={folyamatban || !szerkesztettNev.trim()}
-                                                        style={{ padding: "6px 12px", fontSize: 12 }}
-                                                    >
-                                                        {folyamatban ? "..." : "Mentes"}
-                                                    </button>
-                                                    <button
-                                                        className="btn"
-                                                        onClick={szerkesztesMegse}
-                                                        style={{ padding: "6px 10px", fontSize: 12 }}
-                                                    >
-                                                        Megse
-                                                    </button>
-                                                </div>
-                                            ) : (
-                                                <span style={{ fontWeight: 700 }}>{h.nev}</span>
-                                            )}
-                                        </td>
-
-                                        {/* Allapot badge */}
-                                        <td style={{ textAlign: "center" }}>
-                                            <span
-                                                className="badge"
-                                                style={{
-                                                    background: h.aktiv ? "rgba(58,125,68,0.25)" : "rgba(120,120,120,0.2)",
-                                                    borderColor: h.aktiv ? "rgba(58,125,68,0.5)" : "rgba(120,120,120,0.35)",
-                                                    color: h.aktiv ? "#7fcc8a" : "rgba(255,255,255,0.45)",
-                                                }}
-                                            >
-                                                {h.aktiv ? "Aktiv" : "Inaktiv"}
-                                            </span>
-                                        </td>
-
-                                        {/* Muveletek */}
-                                        {canEdit && (
-                                            <td style={{ textAlign: "right" }}>
-                                                {!szerkesztesben && (
-                                                    <div style={{ display: "flex", gap: 6, justifyContent: "flex-end" }}>
-
-                                                        {/* Szerkesztes */}
-                                                        <button
-                                                            className="btn"
-                                                            onClick={() => szerkesztesInditas(h)}
-                                                            disabled={folyamatban}
-                                                            title="Atnevezes"
-                                                            style={{ padding: "6px 10px", gap: 5 }}
-                                                        >
-                                                            <EditIcon />
-                                                        </button>
-
-                                                        {/* Aktiv / inaktiv toggle */}
-                                                        <button
-                                                            className="btn"
-                                                            onClick={() => aktivToggle(h)}
-                                                            disabled={folyamatban}
-                                                            title={h.aktiv ? "Inaktivalas" : "Aktivalas"}
-                                                            style={{
-                                                                padding: "6px 10px",
-                                                                color: h.aktiv ? "rgba(255,200,100,0.85)" : "rgba(100,220,130,0.85)",
-                                                                borderColor: h.aktiv ? "rgba(255,200,100,0.25)" : "rgba(100,220,130,0.25)",
-                                                            }}
-                                                        >
-                                                            {folyamatban ? "..." : h.aktiv ? <EyeOffIcon /> : <EyeIcon />}
-                                                        </button>
-
-                                                        {/* Torles */}
-                                                        <button
-                                                            className="btn"
-                                                            onClick={() => torol(h)}
-                                                            disabled={folyamatban}
-                                                            title="Torles"
-                                                            style={{
-                                                                padding: "6px 10px",
-                                                                color: "rgba(220,100,100,0.85)",
-                                                                borderColor: "rgba(220,100,100,0.25)",
-                                                            }}
-                                                        >
-                                                            {folyamatban ? "..." : <TrashIcon />}
-                                                        </button>
-                                                    </div>
-                                                )}
-                                            </td>
-                                        )}
-                                    </tr>
-                                );
-                            })}
-                        </tbody>
-                    </table>
+        <div className="grid grid-cols-[minmax(0,1fr)] gap-6">
+            <PageHeader
+                className="mb-0"
+                title="Halfajok"
+                description={
+                    elsoBetoltes
+                        ? "A halászatban használt halfajok."
+                        : `${aktivDb} aktív halfaj${items.length > aktivDb ? ` · ${items.length - aktivDb} inaktív` : ""}`
+                }
+                actions={canEdit && (
+                    <Button onClick={() => setNevCel("uj")}>
+                        <Plus />
+                        Új halfaj
+                    </Button>
                 )}
-            </div>
+            />
+
+            {hiba && <ErrorState title="Nem sikerült betölteni a halfajokat" message={hiba} onRetry={() => load()} />}
+
+            <Card>
+                <CardHeader>
+                    <CardTitle>Halfaj lista</CardTitle>
+                    <CardDescription>
+                        A szín a grafikonokon is ezt a fajt jelöli.
+                        {!canEdit && " Halfajt tulajdonos vagy adminisztrátor vehet fel."}
+                    </CardDescription>
+                    <CardAction className="flex items-center gap-2">
+                        <Switch id="inaktiv-halfajok" checked={inaktivakMutatasa} onCheckedChange={setInaktivakMutatasa} />
+                        <Label htmlFor="inaktiv-halfajok" className="text-sm font-normal text-muted-foreground">Inaktívak is</Label>
+                    </CardAction>
+                </CardHeader>
+                <CardContent className={cn("grid gap-3", loading && !elsoBetoltes && "opacity-60")} aria-busy={loading}>
+                    {items.length > 0 && (
+                        <InputGroup className="sm:max-w-xs">
+                            <InputGroupInput
+                                value={q}
+                                onChange={(e) => setQ(e.target.value)}
+                                placeholder="pl. ponty, amur…"
+                                aria-label="Keresés a halfajok között"
+                            />
+                            <InputGroupAddon>
+                                <Search />
+                            </InputGroupAddon>
+                        </InputGroup>
+                    )}
+
+                    {elsoBetoltes ? (
+                        <div className="grid gap-2" role="status" aria-label="Halfajok betöltése">
+                            {Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-11 rounded-lg" />)}
+                        </div>
+                    ) : items.length === 0 ? (
+                        <EmptyState
+                            className="p-6 md:p-10"
+                            icon={<Fish />}
+                            title="Még nincs halfaj"
+                            description="Vegyél fel halfajokat, hogy telepítést és kivételt rögzíthess."
+                            action={canEdit && (
+                                <Button onClick={() => setNevCel("uj")}>
+                                    <Plus />
+                                    Új halfaj
+                                </Button>
+                            )}
+                        />
+                    ) : filtered.length === 0 ? (
+                        <EmptyState className="p-6" icon={<SearchX />} title="Nincs találat" description={`Nincs „${q}” nevű halfaj.`} />
+                    ) : (
+                        <Table>
+                            <TableHeader>
+                                <TableRow>
+                                    <TableHead>Név</TableHead>
+                                    <TableHead>Állapot</TableHead>
+                                    {canEdit && <TableHead className="w-0"><span className="sr-only">Műveletek</span></TableHead>}
+                                </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                                {filtered.map((h) => (
+                                    <TableRow key={h.azonosito} className={cn(!h.aktiv && "opacity-60")}>
+                                        <TableCell>
+                                            <span className="flex items-center gap-2.5 font-semibold">
+                                                <span
+                                                    className="size-2.5 shrink-0 rounded-full"
+                                                    style={{ background: fajSzinek.get(h.nev)?.szin }}
+                                                    aria-hidden="true"
+                                                />
+                                                {h.nev}
+                                            </span>
+                                        </TableCell>
+                                        <TableCell>
+                                            <Badge variant={h.aktiv ? "success" : "secondary"}>{h.aktiv ? "Aktív" : "Inaktív"}</Badge>
+                                        </TableCell>
+                                        {canEdit && (
+                                            <TableCell className="text-right">
+                                                <DropdownMenu>
+                                                    <DropdownMenuTrigger asChild>
+                                                        <Button variant="ghost" size="icon-sm" aria-label={`Műveletek: ${h.nev}`} disabled={muveletFut}>
+                                                            <MoreHorizontal />
+                                                        </Button>
+                                                    </DropdownMenuTrigger>
+                                                    <DropdownMenuContent align="end" className="w-48">
+                                                        <DropdownMenuItem onSelect={() => setNevCel(h)}>
+                                                            <Pencil />
+                                                            Átnevezés
+                                                        </DropdownMenuItem>
+                                                        <DropdownMenuItem onSelect={() => void aktivValtas(h)}>
+                                                            {h.aktiv ? <EyeOff /> : <Eye />}
+                                                            {h.aktiv ? "Inaktiválás" : "Aktiválás"}
+                                                        </DropdownMenuItem>
+                                                        <DropdownMenuSeparator />
+                                                        <DropdownMenuItem variant="destructive" onSelect={() => setTorlendo(h)}>
+                                                            <Trash2 />
+                                                            Törlés
+                                                        </DropdownMenuItem>
+                                                    </DropdownMenuContent>
+                                                </DropdownMenu>
+                                            </TableCell>
+                                        )}
+                                    </TableRow>
+                                ))}
+                            </TableBody>
+                        </Table>
+                    )}
+                </CardContent>
+            </Card>
+
+            {canEdit && <NevModal hid={hid} cel={nevCel} onClose={() => setNevCel(null)} onMentve={() => void load()} />}
+
+            <ConfirmDialog
+                open={torlendo != null}
+                onOpenChange={(v) => !v && setTorlendo(null)}
+                title={`Törlöd: „${torlendo?.nev ?? ""}”?`}
+                description="Ha a halfaj állományhoz vagy eseményhez kötődik, nem törölhető — ilyenkor inaktiválást ajánlunk."
+                confirmLabel="Törlés"
+                destructive
+                loading={muveletFut}
+                onConfirm={() => { if (torlendo) void torles(torlendo); }}
+            />
+            <ConfirmDialog
+                open={inaktivalando != null}
+                onOpenChange={(v) => !v && setInaktivalando(null)}
+                title="Nem törölhető"
+                description={`„${inaktivalando?.nev ?? ""}” állományhoz vagy eseményhez kötődik. Inaktiválod helyette? Az előzmények megmaradnak, de új műveletnél nem lesz választható.`}
+                confirmLabel="Inaktiválás helyette"
+                loading={muveletFut}
+                onConfirm={async () => {
+                    if (!inaktivalando) return;
+                    await aktivValtas(inaktivalando, false);
+                    setInaktivalando(null);
+                }}
+            />
         </div>
     );
 }
-
-// ─── Shared stilus ────────────────────────────────────────────────────────────
-
-const inputStil: React.CSSProperties = {
-    padding: "10px 14px",
-    minWidth: 280,
-    borderRadius: 999,
-    border: "1px solid rgba(255,255,255,0.14)",
-    background: "rgba(0,0,0,0.18)",
-    color: "rgba(255,255,255,0.92)",
-    outline: "none",
-    fontSize: 14,
-};

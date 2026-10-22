@@ -1,31 +1,38 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { ESEMENY_TIPUS_CIMKE, AKTIV_ESEMENY_TIPUSOK } from "@/lib/naplo/format";
+import { BookOpen, Printer, Search, SearchX, X } from "lucide-react";
 
-// ─── Tipusok ─────────────────────────────────────────────────────────────────
+import { cn } from "@/lib/utils";
+import {
+    AKTIV_ESEMENY_TIPUSOK,
+    ESEMENY_TIPUS_CIMKE,
+    periodusCimke,
+    periodusHatarok,
+    type NaploPeriodus,
+} from "@/lib/naplo/format";
+import { esemenyMeta } from "@/components/app/esemenyek";
+import { Tudnivalok } from "@/components/app/Tudnivalok";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { Input } from "@/components/ui/input";
+import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group";
+import { Label } from "@/components/ui/label";
+import { PageHeader } from "@/components/ui/page-header";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Skeleton } from "@/components/ui/skeleton";
+import { EmptyState, ErrorState } from "@/components/ui/states";
+import { Switch } from "@/components/ui/switch";
+import { toast } from "@/components/ui/toast";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
-type NaploBejegyzes = {
-    id: number;
-    tipus: string;
-    tipusCimke: string;
-    cim: string;
-    leiras: string | null;
-    datum: string;
-    rogzitoNev: string | null;
-    toId: number | null;
-    toNev: string | null;
-    halfajNev: string | null;
-    mennyisegKg: number | null;
-    darab: number | null;
-    ervenyes: boolean;
-    ervenytelenitveAt: string | null;
-    ervenytelenitesOka: string | null;
-    ervenytelenitoNev: string | null;
-    szerkesztveAt: string | null;
-    szerkesztoNev: string | null;
-    reszletek: unknown;
-};
+import { ErvenytelenitesModal, SzovegJavitasModal } from "./NaploModalok";
+import { NaploSor } from "./NaploSor";
+import { naploModositas, type NaploBejegyzes } from "./tipusok";
+
+// ─── Típusok ─────────────────────────────────────────────────────────────────
 
 type Valasz = {
     esemenyek: NaploBejegyzes[];
@@ -37,254 +44,39 @@ type Valasz = {
 
 type ToOpcio = { azonosito: number; nev: string };
 
-const TIPUS_SZIN: Record<string, string> = {
-    TELEPITES: "#d08a5b",
-    KIVETEL: "#7a2a17",
-    ETETES: "#b24b25",
-    TAKARMANY_BEVETEL: "#4caf50",
-    TAKARMANY_FELHASZNALAS: "#c06535",
-};
+/** A Radix Select nem enged üres értéket, ezért ez jelöli a „mind” opciót. */
+const MIND = "mind";
 
 const PERIODUSOK = [
-    { ertek: "", cimke: "Összes" },
+    { ertek: MIND, cimke: "Összes" },
     { ertek: "day", cimke: "Napi" },
     { ertek: "week", cimke: "Heti" },
     { ertek: "month", cimke: "Havi" },
 ] as const;
 
-const mezoStilus: React.CSSProperties = {
-    padding: 10,
-    borderRadius: 12,
-    border: "1px solid rgba(255,255,255,0.14)",
-    background: "rgba(0,0,0,0.16)",
-    color: "rgba(255,255,255,0.92)",
-    outline: "none",
-};
-
 function maUtc(): string {
     return new Date().toISOString().slice(0, 10);
 }
 
-function idoSzoveg(iso: string | null): string {
-    if (!iso) return "";
-    return new Date(iso).toLocaleString("hu-HU", {
-        year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit",
+/** Napfejléc a csoportosított listához, pl. „Ma”, „Tegnap”, „okt. 18., szombat”. */
+function napCimke(kulcs: string): string {
+    const d = new Date(`${kulcs}T00:00:00`);
+    const ma = new Date();
+    ma.setHours(0, 0, 0, 0);
+    const kulonbseg = Math.round((ma.getTime() - d.getTime()) / 86_400_000);
+    if (kulonbseg === 0) return "Ma";
+    if (kulonbseg === 1) return "Tegnap";
+    return d.toLocaleDateString("hu-HU", {
+        year: d.getFullYear() === ma.getFullYear() ? undefined : "numeric",
+        month: "long",
+        day: "numeric",
+        weekday: "long",
     });
 }
 
-// ─── Egy naplóbejegyzés (szerkesztés / érvénytelenítés) ──────────────────────
-
-function BejegyzesKartya({
-    e, hid, canModosit, onValtozas,
-}: {
-    e: NaploBejegyzes;
-    hid: string;
-    canModosit: boolean;
-    onValtozas: () => void;
-}) {
-    const [szerkeszt, setSzerkeszt] = useState(false);
-    const [cim, setCim] = useState(e.cim);
-    const [leiras, setLeiras] = useState(e.leiras ?? "");
-    const [ervTelNyitva, setErvTelNyitva] = useState(false);
-    const [oka, setOka] = useState("");
-    const [fut, setFut] = useState(false);
-    const [hiba, setHiba] = useState<string | null>(null);
-
-    const szin = TIPUS_SZIN[e.tipus] ?? "#8a8a8a";
-
-    async function kuldes(adat: Record<string, unknown>) {
-        setFut(true);
-        setHiba(null);
-        try {
-            const res = await fetch(`/api/halaszatok/${hid}/naplo/${e.id}`, {
-                method: "PATCH",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(adat),
-            });
-            const json = await res.json().catch(() => ({}));
-            if (!res.ok) { setHiba(json?.error ?? "A módosítás nem sikerült."); return false; }
-            onValtozas();
-            return true;
-        } catch {
-            setHiba("Hálózati hiba.");
-            return false;
-        } finally {
-            setFut(false);
-        }
-    }
-
-    async function mentesSzerkesztes() {
-        if (cim.trim().length < 1) { setHiba("A cím nem lehet üres."); return; }
-        if (await kuldes({ cim: cim.trim(), leiras: leiras.trim() })) setSzerkeszt(false);
-    }
-
-    async function ervenytelenit() {
-        if (oka.trim().length < 3) { setHiba("Az indok kötelező (min. 3 karakter)."); return; }
-        if (await kuldes({ ervenyes: false, ervenytelenitesOka: oka.trim() })) {
-            setErvTelNyitva(false);
-            setOka("");
-        }
-    }
-
-    async function visszaallit() {
-        if (!confirm("Biztosan visszaállítod érvényesre ezt a bejegyzést?")) return;
-        await kuldes({ ervenyes: true });
-    }
-
-    return (
-        <div
-            className="glass card"
-            style={{
-                borderLeft: `3px solid ${e.ervenyes ? szin : "#8a8a8a"}`,
-                display: "grid", gap: 6, padding: "12px 16px",
-                opacity: e.ervenyes ? 1 : 0.72,
-            }}
-        >
-            <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-                <span className="badge" style={{ background: `${szin}22`, color: szin, border: `1px solid ${szin}55` }}>
-                    {e.tipusCimke}
-                </span>
-
-                {szerkeszt ? (
-                    <input
-                        value={cim}
-                        onChange={(ev) => setCim(ev.target.value)}
-                        style={{ ...mezoStilus, flex: 1, minWidth: 200 }}
-                        disabled={fut}
-                        placeholder="Cím"
-                    />
-                ) : (
-                    <span style={{ fontWeight: 700, textDecoration: e.ervenyes ? "none" : "line-through" }}>
-                        {e.cim}
-                    </span>
-                )}
-
-                <span className="badge" style={{
-                    background: e.ervenyes ? "rgba(76,175,80,0.15)" : "rgba(150,30,30,0.2)",
-                    color: e.ervenyes ? "#6bcb77" : "#ff9d9d",
-                    border: `1px solid ${e.ervenyes ? "rgba(76,175,80,0.3)" : "rgba(150,30,30,0.4)"}`,
-                    marginLeft: "auto",
-                }}>
-                    {e.ervenyes ? "Érvényes" : "Érvénytelenítve"}
-                </span>
-            </div>
-
-            <div style={{ display: "flex", gap: 14, flexWrap: "wrap", fontSize: 12 }} className="muted">
-                <span>{idoSzoveg(e.datum)}</span>
-                {e.toNev && <span>Vízegység: <strong style={{ color: "rgba(255,255,255,0.85)" }}>{e.toNev}</strong></span>}
-                {e.halfajNev && <span>Faj: <strong style={{ color: "rgba(255,255,255,0.85)" }}>{e.halfajNev}</strong></span>}
-                {e.mennyisegKg != null && <span>Mennyiség: <strong style={{ color: "rgba(255,255,255,0.85)" }}>{e.mennyisegKg} kg</strong></span>}
-                {e.darab != null && <span>Darab: <strong style={{ color: "rgba(255,255,255,0.85)" }}>{e.darab} db</strong></span>}
-                <span>
-                    {e.rogzitoNev
-                        ? <>Rögzítette: <strong style={{ color: "rgba(255,255,255,0.85)" }}>{e.rogzitoNev}</strong></>
-                        : <span style={{ opacity: 0.7 }}>Rögzítő: nincs adat</span>}
-                </span>
-            </div>
-
-            {szerkeszt ? (
-                <textarea
-                    value={leiras}
-                    onChange={(ev) => setLeiras(ev.target.value)}
-                    rows={2}
-                    style={{ ...mezoStilus, resize: "vertical" }}
-                    disabled={fut}
-                    placeholder="Leírás"
-                />
-            ) : e.leiras ? (
-                <div className="muted" style={{ fontSize: 13, textDecoration: e.ervenyes ? "none" : "line-through" }}>
-                    {e.leiras}
-                </div>
-            ) : null}
-
-            {/* Érvénytelenítés adatai */}
-            {!e.ervenyes && (
-                <div style={{
-                    fontSize: 12, padding: "8px 10px", borderRadius: 10,
-                    background: "rgba(150,30,30,0.14)", border: "1px solid rgba(150,30,30,0.3)",
-                }}>
-                    <strong style={{ color: "#ff9d9d" }}>Érvénytelenítve</strong>
-                    {e.ervenytelenitveAt && <span className="muted"> &bull; {idoSzoveg(e.ervenytelenitveAt)}</span>}
-                    {e.ervenytelenitoNev && <span className="muted"> &bull; {e.ervenytelenitoNev}</span>}
-                    {e.ervenytelenitesOka && <div style={{ marginTop: 3 }}>Indok: {e.ervenytelenitesOka}</div>}
-                </div>
-            )}
-
-            {e.szerkesztveAt && (
-                <div className="muted" style={{ fontSize: 11, fontStyle: "italic" }}>
-                    Szövege javítva: {idoSzoveg(e.szerkesztveAt)}{e.szerkesztoNev ? ` — ${e.szerkesztoNev}` : ""}
-                </div>
-            )}
-
-            {hiba && <div style={{ color: "#ff9d9d", fontSize: 12 }}>{hiba}</div>}
-
-            {/* Érvénytelenítés űrlap */}
-            {ervTelNyitva && (
-                <div style={{ display: "grid", gap: 8 }}>
-                    <input
-                        value={oka}
-                        onChange={(ev) => setOka(ev.target.value)}
-                        placeholder="Az érvénytelenítés indoka (kötelező)"
-                        style={mezoStilus}
-                        disabled={fut}
-                    />
-                    <div className="muted" style={{ fontSize: 11 }}>
-                        Az érvénytelenítés a naplóbejegyzést jelöli meg — a hal- vagy
-                        takarmánykészletet <strong>nem</strong> állítja vissza.
-                    </div>
-                    <div style={{ display: "flex", gap: 8 }}>
-                        <button className="btn" onClick={ervenytelenit} disabled={fut}>
-                            {fut ? "Mentés…" : "Érvénytelenítés"}
-                        </button>
-                        <button className="btn" onClick={() => { setErvTelNyitva(false); setHiba(null); }} disabled={fut} style={{ opacity: 0.7 }}>
-                            Mégse
-                        </button>
-                    </div>
-                </div>
-            )}
-
-            {/* Műveletek */}
-            {canModosit && !ervTelNyitva && (
-                <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 2 }}>
-                    {szerkeszt ? (
-                        <>
-                            <button className="btn" onClick={mentesSzerkesztes} disabled={fut} style={{ fontSize: 12 }}>
-                                {fut ? "Mentés…" : "Mentés"}
-                            </button>
-                            <button
-                                className="btn"
-                                onClick={() => { setSzerkeszt(false); setCim(e.cim); setLeiras(e.leiras ?? ""); setHiba(null); }}
-                                disabled={fut}
-                                style={{ fontSize: 12, opacity: 0.7 }}
-                            >
-                                Mégse
-                            </button>
-                        </>
-                    ) : (
-                        <>
-                            <button className="btn" onClick={() => setSzerkeszt(true)} disabled={fut} style={{ fontSize: 12 }}>
-                                Szöveg javítása
-                            </button>
-                            {e.ervenyes ? (
-                                <button
-                                    className="btn"
-                                    onClick={() => setErvTelNyitva(true)}
-                                    disabled={fut}
-                                    style={{ fontSize: 12, color: "#ff9d9d", borderColor: "rgba(150,30,30,0.4)" }}
-                                >
-                                    Érvénytelenítés
-                                </button>
-                            ) : (
-                                <button className="btn" onClick={visszaallit} disabled={fut} style={{ fontSize: 12, color: "#6bcb77" }}>
-                                    Visszaállítás
-                                </button>
-                            )}
-                        </>
-                    )}
-                </div>
-            )}
-        </div>
-    );
+function helyiNapKulcs(iso: string) {
+    const d = new Date(iso);
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
 // ─── Fő komponens ────────────────────────────────────────────────────────────
@@ -296,12 +88,18 @@ export default function HalaszatiNaploClient({ hid }: { hid: string }) {
 
     const [q, setQ] = useState("");
     const [debouncedQ, setDebouncedQ] = useState("");
-    const [tipus, setTipus] = useState("");
-    const [toId, setToId] = useState("");
-    const [periodus, setPeriodus] = useState<string>("");
+    const [tipus, setTipus] = useState(MIND);
+    const [toId, setToId] = useState(MIND);
+    const [periodus, setPeriodus] = useState<string>(MIND);
     const [datum, setDatum] = useState(maUtc());
     const [toak, setToak] = useState<ToOpcio[]>([]);
     const [csakErvenyes, setCsakErvenyes] = useState(false);
+
+    // Sor-műveletek (egy-egy modál az egész oldalon)
+    const [javitando, setJavitando] = useState<NaploBejegyzes | null>(null);
+    const [ervenytelenitendo, setErvenytelenitendo] = useState<NaploBejegyzes | null>(null);
+    const [visszaallitando, setVisszaallitando] = useState<NaploBejegyzes | null>(null);
+    const [visszaallitasFut, setVisszaallitasFut] = useState(false);
 
     // Kereső debounce
     useEffect(() => {
@@ -316,11 +114,13 @@ export default function HalaszatiNaploClient({ hid }: { hid: string }) {
                 const res = await fetch(`/api/halaszatok/${hid}/toak`, { cache: "no-store" });
                 const json = await res.json().catch(() => ({}));
                 if (res.ok && Array.isArray(json?.toak)) {
-                    setToak(json.toak.map((t: any) => ({ azonosito: t.azonosito, nev: t.nev })));
+                    setToak((json.toak as ToOpcio[]).map((t) => ({ azonosito: t.azonosito, nev: t.nev })));
                 }
             } catch { /* a szűrő opcionális */ }
         })();
     }, [hid]);
+
+    const vanPeriodus = periodus !== MIND;
 
     const betolt = useCallback(async () => {
         setLoading(true);
@@ -328,190 +128,286 @@ export default function HalaszatiNaploClient({ hid }: { hid: string }) {
         try {
             const p = new URLSearchParams();
             if (debouncedQ) p.set("q", debouncedQ);
-            if (tipus) p.set("tipus", tipus);
-            if (toId) p.set("toId", toId);
-            if (periodus) { p.set("period", periodus); p.set("date", datum); }
+            if (tipus !== MIND) p.set("tipus", tipus);
+            if (toId !== MIND) p.set("toId", toId);
+            if (vanPeriodus) { p.set("period", periodus); p.set("date", datum); }
             if (csakErvenyes) p.set("csakErvenyes", "1");
             const res = await fetch(`/api/halaszatok/${hid}/naplo?${p}`, { cache: "no-store" });
             const json = await res.json().catch(() => null);
             if (!res.ok) throw new Error(json?.error ?? "Betöltési hiba.");
             setData(json);
-        } catch (e: any) {
-            setHiba(e?.message ?? "Ismeretlen hiba.");
+        } catch (e) {
+            setHiba(e instanceof Error ? e.message : "Ismeretlen hiba.");
         } finally {
             setLoading(false);
         }
-    }, [hid, debouncedQ, tipus, toId, periodus, datum, csakErvenyes]);
+    }, [hid, debouncedQ, tipus, toId, vanPeriodus, periodus, datum, csakErvenyes]);
 
     useEffect(() => { void betolt(); }, [betolt]);
 
     const exportUrl = useMemo(() => {
-        if (!periodus) return null;
+        if (!vanPeriodus) return null;
         const p = new URLSearchParams({ period: periodus, date: datum });
-        if (toId) p.set("toId", toId);
-        if (tipus) p.set("tipus", tipus);
+        if (toId !== MIND) p.set("toId", toId);
+        if (tipus !== MIND) p.set("tipus", tipus);
         return `/api/halaszatok/${hid}/naplo/export?${p}`;
-    }, [hid, periodus, datum, toId, tipus]);
+    }, [hid, vanPeriodus, periodus, datum, toId, tipus]);
 
-    const esemenyek = data?.esemenyek ?? [];
+    const idoszakSzoveg = useMemo(() => {
+        if (!vanPeriodus) return null;
+        const h = periodusHatarok(periodus, datum);
+        return h ? periodusCimke(periodus as NaploPeriodus, h) : null;
+    }, [vanPeriodus, periodus, datum]);
+
+    const esemenyek = useMemo(() => data?.esemenyek ?? [], [data]);
     const canModosit = data?.viewerRole === "OWNER" || data?.viewerRole === "ADMIN";
+    const vanSzuro = !!q || tipus !== MIND || toId !== MIND || vanPeriodus || csakErvenyes;
+
+    // Napok szerinti csoportosítás (a lista már időrendben érkezik)
+    const napok = useMemo(() => {
+        const csoportok: Array<{ kulcs: string; tetelek: NaploBejegyzes[] }> = [];
+        for (const e of esemenyek) {
+            const kulcs = helyiNapKulcs(e.datum);
+            const utolso = csoportok[csoportok.length - 1];
+            if (utolso?.kulcs === kulcs) utolso.tetelek.push(e);
+            else csoportok.push({ kulcs, tetelek: [e] });
+        }
+        return csoportok;
+    }, [esemenyek]);
+
+    function szurokTorlese() {
+        setQ("");
+        setTipus(MIND);
+        setToId(MIND);
+        setPeriodus(MIND);
+        setDatum(maUtc());
+        setCsakErvenyes(false);
+    }
+
+    async function visszaallitas() {
+        if (!visszaallitando) return;
+        setVisszaallitasFut(true);
+        try {
+            await naploModositas(hid, visszaallitando.id, { ervenyes: true });
+            toast.success("Bejegyzés visszaállítva", { description: visszaallitando.cim });
+            setVisszaallitando(null);
+            void betolt();
+        } catch (e) {
+            toast.error("Nem sikerült visszaállítani", { description: e instanceof Error ? e.message : undefined });
+        } finally {
+            setVisszaallitasFut(false);
+        }
+    }
+
+    // ─── Render ────────────────────────────────────────────────────────────
+
+    const exportGomb = exportUrl ? (
+        <Button variant="outline" asChild>
+            <a href={exportUrl} target="_blank" rel="noopener noreferrer">
+                <Printer />
+                Nyomtatható export
+            </a>
+        </Button>
+    ) : (
+        <Tooltip>
+            <TooltipTrigger asChild>
+                {/* A letiltott gomb nem kap egéreseményt, ezért a span hordozza a tooltipet. */}
+                <span tabIndex={0} className="rounded-lg outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50">
+                    <Button variant="outline" disabled aria-describedby="export-sugo">
+                        <Printer />
+                        Nyomtatható export
+                    </Button>
+                </span>
+            </TooltipTrigger>
+            <TooltipContent id="export-sugo">Az exporthoz válassz időszakot (napi / heti / havi).</TooltipContent>
+        </Tooltip>
+    );
 
     return (
-        <div style={{ display: "grid", gap: 18 }}>
+        <div className="grid grid-cols-[minmax(0,1fr)] gap-6">
+            <PageHeader
+                className="mb-0"
+                title="Halászati napló"
+                description={
+                    data
+                        ? `${data.tenantOsszesen} naplózott esemény · a szűrőkre ${data.talalatOsszesen} találat${data.talalatOsszesen > data.limit ? ` (az első ${data.limit} látható)` : ""}`
+                        : "A műveletek automatikusan ide naplózódnak."
+                }
+                actions={exportGomb}
+            />
 
-            {/* ── Fejléc ── */}
-            <div className="glass card" style={{ display: "grid", gap: 14 }}>
-                <div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
-                    <div>
-                        <h1 className="h1">Halászati napló</h1>
-                        <div className="muted" style={{ marginTop: 6 }}>
-                            {data
-                                ? <>összesen {data.tenantOsszesen} naplózott esemény &bull; a szűrőkre {data.talalatOsszesen} találat (max {data.limit} látható)</>
-                                : "Műveleti napló betöltése…"}
-                        </div>
+            {/* ── Szűrők ── */}
+            <Card className="gap-4 py-4 sm:py-5">
+                <CardContent className="grid gap-4">
+                    <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_200px_200px]">
+                        <InputGroup>
+                            <InputGroupInput
+                                value={q}
+                                onChange={(e) => setQ(e.target.value)}
+                                placeholder="Keresés a naplóban…"
+                                aria-label="Keresés a naplóban"
+                            />
+                            <InputGroupAddon>
+                                <Search />
+                            </InputGroupAddon>
+                        </InputGroup>
+                        <Select value={tipus} onValueChange={setTipus}>
+                            <SelectTrigger className="w-full" aria-label="Eseménytípus">
+                                <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value={MIND}>Minden típus</SelectItem>
+                                {AKTIV_ESEMENY_TIPUSOK.map((t) => (
+                                    <SelectItem key={t} value={t}>{esemenyMeta(t).cimke || ESEMENY_TIPUS_CIMKE[t]}</SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                        <Select value={toId} onValueChange={setToId}>
+                            <SelectTrigger className="w-full" aria-label="Vízegység">
+                                <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value={MIND}>Minden vízegység</SelectItem>
+                                {toak.map((t) => (
+                                    <SelectItem key={t.azonosito} value={String(t.azonosito)}>{t.nev}</SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
                     </div>
-                    <div style={{ display: "flex", gap: 8, alignItems: "flex-start" }}>
-                        {exportUrl ? (
-                            <a className="btn btn-primary" href={exportUrl} target="_blank" rel="noopener noreferrer">
-                                Exportálás (nyomtatható)
-                            </a>
-                        ) : (
-                            <span className="btn" style={{ opacity: 0.5, cursor: "not-allowed" }} title="Az exporthoz válassz időszakot: Napi / Heti / Havi">
-                                Exportálás (nyomtatható)
-                            </span>
+
+                    <div className="flex flex-wrap items-center gap-x-4 gap-y-3">
+                        <ToggleGroup
+                            type="single"
+                            variant="outline"
+                            size="sm"
+                            spacing={2}
+                            value={periodus}
+                            onValueChange={(v) => v && setPeriodus(v)}
+                            aria-label="Időszak"
+                        >
+                            {PERIODUSOK.map((p) => (
+                                <ToggleGroupItem key={p.ertek} value={p.ertek} className="px-3">{p.cimke}</ToggleGroupItem>
+                            ))}
+                        </ToggleGroup>
+
+                        {vanPeriodus && (
+                            <Input
+                                type="date"
+                                value={datum}
+                                onChange={(e) => setDatum(e.target.value || maUtc())}
+                                aria-label="Az időszak dátuma"
+                                className="h-9 w-auto"
+                            />
+                        )}
+
+                        <div className="flex items-center gap-2">
+                            <Switch id="csak-ervenyes" checked={csakErvenyes} onCheckedChange={setCsakErvenyes} />
+                            <Label htmlFor="csak-ervenyes" className="font-normal">Csak érvényes</Label>
+                        </div>
+
+                        {vanSzuro && (
+                            <Button variant="ghost" size="sm" onClick={szurokTorlese} className="ml-auto">
+                                <X />
+                                Szűrők törlése
+                            </Button>
                         )}
                     </div>
-                </div>
 
-                {/* Kereső */}
-                <div className="search" style={{ maxWidth: 420 }}>
-                    <span style={{ opacity: 0.7 }}>⌕</span>
-                    <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Keresés a naplóban…" />
-                </div>
-
-                {/* Szűrők */}
-                <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
-                    <select value={tipus} onChange={(e) => setTipus(e.target.value)} style={mezoStilus}>
-                        <option value="">Minden típus</option>
-                        {AKTIV_ESEMENY_TIPUSOK.map((t) => (
-                            <option key={t} value={t}>{ESEMENY_TIPUS_CIMKE[t]}</option>
-                        ))}
-                    </select>
-
-                    <select value={toId} onChange={(e) => setToId(e.target.value)} style={mezoStilus}>
-                        <option value="">Minden vízegység</option>
-                        {toak.map((t) => (
-                            <option key={t.azonosito} value={t.azonosito}>{t.nev}</option>
-                        ))}
-                    </select>
-
-                    {/* Időszak chipek */}
-                    <div style={{ display: "flex", gap: 6 }}>
-                        {PERIODUSOK.map((p) => {
-                            const aktiv = periodus === p.ertek;
-                            return (
-                                <button
-                                    key={p.ertek || "osszes"}
-                                    className="btn"
-                                    onClick={() => setPeriodus(p.ertek)}
-                                    style={{
-                                        fontSize: 13,
-                                        background: aktiv ? "rgba(208,138,91,0.25)" : undefined,
-                                        borderColor: aktiv ? "rgba(208,138,91,0.7)" : undefined,
-                                        color: aktiv ? "#d08a5b" : undefined,
-                                        fontWeight: aktiv ? 700 : undefined,
-                                    }}
-                                >
-                                    {p.cimke}
-                                </button>
-                            );
-                        })}
-                    </div>
-
-                    <input
-                        type="date"
-                        value={datum}
-                        onChange={(e) => setDatum(e.target.value || maUtc())}
-                        style={{ ...mezoStilus, opacity: periodus ? 1 : 0.5 }}
-                        disabled={!periodus}
-                        title={periodus ? "Az időszak dátuma" : "Előbb válassz időszakot"}
-                    />
-
-                    <button
-                        className="btn"
-                        onClick={() => setCsakErvenyes((v) => !v)}
-                        style={{
-                            fontSize: 13,
-                            background: csakErvenyes ? "rgba(76,175,80,0.2)" : undefined,
-                            borderColor: csakErvenyes ? "rgba(76,175,80,0.6)" : undefined,
-                            color: csakErvenyes ? "#6bcb77" : undefined,
-                        }}
-                        title="Az érvénytelenített bejegyzések elrejtése"
-                    >
-                        {csakErvenyes ? "Csak érvényes ✓" : "Csak érvényes"}
-                    </button>
-                </div>
-            </div>
+                    {idoszakSzoveg && <p className="text-sm font-medium text-primary">{idoszakSzoveg}</p>}
+                </CardContent>
+            </Card>
 
             {/* ── Lista ── */}
-            {loading ? (
-                <div className="glass card" style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                    <div style={{
-                        width: 16, height: 16, borderRadius: "50%",
-                        border: "2px solid rgba(255,255,255,0.2)", borderTopColor: "#d08a5b",
-                        animation: "spin 0.8s linear infinite",
-                    }} />
-                    <span className="muted">Napló betöltése…</span>
-                </div>
+            {loading && !data ? (
+                <Card>
+                    <CardContent className="grid gap-4" role="status" aria-label="Napló betöltése">
+                        {Array.from({ length: 5 }).map((_, i) => (
+                            <div key={i} className="flex gap-3">
+                                <Skeleton className="size-9 rounded-lg" />
+                                <div className="grid flex-1 gap-2">
+                                    <Skeleton className="h-4 w-2/3" />
+                                    <Skeleton className="h-3 w-1/3" />
+                                </div>
+                            </div>
+                        ))}
+                    </CardContent>
+                </Card>
             ) : hiba ? (
-                <div className="glass card" style={{ borderColor: "rgba(255,120,120,0.3)", background: "rgba(100,20,20,0.2)" }}>
-                    <div style={{ fontWeight: 700, marginBottom: 4 }}>Hiba</div>
-                    <div className="muted">{hiba}</div>
-                </div>
+                <ErrorState title="Nem sikerült betölteni a naplót" message={hiba} onRetry={() => betolt()} />
             ) : esemenyek.length === 0 ? (
-                <div className="glass card" style={{ textAlign: "center", padding: "32px 16px" }}>
-                    <div style={{ fontWeight: 700, marginBottom: 6 }}>
-                        {data && data.tenantOsszesen === 0 ? "Még nincs naplózott esemény" : "Nincs találat"}
-                    </div>
-                    <div className="muted">
-                        {data && data.tenantOsszesen === 0
-                            ? "A műveletek (telepítés, kivét, etetés, takarmánymozgás) automatikusan ide naplózódnak."
-                            : "Módosítsd a keresést, a szűrőt vagy az időszakot."}
-                    </div>
-                </div>
+                data && data.tenantOsszesen === 0 ? (
+                    <EmptyState
+                        icon={<BookOpen />}
+                        title="Még nincs naplózott esemény"
+                        description="A telepítés, kivétel, etetés és a takarmánymozgások automatikusan ide naplózódnak."
+                    />
+                ) : (
+                    <EmptyState
+                        icon={<SearchX />}
+                        title="Nincs találat"
+                        description="Módosítsd a keresést, a szűrőt vagy az időszakot."
+                        action={<Button variant="outline" onClick={szurokTorlese}>Szűrők törlése</Button>}
+                    />
+                )
             ) : (
-                <div style={{ display: "grid", gap: 8 }}>
-                    {esemenyek.map((e) => (
-                        <BejegyzesKartya
-                            key={e.id}
-                            e={e}
-                            hid={hid}
-                            canModosit={canModosit}
-                            onValtozas={betolt}
-                        />
+                <div className={cn("grid gap-4 transition-opacity", loading && "opacity-60")} aria-busy={loading}>
+                    {napok.map((nap) => (
+                        <section key={nap.kulcs} aria-labelledby={`nap-${nap.kulcs}`}>
+                            <h2
+                                id={`nap-${nap.kulcs}`}
+                                className="sticky top-14 z-10 -mx-1 mb-2 bg-background/90 px-1 py-1 text-sm font-semibold text-muted-foreground backdrop-blur-sm first-letter:uppercase md:top-16"
+                            >
+                                {napCimke(nap.kulcs)}
+                                <span className="ml-2 font-normal">· {nap.tetelek.length} esemény</span>
+                            </h2>
+                            <Card className="py-0 sm:py-0">
+                                <CardContent>
+                                    <ol className="divide-y">
+                                        {nap.tetelek.map((e) => (
+                                            <NaploSor
+                                                key={e.id}
+                                                e={e}
+                                                canModosit={canModosit}
+                                                onSzerkeszt={() => setJavitando(e)}
+                                                onErvenytelenit={() => setErvenytelenitendo(e)}
+                                                onVisszaallit={() => setVisszaallitando(e)}
+                                            />
+                                        ))}
+                                    </ol>
+                                </CardContent>
+                            </Card>
+                        </section>
                     ))}
                 </div>
             )}
 
-            {/* ── Megjegyzés ── */}
-            <div className="glass card">
-                <div className="muted" style={{ fontSize: 12 }}>
-                    <strong>Megjegyzés:</strong> a napló a ténylegesen megvalósított műveletekből épül
-                    (telepítés, kivét, áttelepítés, etetés, takarmány-bevétel/-felhasználás). Az export
-                    <strong> nyomtatóbarát HTML</strong> — a böngésző „Nyomtatás → Mentés PDF-ként"
-                    funkciójával menthető PDF-be; a közvetlen PDF-generálás tervezett.
-                    <br /><br />
-                    <strong>Javítás / érvénytelenítés:</strong> a naplósorok <strong>fizikailag nem
-                    törölhetők</strong> (ez a hivatalos napló lényege). Hibás rögzítés esetén ADMIN/OWNER
-                    <em> érvénytelenítheti</em> a bejegyzést kötelező indokkal — a sor áthúzva megmarad,
-                    és kimarad az összegzésekből. A szövege (cím, leírás) javítható, a mennyiségi mezők
-                    viszont nem, mert azok a tényleges műveletet tükrözik.
-                    <strong> Fontos:</strong> az érvénytelenítés a <em>naplóbejegyzést</em> érvényteleníti,
-                    a hal- vagy takarmánykészletet <strong>nem</strong> állítja vissza — ahhoz kompenzáló
-                    műveletet kell rögzíteni (pl. korrekciós takarmány-bevétel vagy telepítés/kivét).
-                    A régi (a napló-bővítés előtti) eseményeknél a rögzítő „nincs adat" lehet.
-                </div>
-            </div>
+            {/* ── Tudnivalók ── */}
+            <Tudnivalok cim="Hogyan működik a napló?">
+                <p>
+                    A napló a ténylegesen rögzített műveletekből épül (telepítés, kivétel, áttelepítés, etetés,
+                    takarmány-bevétel és -felhasználás). Az export <strong>nyomtatóbarát HTML</strong> — a böngésző
+                    „Nyomtatás → Mentés PDF-ként” funkciójával menthető.
+                </p>
+                <p>
+                    A naplósorok <strong>nem törölhetők</strong>. Hibás rögzítésnél tulajdonos vagy adminisztrátor
+                    kötelező indokkal <em>érvénytelenítheti</em> a bejegyzést: a sor áthúzva megmarad, és kimarad az
+                    összegzésekből. A szöveg (cím, leírás) javítható, a mennyiségek nem. Az érvénytelenítés a
+                    készletet <strong>nem</strong> állítja vissza — ahhoz kompenzáló műveletet kell rögzíteni.
+                </p>
+            </Tudnivalok>
+
+            {/* ── Modálok ── */}
+            <SzovegJavitasModal hid={hid} bejegyzes={javitando} onClose={() => setJavitando(null)} onMentve={() => void betolt()} />
+            <ErvenytelenitesModal hid={hid} bejegyzes={ervenytelenitendo} onClose={() => setErvenytelenitendo(null)} onMentve={() => void betolt()} />
+            <ConfirmDialog
+                open={visszaallitando != null}
+                onOpenChange={(v) => !v && setVisszaallitando(null)}
+                title="Visszaállítod érvényesre?"
+                description={`„${visszaallitando?.cim ?? ""}” újra beleszámít az összegzésekbe.`}
+                confirmLabel="Visszaállítás"
+                loading={visszaallitasFut}
+                onConfirm={visszaallitas}
+            />
         </div>
     );
 }

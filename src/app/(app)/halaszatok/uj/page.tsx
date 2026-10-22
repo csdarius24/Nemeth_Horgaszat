@@ -1,28 +1,26 @@
 "use client";
 
+import Link from "next/link";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { ArrowLeft } from "lucide-react";
 
-const inputStyle: React.CSSProperties = {
-    padding: 12,
-    borderRadius: 16,
-    border: "1px solid rgba(255,255,255,0.14)",
-    background: "rgba(0,0,0,0.16)",
-    color: "rgba(255,255,255,0.92)",
-    outline: "none",
-};
+import { HibaAlert } from "@/components/app/urlap";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardFooter } from "@/components/ui/card";
+import { Field, FieldDescription, FieldGroup, FieldLabel } from "@/components/ui/field";
+import { Input } from "@/components/ui/input";
+import { toast } from "@/components/ui/toast";
 
 export default function UjHalaszatPage() {
     const router = useRouter();
     const [nev, setNev] = useState("");
     const [loading, setLoading] = useState(false);
     const [hiba, setHiba] = useState<string | null>(null);
-    const [siker, setSiker] = useState<string | null>(null);
 
     async function onSubmit(e: React.FormEvent) {
         e.preventDefault();
         setHiba(null);
-        setSiker(null);
 
         const trimmed = nev.trim();
         if (trimmed.length < 3) {
@@ -50,10 +48,10 @@ export default function UjHalaszatPage() {
                 return;
             }
 
-            setSiker(`Siker! Halászat létrehozva: ${data?.halaszat?.nev ?? trimmed}`);
-            setNev("");
-
-            router.push("/halaszatok");
+            toast.success("Halászat létrehozva", { description: data?.halaszat?.nev ?? trimmed });
+            // Egyből az új halászat áttekintőjére visszük — ott tud tavat felvenni.
+            const id = data?.halaszat?.azonosito;
+            router.push(id ? `/halaszatok/${id}` : "/halaszatok");
             router.refresh();
         } catch {
             setHiba("Hálózati hiba. Próbáld újra.");
@@ -63,83 +61,53 @@ export default function UjHalaszatPage() {
     }
 
     return (
-        <div style={{ display: "grid", gap: 18 }}>
-            {/* Header */}
-            <div className="glass card" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
-                <div>
-                    <h1 className="h1">Új halászat</h1>
-                    <div className="muted" style={{ marginTop: 6 }}>
-                        Hozz létre egy új tenantot (halászatot), és automatikusan OWNER leszel.
-                    </div>
-                </div>
-                <span className="badge">Létrehozás</span>
+        <div className="grid gap-6">
+            <Button variant="ghost" size="sm" asChild className="-mb-2 justify-self-start text-muted-foreground">
+                <Link href="/halaszatok">
+                    <ArrowLeft />
+                    Vissza a halászataimhoz
+                </Link>
+            </Button>
+
+            <div className="grid gap-1.5 text-center">
+                <h1 className="font-heading text-2xl font-bold tracking-tight sm:text-3xl">Új halászat</h1>
+                <p className="text-balance text-muted-foreground">
+                    Létrehozás után automatikusan te leszel a tulajdonosa, és meghívhatod a csapatot.
+                </p>
             </div>
 
-            {/* Form card */}
-            <div className="glass card" style={{ maxWidth: 720 }}>
-                <h2 className="h2">Alapadatok</h2>
-                <div className="muted" style={{ marginTop: 6 }}>
-                    Adj meg egy nevet. A slugot a rendszer generálja (ha nálad így van).
-                </div>
-
-                <form onSubmit={onSubmit} style={{ marginTop: 14, display: "grid", gap: 12 }}>
-                    <label style={{ display: "grid", gap: 6 }}>
-                        <span className="muted">Halászat neve</span>
-                        <input
-                            value={nev}
-                            onChange={(e) => setNev(e.target.value)}
-                            placeholder="pl. Németh Halászat Kft."
-                            style={inputStyle}
-                            disabled={loading}
-                        />
-                    </label>
-
-                    {hiba && (
-                        <div
-                            className="glass"
-                            style={{
-                                padding: 12,
-                                borderRadius: 16,
-                                border: "1px solid rgba(255,120,120,0.35)",
-                                background: "rgba(120,20,20,0.22)",
-                            }}
-                        >
-                            <div style={{ fontWeight: 800, marginBottom: 6 }}>Hiba</div>
-                            <div className="muted">{hiba}</div>
-                        </div>
-                    )}
-
-                    {siker && (
-                        <div
-                            className="glass"
-                            style={{
-                                padding: 12,
-                                borderRadius: 16,
-                                border: "1px solid rgba(120,255,180,0.22)",
-                                background: "rgba(10,80,40,0.20)",
-                            }}
-                        >
-                            <div style={{ fontWeight: 800, marginBottom: 6 }}>Siker</div>
-                            <div className="muted">{siker}</div>
-                        </div>
-                    )}
-
-                    <div style={{ display: "flex", gap: 10, justifyContent: "flex-end", flexWrap: "wrap" }}>
-                        <button
-                            type="button"
-                            className="btn"
-                            onClick={() => router.push("/halaszatok")}
-                            disabled={loading}
-                        >
-                            Mégse
-                        </button>
-
-                        <button type="submit" className="btn btn-primary" disabled={loading}>
-                            {loading ? "Mentés…" : "Halászat létrehozása"}
-                        </button>
-                    </div>
-                </form>
-            </div>
+            <Card>
+                <CardContent>
+                    <form id="uj-halaszat" onSubmit={onSubmit}>
+                        <FieldGroup>
+                            <Field data-invalid={!!hiba || undefined}>
+                                <FieldLabel htmlFor="halaszat-nev">Halászat neve</FieldLabel>
+                                <Input
+                                    id="halaszat-nev"
+                                    value={nev}
+                                    onChange={(e) => setNev(e.target.value)}
+                                    placeholder="pl. Németh Halászat Kft."
+                                    disabled={loading}
+                                    aria-invalid={!!hiba || undefined}
+                                    required
+                                    minLength={3}
+                                    autoFocus
+                                />
+                                <FieldDescription>Legalább 3 karakter. Később is látszik a halászat-váltóban.</FieldDescription>
+                            </Field>
+                            <HibaAlert uzenet={hiba} />
+                        </FieldGroup>
+                    </form>
+                </CardContent>
+                <CardFooter className="flex-col-reverse gap-2 border-t sm:flex-row sm:justify-end">
+                    <Button variant="outline" asChild className="w-full sm:w-auto">
+                        <Link href="/halaszatok">Mégse</Link>
+                    </Button>
+                    <Button type="submit" form="uj-halaszat" loading={loading} className="w-full sm:w-auto">
+                        Halászat létrehozása
+                    </Button>
+                </CardFooter>
+            </Card>
         </div>
     );
 }

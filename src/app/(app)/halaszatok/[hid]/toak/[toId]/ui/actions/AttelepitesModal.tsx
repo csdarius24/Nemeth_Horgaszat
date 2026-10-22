@@ -1,7 +1,19 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import GlassModal from "@/components/ui/GlassModal";
+import { ArrowRight } from "lucide-react";
+
+import { toTipusCimke } from "@/lib/toak/attekintes";
+import { Field, FieldDescription, FieldGroup, FieldLabel } from "@/components/ui/field";
+import { Input } from "@/components/ui/input";
+import { Modal } from "@/components/ui/modal";
+import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
+import { Textarea } from "@/components/ui/textarea";
+import { toast } from "@/components/ui/toast";
+
+import { HibaAlert, MertekegysegesInput } from "@/components/app/urlap";
+
+import { apiHiba, MuveletLablec, type AllomanyTetel, type MuveletModalProps } from "./kozos";
 
 type HalfajItem = {
     azonosito: number;
@@ -16,33 +28,20 @@ type ToItem = {
     aktiv: boolean;
 };
 
-function normalizeItems<T>(json: any): T[] {
+function normalizeItems<T>(json: unknown): T[] {
     if (!json) return [];
     if (Array.isArray(json)) return json as T[];
-    if (Array.isArray(json.items)) return json.items as T[];
-    if (Array.isArray(json.toak)) return json.toak as T[];
-    if (Array.isArray(json.data)) return json.data as T[];
+    const j = json as { items?: T[]; toak?: T[]; data?: T[] };
+    if (Array.isArray(j.items)) return j.items;
+    if (Array.isArray(j.toak)) return j.toak;
+    if (Array.isArray(j.data)) return j.data;
     return [];
 }
 
-const inputStyle: React.CSSProperties = {
-    padding: 12,
-    borderRadius: 16,
-    border: "1px solid rgba(255,255,255,0.14)",
-    background: "rgba(0,0,0,0.16)",
-    color: "rgba(255,255,255,0.92)",
-    outline: "none",
-};
-
-export default function AttelepitesModal(props: {
-    open: boolean;
-    onCloseAction: () => void;
-    hid: string;
-    toId: string; // forrás tó id
-    onSavedAction: () => void | Promise<void>;
+export default function AttelepitesModal({ open, onOpenChange, hid, toId, onMentve, allomany, forrasNev }: MuveletModalProps & {
+    allomany: AllomanyTetel[];
+    forrasNev: string;
 }) {
-    const { open, onCloseAction, hid, toId, onSavedAction } = props;
-
     const [halfajok, setHalfajok] = useState<HalfajItem[]>([]);
     const [toak, setToak] = useState<ToItem[]>([]);
     const [loading, setLoading] = useState(false);
@@ -61,7 +60,6 @@ export default function AttelepitesModal(props: {
     async function loadLists() {
         setLoading(true);
         setError(null);
-
         try {
             const [halfajRes, toakRes] = await Promise.all([
                 fetch(halfajUrl, { cache: "no-store" }),
@@ -71,14 +69,18 @@ export default function AttelepitesModal(props: {
             const halfajJson = await halfajRes.json().catch(() => null);
             const toakJson = await toakRes.json().catch(() => null);
 
-            if (!halfajRes.ok) throw new Error(halfajJson?.error ?? "Hiba a halfajok lekérésekor.");
-            if (!toakRes.ok) throw new Error(toakJson?.error ?? "Hiba a tavak lekérésekor.");
+            if (!halfajRes.ok) throw new Error(apiHiba(halfajJson, "Hiba a halfajok lekérésekor."));
+            if (!toakRes.ok) throw new Error(apiHiba(toakJson, "Hiba a tavak lekérésekor."));
 
             const halfajItems = normalizeItems<HalfajItem>(halfajJson);
             const toItemsAll = normalizeItems<ToItem>(toakJson);
 
             const fromId = Number(toId);
             const filtered = Number.isFinite(fromId) ? toItemsAll.filter((t) => t.azonosito !== fromId) : toItemsAll;
+
+            // Csak a forrás tóban ténylegesen lévő fajokat lehet áttelepíteni — ezek kerülnek előre.
+            const vanBenne = new Set(allomany.filter((a) => a.darab > 0).map((a) => a.halfajId));
+            halfajItems.sort((a, b) => Number(vanBenne.has(b.azonosito)) - Number(vanBenne.has(a.azonosito)));
 
             setHalfajok(halfajItems);
             setToak(filtered);
@@ -89,11 +91,8 @@ export default function AttelepitesModal(props: {
             if (toItemsAll.length > 0 && filtered.length === 0) {
                 setError("Nincs másik vízegység, ahová áttelepíthetnél — ehhez legalább két tó/telelő szükséges.");
             }
-            if (toItemsAll.length === 0) {
-                setError("Ehhez a halászathoz még nincs vízegység rögzítve.");
-            }
-        } catch (e: any) {
-            setError(e?.message ?? "Ismeretlen hiba");
+        } catch (e) {
+            setError(e instanceof Error ? e.message : "Ismeretlen hiba");
             setHalfajok([]);
             setToak([]);
             setHalfajId(0);
@@ -105,24 +104,28 @@ export default function AttelepitesModal(props: {
 
     useEffect(() => {
         if (!open) return;
-
         setSaving(false);
         setDarab("");
         setMegjegyzes("");
         setHalfajId(0);
         setCelToId(0);
-
         void loadLists();
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [open, halfajUrl, toakUrl, toId]);
 
-    async function submit() {
+    const keszlet = allomany.find((a) => a.halfajId === halfajId)?.darab ?? 0;
+    const darabInt = Math.floor(Number(String(darab).replace(",", ".")));
+    const tulSok = Number.isFinite(darabInt) && darabInt > keszlet;
+    const celNev = toak.find((t) => t.azonosito === celToId)?.nev;
+
+    async function submit(e: React.FormEvent) {
+        e.preventDefault();
         setError(null);
 
-        const darabInt = Math.floor(Number(String(darab).replace(",", ".")));
         if (!celToId) return setError("Válassz cél tavat/telelőt.");
         if (!halfajId) return setError("Válassz halfajt.");
         if (!Number.isFinite(darabInt) || darabInt <= 0) return setError("A darab legyen pozitív egész.");
+        if (tulSok) return setError(`A forrás tóban csak ${keszlet.toLocaleString("hu-HU")} db van ebből a fajból.`);
 
         setSaving(true);
         try {
@@ -138,128 +141,127 @@ export default function AttelepitesModal(props: {
             });
 
             const json = await res.json().catch(() => ({}));
-            if (!res.ok) throw new Error(json?.error ?? "Hiba az áttelepítés mentésekor.");
+            if (!res.ok) throw new Error(apiHiba(json, "Hiba az áttelepítés mentésekor."));
 
-            await onSavedAction();
-        } catch (e: any) {
-            setError(e?.message ?? "Ismeretlen hiba");
+            toast.success("Áttelepítés rögzítve", {
+                description: `${darabInt.toLocaleString("hu-HU")} db → ${celNev ?? "cél tó"}`,
+            });
+            onOpenChange(false);
+            await onMentve();
+        } catch (e) {
+            setError(e instanceof Error ? e.message : "Ismeretlen hiba");
         } finally {
             setSaving(false);
         }
     }
 
     return (
-        <GlassModal
+        <Modal
             open={open}
-            onCloseAction={onCloseAction}
+            onOpenChange={onOpenChange}
             title="Áttelepítés"
-            subtitle="A forrás tóból csökken, a cél tóban nő a készlet."
-            width={820}
+            description="A forrás tóból csökken, a cél tóban nő a készlet."
+            preventClose={saving}
             footer={
-                <div style={{ display: "flex", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
-                    <button className="btn" onClick={loadLists} disabled={saving || loading}>
-                        Újratöltés
-                    </button>
-
-                    <div style={{ display: "flex", gap: 10 }}>
-                        <button className="btn" onClick={onCloseAction} disabled={saving}>
-                            Mégse
-                        </button>
-                        <button
-                            className="btn btn-primary"
-                            onClick={submit}
-                            disabled={saving || loading || halfajok.length === 0 || toak.length === 0}
-                        >
-                            {saving ? "Mentés…" : "Mentés"}
-                        </button>
-                    </div>
-                </div>
+                <MuveletLablec
+                    formId="attelepites-urlap"
+                    saving={saving}
+                    onMegse={() => onOpenChange(false)}
+                    disabled={loading || halfajok.length === 0 || toak.length === 0}
+                />
             }
         >
-            <div style={{ display: "grid", gap: 12 }}>
-                <label style={{ display: "grid", gap: 6 }}>
-                    <span className="muted">Cél tó / telelő</span>
-                    <select
-                        value={celToId}
-                        onChange={(e) => setCelToId(Number(e.target.value))}
-                        disabled={loading || saving || toak.length === 0}
-                        style={inputStyle}
-                    >
-                        {toak.length === 0 ? (
-                            <option value={0}>Nincs választható cél tó</option>
-                        ) : (
-                            toak.map((t) => (
-                                <option key={t.azonosito} value={t.azonosito}>
-                                    {t.nev} ({t.tipus})
-                                </option>
-                            ))
-                        )}
-                    </select>
-                </label>
-
-                <label style={{ display: "grid", gap: 6 }}>
-                    <span className="muted">Halfaj</span>
-                    <select
-                        value={halfajId}
-                        onChange={(e) => setHalfajId(Number(e.target.value))}
-                        disabled={loading || saving || halfajok.length === 0}
-                        style={inputStyle}
-                    >
-                        {halfajok.length === 0 ? (
-                            <option value={0}>Nincs halfaj</option>
-                        ) : (
-                            halfajok.map((h) => (
-                                <option key={h.azonosito} value={h.azonosito}>
-                                    {h.nev}
-                                </option>
-                            ))
-                        )}
-                    </select>
-                </label>
-
-                <label style={{ display: "grid", gap: 6 }}>
-                    <span className="muted">Darab (db)</span>
-                    <input
-                        value={darab}
-                        onChange={(e) => setDarab(e.target.value)}
-                        placeholder="pl. 300"
-                        inputMode="numeric"
-                        disabled={saving}
-                        style={inputStyle}
-                    />
-                </label>
-
-                <label style={{ display: "grid", gap: 6 }}>
-                    <span className="muted">Megjegyzés (opcionális)</span>
-                    <textarea
-                        value={megjegyzes}
-                        onChange={(e) => setMegjegyzes(e.target.value)}
-                        placeholder="opcionális részletek"
-                        disabled={saving}
-                        rows={3}
-                        style={inputStyle}
-                    />
-                </label>
-
-                {error ? (
-                    <div
-                        className="glass"
-                        style={{
-                            padding: 12,
-                            borderRadius: 16,
-                            border: "1px solid rgba(255,120,120,0.35)",
-                            background: "rgba(120,20,20,0.22)",
-                        }}
-                    >
-                        <div style={{ fontWeight: 800, marginBottom: 6 }}>Hiba</div>
-                        <div className="muted">{error}</div>
+            <form id="attelepites-urlap" onSubmit={submit}>
+                <FieldGroup>
+                    {/* Honnan → hová */}
+                    <div className="grid items-end gap-3 sm:grid-cols-[1fr_auto_1fr]">
+                        <Field>
+                            <FieldLabel htmlFor="attelepites-forras">Honnan</FieldLabel>
+                            <Input id="attelepites-forras" value={forrasNev} readOnly tabIndex={-1} className="bg-muted font-medium" />
+                        </Field>
+                        <ArrowRight className="mx-auto mb-3 hidden size-4 text-muted-foreground sm:block" aria-hidden="true" />
+                        <Field>
+                            <FieldLabel htmlFor="attelepites-cel">Hová</FieldLabel>
+                            <NativeSelect
+                                id="attelepites-cel"
+                                value={celToId}
+                                onChange={(e) => setCelToId(Number(e.target.value))}
+                                disabled={loading || saving || toak.length === 0}
+                            >
+                                {toak.length === 0 ? (
+                                    <NativeSelectOption value={0}>{loading ? "Betöltés…" : "Nincs választható cél"}</NativeSelectOption>
+                                ) : (
+                                    toak.map((t) => (
+                                        <NativeSelectOption key={t.azonosito} value={t.azonosito}>
+                                            {t.nev} ({toTipusCimke(t.tipus)})
+                                        </NativeSelectOption>
+                                    ))
+                                )}
+                            </NativeSelect>
+                        </Field>
                     </div>
-                ) : null}
 
-                <div className="muted" style={{ fontSize: 12 }}>
-                    Megjegyzés: áttelepítést csak ADMIN/OWNER tud rögzíteni.
-                </div>
-            </div>
-        </GlassModal>
+                    <div className="grid gap-4 sm:grid-cols-2">
+                        <Field>
+                            <FieldLabel htmlFor="attelepites-halfaj">Halfaj</FieldLabel>
+                            <NativeSelect
+                                id="attelepites-halfaj"
+                                value={halfajId}
+                                onChange={(e) => setHalfajId(Number(e.target.value))}
+                                disabled={loading || saving || halfajok.length === 0}
+                            >
+                                {halfajok.length === 0 ? (
+                                    <NativeSelectOption value={0}>{loading ? "Betöltés…" : "Nincs halfaj"}</NativeSelectOption>
+                                ) : (
+                                    halfajok.map((h) => {
+                                        const db = allomany.find((a) => a.halfajId === h.azonosito)?.darab ?? 0;
+                                        return (
+                                            <NativeSelectOption key={h.azonosito} value={h.azonosito}>
+                                                {h.nev} ({db.toLocaleString("hu-HU")} db)
+                                            </NativeSelectOption>
+                                        );
+                                    })
+                                )}
+                            </NativeSelect>
+                        </Field>
+                        <Field data-invalid={tulSok || undefined}>
+                            <FieldLabel htmlFor="attelepites-darab">Darabszám</FieldLabel>
+                            <MertekegysegesInput
+                                id="attelepites-darab"
+                                egyseg="db"
+                                inputMode="numeric"
+                                min={1}
+                                max={keszlet || undefined}
+                                step={1}
+                                placeholder="pl. 300"
+                                value={darab}
+                                onChange={(e) => setDarab(e.target.value)}
+                                disabled={saving}
+                                aria-invalid={tulSok || undefined}
+                                aria-describedby="attelepites-darab-sugo"
+                                required
+                            />
+                            <FieldDescription id="attelepites-darab-sugo">
+                                A forrás tóban: {keszlet.toLocaleString("hu-HU")} db
+                            </FieldDescription>
+                        </Field>
+                    </div>
+
+                    <Field>
+                        <FieldLabel htmlFor="attelepites-megjegyzes">Megjegyzés (opcionális)</FieldLabel>
+                        <Textarea
+                            id="attelepites-megjegyzes"
+                            value={megjegyzes}
+                            onChange={(e) => setMegjegyzes(e.target.value)}
+                            placeholder="Opcionális részletek"
+                            disabled={saving}
+                            rows={3}
+                        />
+                    </Field>
+
+                    <HibaAlert uzenet={error} />
+                </FieldGroup>
+            </form>
+        </Modal>
     );
 }

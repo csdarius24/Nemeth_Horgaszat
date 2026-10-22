@@ -2,11 +2,39 @@
 
 import { useEffect, useMemo, useState } from "react";
 import {
-    BarChart, Bar, XAxis, YAxis, CartesianGrid,
-    Tooltip, ResponsiveContainer, Cell, Legend,
-} from "recharts";
+    Activity,
+    BarChart3,
+    CheckCircle2,
+    Fish,
+    RefreshCw,
+    TriangleAlert,
+    Waves,
+    Wheat,
+} from "lucide-react";
+import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from "recharts";
 
-// ─── Tipusok ─────────────────────────────────────────────────────────────────
+import { cn } from "@/lib/utils";
+import { fmtSzam, GrafikonKartya, VizszintesOszlop } from "@/components/app/grafikonok";
+import { ESEMENY_CHART_CONFIG, esemenyMeta } from "@/components/app/esemenyek";
+import { fajChartConfig, useFajSzinek, type FajSzinek } from "@/components/app/fajSzinek";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardAction, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+    ChartContainer,
+    ChartLegend,
+    ChartLegendContent,
+    ChartTooltip,
+    ChartTooltipContent,
+} from "@/components/ui/chart";
+import { IconButton } from "@/components/ui/icon-button";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Skeleton } from "@/components/ui/skeleton";
+import { StatCard, StatGrid } from "@/components/ui/stat-card";
+import { EmptyState, ErrorState } from "@/components/ui/states";
+
+// ─── Típusok ─────────────────────────────────────────────────────────────────
 
 interface ToAllomany {
     azonosito: number;
@@ -24,13 +52,13 @@ type Riasztas = {
     eroforrasId?: number;
 };
 
-type LegutobbiEsemeny = {
+export type LegutobbiEsemeny = {
     azonosito: number;
     tipus: string;
     datum: string;
     leiras: string | null;
     darab: number | null;
-    mennyisegKg: any;
+    mennyisegKg: unknown;
     to: { azonosito: number; nev: string } | null;
     rogzitoNev: string | null;
 };
@@ -42,12 +70,12 @@ interface OsszesitoValasz {
         fajokSzama: number;
         fajonkent: Array<{ nev: string; darab: number }>;
     };
-    etetes: { napok: number; osszegKg: any; darab: number };
+    etetes: { napok: number; osszegKg: unknown; darab: number };
     esemenyEloszlas: Array<{ tipus: string; darab: number }>;
     aktivitasEsemenyek: Array<{ tipus: string; datum: string }>;
     tavakAllomany: ToAllomany[];
     days: number;
-    // Dashboard 2.0 — opcionalisak, hogy regi valasszal is mukodjon
+    // Dashboard 2.0 — opcionálisak, hogy régi válasszal is működjön
     takarmany?: {
         ossz: number;
         aktiv: number;
@@ -60,85 +88,18 @@ interface OsszesitoValasz {
     legutobbiEsemenyek?: LegutobbiEsemeny[];
 }
 
-// ─── Szinek ───────────────────────────────────────────────────────────────────
+const IDOSZAKOK = [7, 14, 30, 60, 90];
 
-const SZINEK = ["#d08a5b", "#b24b25", "#7a2a17", "#e8a878", "#c06535", "#4a1510", "#f0b080", "#903520"];
-const ESEMENY_SZIN: Record<string, string> = {
-    TELEPITES: "#d08a5b",
-    KIVETEL:   "#7a2a17",
-    ETETES:    "#b24b25",
-};
-const TOOLTIP_STILUS = {
-    contentStyle: {
-        background: "rgba(26,10,7,0.96)",
-        border: "1px solid rgba(255,255,255,0.18)",
-        borderRadius: 14,
-        color: "rgba(255,255,255,0.92)",
-        fontSize: 13,
-        boxShadow: "0 8px 32px rgba(0,0,0,0.5)",
-    },
-    itemStyle: { color: "rgba(255,255,255,0.85)" },
-    labelStyle: { color: "rgba(255,255,255,0.5)", marginBottom: 4 },
-    cursor: { fill: "rgba(255,255,255,0.05)" },
-};
-const TENGELY = {
-    stroke: "rgba(255,255,255,0.22)",
-    tick: { fill: "rgba(255,255,255,0.58)", fontSize: 12 },
-};
-const LEGEND_STILUS = { color: "rgba(255,255,255,0.65)", fontSize: 12, paddingTop: 8 };
+// ─── Segédek ─────────────────────────────────────────────────────────────────
 
-// ─── Segedly ──────────────────────────────────────────────────────────────────
 
-function fmtDecimal(x: any) {
-    const n = Number(String(x ?? 0).replace(",", "."));
-    return Number.isFinite(n) ? n.toLocaleString("hu-HU", { maximumFractionDigits: 2 }) : "-";
-}
+// ─── Figyelmeztetések ────────────────────────────────────────────────────────
 
-function esemenyNev(t: string) {
-    return t === "TELEPITES" ? "Telepites" : t === "KIVETEL" ? "Kivetel" : t === "ETETES" ? "Etetes" : t;
-}
-
-/** Tavak listajabol stacked bar chart adatot csinal.
- *  Pl.: [{ nev: "Nagy-to", Ponty: 150, Amur: 30 }, ...] */
-function tavakbaStacked(tavak: ToAllomany[], fajok: string[]) {
-    return tavak.map((t) => {
-        const sor: Record<string, any> = { nev: t.nev };
-        for (const faj of fajok) {
-            sor[faj] = t.allomany.find((a) => a.halfajNev === faj)?.darab ?? 0;
-        }
-        return sor;
-    });
-}
-
-// ─── KPI kartya ──────────────────────────────────────────────────────────────
-
-function KpiKartya({ cim, ertek, alcim, szin }: {
-    cim: string; ertek: string | number; alcim?: string; szin?: string;
-}) {
-    const accent = szin ?? "#d08a5b";
-    return (
-        <div className="glass card" style={{ borderLeft: `3px solid ${accent}`, position: "relative", overflow: "hidden" }}>
-            <div style={{
-                position: "absolute", inset: 0,
-                background: `radial-gradient(circle at top left, ${accent}12, transparent 65%)`,
-                pointerEvents: "none",
-            }} />
-            <div className="muted" style={{ fontSize: 11, letterSpacing: "0.1em", textTransform: "uppercase", fontWeight: 700 }}>
-                {cim}
-            </div>
-            <div style={{ fontSize: 30, fontWeight: 800, marginTop: 6, lineHeight: 1 }}>{ertek}</div>
-            {alcim && <div className="muted" style={{ marginTop: 6, fontSize: 12 }}>{alcim}</div>}
-        </div>
-    );
-}
-
-// ─── Riasztas panel (Dashboard 2.0) ──────────────────────────────────────────
-
-const SULYOSSAG_STILUS: Record<string, { szin: string; hatter: string; cimke: string }> = {
-    magas:    { szin: "#ff7a7a", hatter: "rgba(150,30,30,0.22)",  cimke: "Magas" },
-    kozepes:  { szin: "#ffa94d", hatter: "rgba(150,90,20,0.18)",  cimke: "Kozepes" },
-    alacsony: { szin: "#9fb8c8", hatter: "rgba(60,80,95,0.18)",   cimke: "Alacsony" },
-};
+const SULYOSSAG = {
+    magas: { cimke: "Sürgős", badge: "danger" },
+    kozepes: { cimke: "Közepes", badge: "warning" },
+    alacsony: { cimke: "Alacsony", badge: "secondary" },
+} as const;
 
 function RiasztasPanel({ riasztasok, kuszobok }: {
     riasztasok: Riasztas[];
@@ -146,246 +107,169 @@ function RiasztasPanel({ riasztasok, kuszobok }: {
 }) {
     const [mindMutat, setMindMutat] = useState(false);
     const LATHATO = 4;
-    const lathatok = mindMutat ? riasztasok : riasztasok.slice(0, LATHATO);
 
     if (riasztasok.length === 0) {
         return (
-            <div className="glass card" style={{ borderLeft: "3px solid #6bcb77" }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                    <span style={{ fontSize: 18 }}>&#10003;</span>
-                    <div>
-                        <div style={{ fontWeight: 700 }}>Nincs aktiv figyelmeztetes</div>
-                        <div className="muted" style={{ fontSize: 12, marginTop: 2 }}>
-                            Nincs elfogyott/alacsony takarmany, ures allomanyu vagy regota inaktiv to.
-                        </div>
-                    </div>
-                </div>
-            </div>
+            <Alert variant="success">
+                <CheckCircle2 />
+                <AlertTitle>Nincs aktív figyelmeztetés</AlertTitle>
+                <AlertDescription>
+                    Nincs elfogyott vagy alacsony takarmány, üres állományú vagy régóta inaktív tó.
+                </AlertDescription>
+            </Alert>
         );
     }
 
+    const lathatok = mindMutat ? riasztasok : riasztasok.slice(0, LATHATO);
     const magasSzam = riasztasok.filter((r) => r.sulyossag === "magas").length;
 
     return (
-        <div className="glass card" style={{ borderLeft: `3px solid ${magasSzam > 0 ? "#ff7a7a" : "#ffa94d"}` }}>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, marginBottom: 12, flexWrap: "wrap" }}>
-                <h3 className="h2">Figyelmeztetesek</h3>
-                <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                    <span className="badge">{riasztasok.length} tetel</span>
-                    {magasSzam > 0 && (
-                        <span className="badge" style={{ background: "rgba(150,30,30,0.3)", color: "#ff9d9d" }}>
-                            {magasSzam} surgos
-                        </span>
-                    )}
-                </div>
-            </div>
-
-            <div style={{ display: "grid", gap: 8 }}>
-                {lathatok.map((r, i) => {
-                    const s = SULYOSSAG_STILUS[r.sulyossag] ?? SULYOSSAG_STILUS.alacsony;
-                    return (
-                        <div
-                            key={`${r.kod}-${r.eroforrasId ?? i}`}
-                            style={{
-                                display: "flex", gap: 10, alignItems: "flex-start",
-                                padding: "10px 12px", borderRadius: 12,
-                                background: s.hatter,
-                                border: `1px solid ${s.szin}44`,
-                            }}
-                        >
-                            <span style={{
-                                flexShrink: 0, marginTop: 2, fontSize: 10, fontWeight: 800,
-                                letterSpacing: "0.06em", textTransform: "uppercase",
-                                color: s.szin, border: `1px solid ${s.szin}66`,
-                                borderRadius: 999, padding: "2px 8px",
-                            }}>
-                                {s.cimke}
-                            </span>
-                            <div style={{ minWidth: 0 }}>
-                                <div style={{ fontWeight: 700, fontSize: 14 }}>{r.cim}</div>
-                                <div className="muted" style={{ fontSize: 12, marginTop: 2 }}>{r.reszlet}</div>
-                            </div>
-                        </div>
-                    );
-                })}
-            </div>
-
-            {riasztasok.length > LATHATO && (
-                <button
-                    className="btn"
-                    style={{ marginTop: 10, fontSize: 12 }}
-                    onClick={() => setMindMutat((v) => !v)}
-                >
-                    {mindMutat ? "Kevesebb" : `Tovabbi ${riasztasok.length - LATHATO} megjelenitese`}
-                </button>
-            )}
-
-            {kuszobok && (
-                <div className="muted" style={{ fontSize: 11, marginTop: 10 }}>
-                    Szabalyok: takarmany &lt; {kuszobok.alacsonyKeszlet} egyseg = alacsony &bull;{" "}
-                    {kuszobok.inaktivToNapok} napja nincs muvelet = inaktiv to. Vizminoseg-alapu
-                    riasztas meg nincs (kulon modul).
-                </div>
-            )}
-        </div>
-    );
-}
-
-// ─── Legutobbi tevekenysegek (actorral) ──────────────────────────────────────
-
-function LegutobbiLista({ esemenyek }: { esemenyek: LegutobbiEsemeny[] }) {
-    if (esemenyek.length === 0) {
-        return (
-            <div className="glass card">
-                <h3 className="h2" style={{ marginBottom: 8 }}>Legutobbi tevekenysegek</h3>
-                <div className="muted">Meg nincs naplozott muvelet.</div>
-            </div>
-        );
-    }
-
-    return (
-        <div className="glass card">
-            <h3 className="h2" style={{ marginBottom: 14 }}>Legutobbi tevekenysegek</h3>
-            <div style={{ display: "grid", gap: 8 }}>
-                {esemenyek.map((e) => {
-                    const szin = ESEMENY_SZIN[e.tipus] ?? "#d08a5b";
-                    return (
-                        <div
-                            key={e.azonosito}
-                            style={{
-                                display: "flex", gap: 12, alignItems: "flex-start",
-                                padding: "10px 12px", borderRadius: 12,
-                                background: "rgba(255,255,255,0.03)",
-                                borderLeft: `3px solid ${szin}`,
-                            }}
-                        >
-                            <div style={{ minWidth: 0, flex: 1 }}>
-                                <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-                                    <span style={{
-                                        fontSize: 11, fontWeight: 800, color: szin,
-                                        textTransform: "uppercase", letterSpacing: "0.06em",
-                                    }}>
-                                        {esemenyNev(e.tipus)}
-                                    </span>
-                                    {e.to?.nev && <span className="muted" style={{ fontSize: 12 }}>&bull; {e.to.nev}</span>}
-                                </div>
-                                {e.leiras && (
-                                    <div style={{ fontSize: 13, marginTop: 3, overflow: "hidden", textOverflow: "ellipsis" }}>
-                                        {e.leiras}
-                                    </div>
+        <Card>
+            <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                    <TriangleAlert className={cn("size-5", magasSzam > 0 ? "text-destructive" : "text-warning")} aria-hidden="true" />
+                    Figyelmeztetések
+                </CardTitle>
+                <CardAction className="flex gap-2">
+                    {magasSzam > 0 && <Badge variant="danger">{magasSzam} sürgős</Badge>}
+                    <Badge variant="secondary">{riasztasok.length} tétel</Badge>
+                </CardAction>
+            </CardHeader>
+            <CardContent className="space-y-3">
+                <ul className="grid gap-2 md:grid-cols-2">
+                    {lathatok.map((r, i) => {
+                        const s = SULYOSSAG[r.sulyossag] ?? SULYOSSAG.alacsony;
+                        return (
+                            <li
+                                key={`${r.kod}-${r.eroforrasId ?? i}`}
+                                className={cn(
+                                    "flex items-start gap-3 rounded-lg border p-3",
+                                    r.sulyossag === "magas" && "border-destructive/25 bg-destructive/5",
+                                    r.sulyossag === "kozepes" && "border-warning/30 bg-warning/5"
                                 )}
-                                <div className="muted" style={{ fontSize: 11, marginTop: 4 }}>
-                                    {new Date(e.datum).toLocaleString("hu-HU", {
-                                        year: "numeric", month: "2-digit", day: "2-digit",
-                                        hour: "2-digit", minute: "2-digit",
-                                    })}
-                                    {" • "}
-                                    {e.rogzitoNev
-                                        ? <>Rogzitette: <strong style={{ color: "rgba(255,255,255,0.8)" }}>{e.rogzitoNev}</strong></>
-                                        : <span style={{ opacity: 0.7 }}>Rogzito: nincs adat</span>}
+                            >
+                                <Badge variant={s.badge} className="mt-0.5">{s.cimke}</Badge>
+                                <div className="min-w-0">
+                                    <p className="text-sm font-semibold">{r.cim}</p>
+                                    <p className="text-xs text-muted-foreground">{r.reszlet}</p>
                                 </div>
-                            </div>
-                        </div>
-                    );
-                })}
-            </div>
-            <div className="muted" style={{ fontSize: 11, marginTop: 10 }}>
-                A &bdquo;Rogzitette&rdquo; a bejelentkezett felhasznalobol szarmazik. A korabbi
-                (actor bevezetese elotti) esemenyeknel nincs adat.
-            </div>
-        </div>
+                            </li>
+                        );
+                    })}
+                </ul>
+
+                {riasztasok.length > LATHATO && (
+                    <Button variant="outline" size="sm" onClick={() => setMindMutat((v) => !v)} aria-expanded={mindMutat}>
+                        {mindMutat ? "Kevesebb" : `További ${riasztasok.length - LATHATO} megjelenítése`}
+                    </Button>
+                )}
+
+                {kuszobok && (
+                    <p className="text-xs text-muted-foreground">
+                        Szabályok: takarmány &lt; {kuszobok.alacsonyKeszlet} egység = alacsony •{" "}
+                        {kuszobok.inaktivToNapok} napja nincs művelet = inaktív tó. Vízminőség-alapú riasztás még nincs.
+                    </p>
+                )}
+            </CardContent>
+        </Card>
     );
 }
 
-// ─── Tavak allomany chart (stacked) ──────────────────────────────────────────
-
-function TavakAllomanyChart({ tavak, cim, szin }: {
-    tavak: ToAllomany[];
-    cim: string;
-    szin: string;
-}) {
-    // Egyedi halfajok az adott tav tipusan belul
+/** Halállomány tavanként — halfajonként halmozott oszlopok. */
+function TavakAllomanyChart({ tavak, cim, szinek }: { tavak: ToAllomany[]; cim: string; szinek: FajSzinek }) {
     const fajok = useMemo(() => {
         const set = new Set<string>();
         for (const t of tavak) for (const a of t.allomany) set.add(a.halfajNev);
-        return [...set].sort();
+        return [...set].sort((a, b) => a.localeCompare(b, "hu"));
     }, [tavak]);
 
-    const grafikonAdat = useMemo(() => tavakbaStacked(tavak, fajok), [tavak, fajok]);
+    const config = useMemo(() => fajChartConfig(fajok, szinek), [fajok, szinek]);
+
+    const adat = useMemo(
+        () => tavak.map((t) => {
+            const sor: Record<string, string | number> = { nev: t.nev };
+            for (const faj of fajok) {
+                const kulcs = szinek.get(faj)?.kulcs;
+                if (kulcs) sor[kulcs] = t.allomany.find((a) => a.halfajNev === faj)?.darab ?? 0;
+            }
+            return sor;
+        }),
+        [tavak, fajok, szinek]
+    );
 
     const osszDarab = tavak.reduce((s, t) => s + t.allomany.reduce((ss, a) => ss + a.darab, 0), 0);
 
-    if (tavak.length === 0) {
-        return (
-            <div className="glass card" style={{ borderLeft: `3px solid ${szin}80` }}>
-                <h3 className="h2" style={{ marginBottom: 8 }}>{cim}</h3>
-                <div className="muted">Nincsenek ilyen tipusu tavak.</div>
-            </div>
-        );
-    }
-
-    if (osszDarab === 0) {
-        return (
-            <div className="glass card" style={{ borderLeft: `3px solid ${szin}80` }}>
-                <h3 className="h2" style={{ marginBottom: 8 }}>{cim}</h3>
-                <div className="muted">
-                    {tavak.length} to / telelo van, de meg nincs rogzitett halallomany.
-                </div>
-            </div>
-        );
-    }
-
-    const chartMagassag = Math.max(180, tavak.length * 52);
+    if (tavak.length === 0) return null;
 
     return (
-        <div className="glass card" style={{ borderLeft: `3px solid ${szin}80` }}>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, marginBottom: 16, flexWrap: "wrap" }}>
-                <h3 className="h2">{cim}</h3>
-                <div style={{ display: "flex", gap: 8 }}>
-                    <span className="badge">{tavak.length} egyseg</span>
-                    <span className="badge">{osszDarab} db hal</span>
-                </div>
-            </div>
+        <GrafikonKartya
+            cim={cim}
+            leiras={
+                osszDarab === 0
+                    ? `${tavak.length} egység, még nincs rögzített halállomány.`
+                    : `${tavak.length} egység · ${osszDarab.toLocaleString("hu-HU")} db hal`
+            }
+        >
+            {osszDarab > 0 && (
+                <ChartContainer config={config} className="aspect-auto w-full" style={{ height: Math.max(180, tavak.length * 48) }}>
+                    <BarChart data={adat} layout="vertical" margin={{ left: 0, right: 16 }}>
+                        <CartesianGrid horizontal={false} />
+                        <XAxis type="number" allowDecimals={false} tickLine={false} axisLine={false} />
+                        <YAxis dataKey="nev" type="category" width={96} tickLine={false} axisLine={false} />
+                        <ChartTooltip content={<ChartTooltipContent />} />
+                        <ChartLegend content={<ChartLegendContent />} />
+                        {fajok.map((faj, i) => {
+                            const kulcs = szinek.get(faj)?.kulcs ?? faj;
+                            return (
+                                <Bar
+                                    key={kulcs}
+                                    dataKey={kulcs}
+                                    stackId="allomany"
+                                    fill={`var(--color-${kulcs})`}
+                                    radius={i === fajok.length - 1 ? [0, 6, 6, 0] : 0}
+                                    maxBarSize={32}
+                                />
+                            );
+                        })}
+                    </BarChart>
+                </ChartContainer>
+            )}
+        </GrafikonKartya>
+    );
+}
 
-            <ResponsiveContainer width="100%" height={chartMagassag}>
-                <BarChart
-                    data={grafikonAdat}
-                    layout="vertical"
-                    margin={{ top: 0, right: 20, bottom: 0, left: 0 }}
-                >
-                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.07)" horizontal={false} />
-                    <XAxis type="number" allowDecimals={false} stroke={TENGELY.stroke} tick={TENGELY.tick} />
-                    <YAxis
-                        dataKey="nev"
-                        type="category"
-                        stroke={TENGELY.stroke}
-                        tick={TENGELY.tick}
-                        width={100}
-                    />
-                    <Tooltip
-                        {...TOOLTIP_STILUS}
-                        formatter={(v: any, name: any) => [`${v} db`, String(name)]}
-                    />
-                    <Legend wrapperStyle={LEGEND_STILUS} />
-                    {fajok.map((faj, i) => (
-                        <Bar
-                            key={faj}
-                            dataKey={faj}
-                            stackId="allomany"
-                            fill={SZINEK[i % SZINEK.length]}
-                            radius={i === fajok.length - 1 ? [0, 6, 6, 0] : [0, 0, 0, 0]}
-                            maxBarSize={36}
-                        />
-                    ))}
-                </BarChart>
-            </ResponsiveContainer>
+// ─── Betöltés váz ────────────────────────────────────────────────────────────
+
+function StatVaz() {
+    return (
+        <div className="grid gap-4" role="status" aria-label="Statisztikák betöltése">
+            <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-3 xl:grid-cols-5">
+                {Array.from({ length: 5 }).map((_, i) => (
+                    <Skeleton key={i} className="h-[104px] rounded-2xl" />
+                ))}
+            </div>
+            <Skeleton className="h-28 rounded-2xl" />
+            <div className="grid gap-4 lg:grid-cols-2">
+                <Skeleton className="h-64 rounded-2xl" />
+                <Skeleton className="h-64 rounded-2xl" />
+            </div>
         </div>
     );
 }
 
-// ─── Fo komponens ─────────────────────────────────────────────────────────────
+// ─── Fő komponens ────────────────────────────────────────────────────────────
 
-export default function HalaszatStatClient({ hid }: { hid: string }) {
+export default function HalaszatStatClient({
+    hid,
+    frissites = 0,
+    onLegutobbiEsemenyek,
+}: {
+    hid: string;
+    /** Ha változik, újratölt (pl. új tó létrehozása után). */
+    frissites?: number;
+    /** A „Legutóbbi tevékenységek” kártya a szülőben van — ide adjuk át az adatot. */
+    onLegutobbiEsemenyek?: (esemenyek: LegutobbiEsemeny[] | null) => void;
+}) {
     const [days, setDays] = useState(30);
     const [data, setData] = useState<OsszesitoValasz | null>(null);
     const [loading, setLoading] = useState(true);
@@ -397,41 +281,52 @@ export default function HalaszatStatClient({ hid }: { hid: string }) {
         try {
             const res = await fetch(`/api/halaszatok/${hid}/osszesito?days=${d}`, { cache: "no-store" });
             const json = await res.json().catch(() => null);
-            if (!res.ok) throw new Error(json?.error ?? "Betoltesi hiba.");
+            if (!res.ok) throw new Error(json?.error ?? "Betöltési hiba.");
             setData(json);
-        } catch (e: any) {
-            setHiba(e?.message ?? "Ismeretlen hiba.");
+            onLegutobbiEsemenyek?.(json?.legutobbiEsemenyek ?? null);
+        } catch (e) {
+            setHiba(e instanceof Error ? e.message : "Ismeretlen hiba.");
+            onLegutobbiEsemenyek?.(null);
         } finally {
             setLoading(false);
         }
     }
 
-    useEffect(() => { void betolt(); }, [hid]); // eslint-disable-line react-hooks/exhaustive-deps
+    useEffect(() => { void betolt(); }, [hid, frissites]); // eslint-disable-line react-hooks/exhaustive-deps
 
     // ── Grafikon adatok ───────────────────────────────────────────────────────
 
-    // Esemeny eloszlas → vizszintes bar (olvashatobb mint a pie)
-    const esemenyBarAdat = useMemo(() =>
-        (data?.esemenyEloszlas ?? [])
-            .map((e) => ({ nev: esemenyNev(e.tipus), darab: e.darab, originalTipus: e.tipus }))
-            .sort((a, b) => b.darab - a.darab),
+    const fajSzinek = useFajSzinek(hid, [
+        ...(data?.halallomany.fajonkent ?? []).map((f) => f.nev),
+        ...(data?.tavakAllomany ?? []).flatMap((t) => t.allomany.map((a) => a.halfajNev)),
+    ]);
+
+    const fajAdat = useMemo(
+        () => (data?.halallomany.fajonkent ?? []).map((f) => {
+            const kulcs = fajSzinek.get(f.nev)?.kulcs ?? f.nev;
+            return { nev: f.nev, ertek: f.darab, kulcs, fill: `var(--color-${kulcs})` };
+        }),
+        [data, fajSzinek]
+    );
+    const fajokConfig = useMemo(() => fajChartConfig(fajAdat.map((f) => f.nev), fajSzinek), [fajAdat, fajSzinek]);
+
+    const esemenyAdat = useMemo(
+        () => (data?.esemenyEloszlas ?? [])
+            .map((e) => ({ nev: esemenyMeta(e.tipus).cimke, ertek: e.darab, kulcs: e.tipus, fill: `var(--color-${e.tipus})` }))
+            .sort((a, b) => b.ertek - a.ertek),
         [data]
     );
 
-    // Aktivitas trend
     const aktivitasAdat = useMemo(() => {
-        const napok: Record<string, { nap: string; Telepites: number; Kivetel: number; Etetes: number }> = {};
+        const napok: Record<string, { nap: string; TELEPITES: number; KIVETEL: number; ETETES: number }> = {};
         for (const e of data?.aktivitasEsemenyek ?? []) {
             const nap = new Date(e.datum).toLocaleDateString("hu-HU", { month: "short", day: "numeric" });
-            if (!napok[nap]) napok[nap] = { nap, Telepites: 0, Kivetel: 0, Etetes: 0 };
-            if (e.tipus === "TELEPITES") napok[nap].Telepites++;
-            else if (e.tipus === "KIVETEL") napok[nap].Kivetel++;
-            else if (e.tipus === "ETETES") napok[nap].Etetes++;
+            if (!napok[nap]) napok[nap] = { nap, TELEPITES: 0, KIVETEL: 0, ETETES: 0 };
+            if (e.tipus === "TELEPITES" || e.tipus === "KIVETEL" || e.tipus === "ETETES") napok[nap][e.tipus]++;
         }
         return Object.values(napok);
     }, [data]);
 
-    // Etetesi trend (kg/nap) — a nyers YYYY-MM-DD kulcsbol olvashato cimke
     const etetesTrendAdat = useMemo(
         () => (data?.etetesTrend ?? []).map((e) => ({
             cimke: new Date(e.nap + "T00:00:00").toLocaleDateString("hu-HU", { month: "short", day: "numeric" }),
@@ -440,36 +335,52 @@ export default function HalaszatStatClient({ hid }: { hid: string }) {
         [data]
     );
 
-    // Tavak tipus szerint szzetvalasztva
-    const toTavak = useMemo(
-        () => (data?.tavakAllomany ?? []).filter((t) => t.tipus === "TO"),
-        [data]
-    );
-    const telelоTavak = useMemo(
-        () => (data?.tavakAllomany ?? []).filter((t) => t.tipus === "TELELO"),
-        [data]
-    );
+    const toTavak = useMemo(() => (data?.tavakAllomany ?? []).filter((t) => t.tipus === "TO"), [data]);
+    const teleloTavak = useMemo(() => (data?.tavakAllomany ?? []).filter((t) => t.tipus === "TELELO"), [data]);
 
     // ── Render ────────────────────────────────────────────────────────────────
 
-    if (loading) {
-        return (
-            <div className="glass card" style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                <div style={{
-                    width: 16, height: 16, borderRadius: "50%",
-                    border: "2px solid rgba(255,255,255,0.2)", borderTopColor: "#d08a5b",
-                    animation: "spin 0.8s linear infinite",
-                }} />
-                <span className="muted">Statisztikak betoltese...</span>
+    const fejlec = (
+        <div className="flex flex-wrap items-end justify-between gap-3">
+            <div>
+                <h2 className="text-lg font-bold">Összesítő</h2>
+                <p className="text-sm text-muted-foreground">Az összes tó aggregált adatai a választott időszakra.</p>
             </div>
-        );
+            <div className="flex items-center gap-2">
+                <Select
+                    value={String(days)}
+                    onValueChange={(v) => { const d = Number(v); setDays(d); void betolt(d); }}
+                >
+                    <SelectTrigger size="sm" className="w-36" aria-label="Időszak">
+                        <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent align="end">
+                        {IDOSZAKOK.map((n) => (
+                            <SelectItem key={n} value={String(n)}>Elmúlt {n} nap</SelectItem>
+                        ))}
+                    </SelectContent>
+                </Select>
+                <IconButton
+                    label="Frissítés"
+                    icon={<RefreshCw className={cn(loading && "animate-spin")} />}
+                    variant="outline"
+                    size="icon-sm"
+                    onClick={() => betolt()}
+                    disabled={loading}
+                />
+            </div>
+        </div>
+    );
+
+    if (loading && !data) {
+        return <div className="grid gap-4">{fejlec}<StatVaz /></div>;
     }
 
     if (hiba) {
         return (
-            <div className="glass card" style={{ borderColor: "rgba(255,120,120,0.3)", background: "rgba(100,20,20,0.2)" }}>
-                <div style={{ fontWeight: 700, marginBottom: 4 }}>Hiba a statisztikak betoltesekor</div>
-                <div className="muted">{hiba}</div>
+            <div className="grid gap-4">
+                {fejlec}
+                <ErrorState title="Nem sikerült betölteni a statisztikákat" message={hiba} onRetry={() => betolt()} />
             </div>
         );
     }
@@ -477,208 +388,100 @@ export default function HalaszatStatClient({ hid }: { hid: string }) {
     if (!data) return null;
 
     const vanAdat = data.halallomany.osszDarab > 0 || data.esemenyEloszlas.length > 0;
+    const osszEsemeny = data.esemenyEloszlas.reduce((s, e) => s + e.darab, 0);
 
     return (
-        <div style={{ display: "grid", gap: 18 }}>
+        <div className={cn("grid gap-4 transition-opacity", loading && "opacity-60")} aria-busy={loading}>
+            {fejlec}
 
-            {/* ── Fejlec + szuro ── */}
-            <div className="glass card" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
-                <div>
-                    <h2 className="h2">Halaszat osszesito</h2>
-                    <div className="muted" style={{ marginTop: 4 }}>
-                        Osszes to aggregalt adatai &bull; elmult {data.days} nap
-                    </div>
-                </div>
-                <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
-                    <label className="muted" style={{ fontSize: 13 }}>
-                        Idoszak:
-                        <select
-                            value={days}
-                            onChange={(e) => { const d = Number(e.target.value); setDays(d); void betolt(d); }}
-                            style={{
-                                marginLeft: 8, padding: "6px 10px", borderRadius: 12,
-                                border: "1px solid rgba(255,255,255,0.14)",
-                                background: "rgba(0,0,0,0.18)", color: "rgba(255,255,255,0.9)",
-                                outline: "none", fontSize: 13,
-                            }}
-                        >
-                            <option value={7}>7 nap</option>
-                            <option value={14}>14 nap</option>
-                            <option value={30}>30 nap</option>
-                            <option value={60}>60 nap</option>
-                            <option value={90}>90 nap</option>
-                        </select>
-                    </label>
-                    <button className="btn" style={{ fontSize: 12 }} onClick={() => betolt()}>&#8635;</button>
-                </div>
-            </div>
-
-            {/* ── KPI kartyak ── */}
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(170px, 1fr))", gap: 12 }}>
-                <KpiKartya cim="Osszes to" ertek={data.toak.ossz} alcim={`${data.toak.aktiv} aktiv`} szin="#d08a5b" />
-                <KpiKartya cim="Ossz hal" ertek={`${data.halallomany.osszDarab} db`} alcim={`${data.halallomany.fajokSzama} halfaj`} szin="#b24b25" />
-                <KpiKartya cim={`Etetes (${data.days} nap)`} ertek={`${fmtDecimal(data.etetes.osszegKg)} kg`} alcim={`${data.etetes.darab} bejegyzes`} szin="#7a2a17" />
+            {/* KPI kártyák */}
+            <StatGrid className="lg:grid-cols-3 xl:grid-cols-5">
+                <StatCard cim="Tavak" ertek={data.toak.ossz} alcim={`${data.toak.aktiv} aktív`} ikon={Waves} />
+                <StatCard
+                    cim="Halállomány"
+                    ertek={`${data.halallomany.osszDarab.toLocaleString("hu-HU")} db`}
+                    alcim={`${data.halallomany.fajokSzama} halfaj`}
+                    ikon={Fish}
+                    tonus="info"
+                />
+                <StatCard
+                    cim="Etetés"
+                    ertek={`${fmtSzam(data.etetes.osszegKg)} kg`}
+                    alcim={`${data.etetes.darab} bejegyzés · ${data.days} nap`}
+                    ikon={BarChart3}
+                    tonus="success"
+                />
                 {data.takarmany && (
-                    <KpiKartya
-                        cim="Takarmanykeszlet"
-                        ertek={fmtDecimal(data.takarmany.osszKeszlet)}
-                        alcim={`${data.takarmany.aktiv} aktiv takarmany`}
-                        szin="#4caf50"
+                    <StatCard
+                        cim="Takarmánykészlet"
+                        ertek={fmtSzam(data.takarmany.osszKeszlet)}
+                        alcim={`${data.takarmany.aktiv} aktív takarmány`}
+                        ikon={Wheat}
+                        tonus="warning"
                     />
                 )}
-                <KpiKartya cim="Ossz esemeny" ertek={data.esemenyEloszlas.reduce((s, e) => s + e.darab, 0)} alcim="naplozott muveletek" szin="#c06535" />
-            </div>
+                <StatCard cim="Események" ertek={osszEsemeny} alcim="naplózott műveletek" ikon={Activity} />
+            </StatGrid>
 
-            {/* ── Riasztasok (Dashboard 2.0) ── */}
-            {data.riasztasok && (
-                <RiasztasPanel riasztasok={data.riasztasok} kuszobok={data.riasztasKuszobok} />
-            )}
+            {/* Figyelmeztetések */}
+            {data.riasztasok && <RiasztasPanel riasztasok={data.riasztasok} kuszobok={data.riasztasKuszobok} />}
 
-            {/* ── Nincs adat placeholder ── */}
             {!vanAdat && (
-                <div className="glass card" style={{ textAlign: "center", padding: "32px 16px" }}>
-                    <div style={{ fontSize: 32, marginBottom: 12 }}>&#127907;</div>
-                    <div style={{ fontWeight: 700, marginBottom: 6 }}>Meg nincs adat a grafikonokhoz</div>
-                    <div className="muted">Hozz letre tavakat, telepits halakat, es itt megjelennek az osszesitok.</div>
-                </div>
+                <EmptyState
+                    icon={<BarChart3 />}
+                    title="Még nincs adat a grafikonokhoz"
+                    description="Hozz létre tavakat és rögzíts telepítést – itt jelennek meg az összesítők."
+                />
             )}
 
             {vanAdat && (
-                <>
-                    {/* ── Halallomany + Esemeny eloszlas ── */}
-                    <div className="grid-2">
-
-                        {/* Halallomany fajok szerint (osszes to) */}
-                        {data.halallomany.fajonkent.length > 0 && (
-                            <div className="glass card">
-                                <h3 className="h2" style={{ marginBottom: 16 }}>Halallomany &mdash; osszes to</h3>
-                                <ResponsiveContainer width="100%" height={Math.max(160, data.halallomany.fajonkent.length * 52)}>
-                                    <BarChart
-                                        data={data.halallomany.fajonkent}
-                                        layout="vertical"
-                                        margin={{ top: 0, right: 20, bottom: 0, left: 0 }}
-                                    >
-                                        <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.07)" horizontal={false} />
-                                        <XAxis type="number" allowDecimals={false} stroke={TENGELY.stroke} tick={TENGELY.tick} />
-                                        <YAxis dataKey="nev" type="category" stroke={TENGELY.stroke} tick={TENGELY.tick} width={90} />
-                                        <Tooltip
-                                            {...TOOLTIP_STILUS}
-                                            formatter={(v: any) => [`${v} db`, "Darabszam"] as [string, string]}
-                                        />
-                                        <Bar dataKey="darab" name="Darab" radius={[0, 8, 8, 0]} maxBarSize={38}>
-                                            {data.halallomany.fajonkent.map((_, i) => (
-                                                <Cell key={i} fill={SZINEK[i % SZINEK.length]} />
-                                            ))}
-                                        </Bar>
-                                    </BarChart>
-                                </ResponsiveContainer>
-                            </div>
-                        )}
-
-                        {/* Esemeny eloszlas — vizszintes bar (jobb olvashatosag) */}
-                        {esemenyBarAdat.length > 0 && (
-                            <div className="glass card">
-                                <h3 className="h2" style={{ marginBottom: 16 }}>Esemeny eloszlas</h3>
-                                <ResponsiveContainer width="100%" height={Math.max(160, esemenyBarAdat.length * 70)}>
-                                    <BarChart
-                                        data={esemenyBarAdat}
-                                        layout="vertical"
-                                        margin={{ top: 0, right: 40, bottom: 0, left: 0 }}
-                                    >
-                                        <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.07)" horizontal={false} />
-                                        <XAxis type="number" allowDecimals={false} stroke={TENGELY.stroke} tick={TENGELY.tick} />
-                                        <YAxis
-                                            dataKey="nev"
-                                            type="category"
-                                            stroke={TENGELY.stroke}
-                                            tick={{ fill: "rgba(255,255,255,0.75)", fontSize: 13, fontWeight: 600 }}
-                                            width={80}
-                                        />
-                                        <Tooltip
-                                            {...TOOLTIP_STILUS}
-                                            formatter={(v: any) => [`${v} db`, "Esemeny"] as [string, string]}
-                                        />
-                                        <Bar dataKey="darab" name="Esemenyek" radius={[0, 10, 10, 0]} maxBarSize={44} label={{
-                                            position: "right",
-                                            fill: "rgba(255,255,255,0.7)",
-                                            fontSize: 13,
-                                            fontWeight: 700,
-                                            formatter: (v: any) => `${v} db`,
-                                        }}>
-                                            {esemenyBarAdat.map((e, i) => (
-                                                <Cell key={i} fill={ESEMENY_SZIN[e.originalTipus] ?? SZINEK[i % SZINEK.length]} />
-                                            ))}
-                                        </Bar>
-                                    </BarChart>
-                                </ResponsiveContainer>
-                            </div>
-                        )}
-                    </div>
-
-                    {/* ── Tavak allomany (TO tipus) ── */}
-                    <TavakAllomanyChart
-                        tavak={toTavak}
-                        cim="Halallomany tavankent — Tavak"
-                        szin="#d08a5b"
-                    />
-
-                    {/* ── Tavak allomany (TELELO tipus) ── */}
-                    <TavakAllomanyChart
-                        tavak={telelоTavak}
-                        cim="Halallomany tavankent — Telelo tavak"
-                        szin="#7a2a17"
-                    />
-
-                    {/* ── Aktivitas trend ── */}
-                    {aktivitasAdat.length > 1 && (
-                        <div className="glass card">
-                            <h3 className="h2" style={{ marginBottom: 16 }}>
-                                Aktivitas trend &mdash; elmult {data.days} nap (osszes to)
-                            </h3>
-                            <ResponsiveContainer width="100%" height={200}>
-                                <BarChart data={aktivitasAdat} margin={{ top: 0, right: 16, bottom: 0, left: 0 }}>
-                                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.07)" vertical={false} />
-                                    <XAxis dataKey="nap" stroke={TENGELY.stroke} tick={TENGELY.tick} />
-                                    <YAxis stroke={TENGELY.stroke} tick={TENGELY.tick} allowDecimals={false} />
-                                    <Tooltip
-                                        {...TOOLTIP_STILUS}
-                                        formatter={(v: any, name: any) => [`${v} db`, String(name)]}
-                                    />
-                                    <Legend wrapperStyle={LEGEND_STILUS} />
-                                    <Bar dataKey="Telepites" fill={ESEMENY_SZIN.TELEPITES} radius={[4, 4, 0, 0]} maxBarSize={28} />
-                                    <Bar dataKey="Kivetel"   fill={ESEMENY_SZIN.KIVETEL}   radius={[4, 4, 0, 0]} maxBarSize={28} />
-                                    <Bar dataKey="Etetes"    fill={ESEMENY_SZIN.ETETES}    radius={[4, 4, 0, 0]} maxBarSize={28} />
-                                </BarChart>
-                            </ResponsiveContainer>
-                        </div>
+                <div className="grid gap-4 lg:grid-cols-2">
+                    {fajAdat.length > 0 && (
+                        <GrafikonKartya cim="Halállomány fajonként" leiras="Összes tó, darabszám">
+                            <VizszintesOszlop adat={fajAdat} config={fajokConfig} />
+                        </GrafikonKartya>
                     )}
 
-                    {/* ── Etetesi trend (kg/nap) — Dashboard 2.0 ── */}
+                    {esemenyAdat.length > 0 && (
+                        <GrafikonKartya cim="Események eloszlása" leiras={`Elmúlt ${data.days} nap`}>
+                            <VizszintesOszlop adat={esemenyAdat} config={ESEMENY_CHART_CONFIG} />
+                        </GrafikonKartya>
+                    )}
+
                     {etetesTrendAdat.length > 1 && (
-                        <div className="glass card" style={{ borderLeft: "3px solid #b24b2580" }}>
-                            <h3 className="h2" style={{ marginBottom: 16 }}>
-                                Etetesi trend &mdash; kg / nap (elmult {data.days} nap)
-                            </h3>
-                            <ResponsiveContainer width="100%" height={200}>
-                                <BarChart data={etetesTrendAdat} margin={{ top: 0, right: 16, bottom: 0, left: 0 }}>
-                                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.07)" vertical={false} />
-                                    <XAxis dataKey="cimke" stroke={TENGELY.stroke} tick={TENGELY.tick} />
-                                    <YAxis stroke={TENGELY.stroke} tick={TENGELY.tick} />
-                                    <Tooltip
-                                        {...TOOLTIP_STILUS}
-                                        formatter={(v: any) => [`${fmtDecimal(v)} kg`, "Etetes"] as [string, string]}
-                                    />
-                                    <Bar dataKey="kg" name="Etetes (kg)" fill={ESEMENY_SZIN.ETETES} radius={[4, 4, 0, 0]} maxBarSize={30} />
+                        <GrafikonKartya cim="Etetési trend" leiras={`kg / nap · elmúlt ${data.days} nap`}>
+                            <ChartContainer config={{ kg: { label: "Etetés (kg)", color: "var(--chart-2)" } }} className="aspect-auto h-56 w-full">
+                                <BarChart data={etetesTrendAdat} margin={{ left: -12, right: 8 }}>
+                                    <CartesianGrid vertical={false} />
+                                    <XAxis dataKey="cimke" tickLine={false} axisLine={false} minTickGap={16} />
+                                    <YAxis tickLine={false} axisLine={false} width={44} />
+                                    <ChartTooltip content={<ChartTooltipContent />} />
+                                    <Bar dataKey="kg" fill="var(--color-kg)" radius={[4, 4, 0, 0]} maxBarSize={28} />
                                 </BarChart>
-                            </ResponsiveContainer>
-                        </div>
+                            </ChartContainer>
+                        </GrafikonKartya>
                     )}
-                </>
-            )}
 
-            {/* ── Legutobbi tevekenysegek (actorral) — Dashboard 2.0 ── */}
-            {data.legutobbiEsemenyek && (
-                <LegutobbiLista esemenyek={data.legutobbiEsemenyek} />
+                    {aktivitasAdat.length > 1 && (
+                        <GrafikonKartya cim="Aktivitás" leiras={`Műveletek naponta · elmúlt ${data.days} nap`}>
+                            <ChartContainer config={ESEMENY_CHART_CONFIG} className="aspect-auto h-56 w-full">
+                                <BarChart data={aktivitasAdat} margin={{ left: -12, right: 8 }}>
+                                    <CartesianGrid vertical={false} />
+                                    <XAxis dataKey="nap" tickLine={false} axisLine={false} minTickGap={16} />
+                                    <YAxis tickLine={false} axisLine={false} allowDecimals={false} width={44} />
+                                    <ChartTooltip content={<ChartTooltipContent />} />
+                                    <ChartLegend content={<ChartLegendContent />} />
+                                    <Bar dataKey="TELEPITES" stackId="a" fill="var(--color-TELEPITES)" maxBarSize={28} />
+                                    <Bar dataKey="ETETES" stackId="a" fill="var(--color-ETETES)" maxBarSize={28} />
+                                    <Bar dataKey="KIVETEL" stackId="a" fill="var(--color-KIVETEL)" radius={[4, 4, 0, 0]} maxBarSize={28} />
+                                </BarChart>
+                            </ChartContainer>
+                        </GrafikonKartya>
+                    )}
+
+                    <TavakAllomanyChart tavak={toTavak} cim="Halállomány tavanként" szinek={fajSzinek} />
+                    <TavakAllomanyChart tavak={teleloTavak} cim="Halállomány telelőnként" szinek={fajSzinek} />
+                </div>
             )}
         </div>
     );

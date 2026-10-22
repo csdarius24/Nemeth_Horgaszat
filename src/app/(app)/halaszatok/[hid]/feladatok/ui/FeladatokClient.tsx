@@ -1,29 +1,24 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import {
-    FELADAT_SZINEK, ALAP_SZIN,
-    feladatStatuszCimke, feladatPrioritasCimke, hatralevoNap,
-} from "@/lib/feladatok/format";
+import { ClipboardList, Plus, Search, SearchX, X } from "lucide-react";
+
+import { cn } from "@/lib/utils";
+import { Tudnivalok } from "@/components/app/Tudnivalok";
+import { Button } from "@/components/ui/button";
+import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group";
+import { PageHeader } from "@/components/ui/page-header";
+import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Skeleton } from "@/components/ui/skeleton";
+import { EmptyState, ErrorState } from "@/components/ui/states";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+
+import { FeladatKartya } from "./FeladatKartya";
+import type { Feladat, Tag, ToOpcio } from "./feladat";
+import { UjFeladatModal } from "./UjFeladatModal";
 
 // ─── Típusok ─────────────────────────────────────────────────────────────────
-
-type Feladat = {
-    id: number;
-    cim: string;
-    leiras: string | null;
-    statusz: string;
-    prioritas: string;
-    szin: string | null;
-    hatarido: string | null;
-    elkeszultAt: string | null;
-    lejart: boolean;
-    toId: number | null;
-    toNev: string | null;
-    felelosFelhasznaloId: number | null;
-    felelosNev: string | null;
-    letrehozoNev: string | null;
-};
 
 type Valasz = {
     feladatok: Feladat[];
@@ -32,32 +27,18 @@ type Valasz = {
     viewerRole: "OWNER" | "ADMIN" | "STAFF";
 };
 
-type Tag = { azonosito: number; nev: string | null; email: string };
-type ToOpcio = { azonosito: number; nev: string };
+type DolgozoApiTetel = { felhasznalo: { azonosito: number; nev: string | null; email: string } };
 
-const STATUSZ_SZIN: Record<string, string> = {
-    UJ: "#64748b", FOLYAMATBAN: "#2563eb", KESZ: "#16a34a", ELHALASZTVA: "#f59e0b", TOROLVE: "#dc2626",
-};
-const PRIORITAS_SZIN: Record<string, string> = {
-    ALACSONY: "#64748b", NORMAL: "#0891b2", MAGAS: "#f59e0b", SURGOS: "#dc2626",
-};
+/** A Radix Select / ToggleGroup nem enged üres értéket, ezért ez jelöli a „mind” opciót. */
+const MIND = "mind";
 
 const SZUROK = [
-    { ertek: "", cimke: "Összes" },
+    { ertek: MIND, cimke: "Összes" },
     { ertek: "UJ", cimke: "Új" },
     { ertek: "FOLYAMATBAN", cimke: "Folyamatban" },
     { ertek: "KESZ", cimke: "Kész" },
     { ertek: "ELHALASZTVA", cimke: "Halasztva" },
 ] as const;
-
-const mezo: React.CSSProperties = {
-    padding: 9, borderRadius: 10, border: "1px solid rgba(255,255,255,0.14)",
-    background: "rgba(0,0,0,0.16)", color: "rgba(255,255,255,0.92)", outline: "none", width: "100%",
-};
-
-function datumRovid(iso: string | null): string {
-    return iso ? new Date(iso).toLocaleDateString("hu-HU") : "—";
-}
 
 // ─── Fő komponens ────────────────────────────────────────────────────────────
 
@@ -66,12 +47,12 @@ export default function FeladatokClient({ hid }: { hid: string }) {
     const [loading, setLoading] = useState(true);
     const [hiba, setHiba] = useState<string | null>(null);
 
-    const [statusz, setStatusz] = useState("");
+    const [statusz, setStatusz] = useState<string>(MIND);
     const [q, setQ] = useState("");
     const [debouncedQ, setDebouncedQ] = useState("");
-    const [felelos, setFelelos] = useState("");
-    const [toId, setToId] = useState("");
-    const [urlapNyitva, setUrlapNyitva] = useState(false);
+    const [felelos, setFelelos] = useState(MIND);
+    const [toId, setToId] = useState(MIND);
+    const [modalNyitva, setModalNyitva] = useState(false);
 
     const [tagok, setTagok] = useState<Tag[]>([]);
     const [toak, setToak] = useState<ToOpcio[]>([]);
@@ -86,16 +67,16 @@ export default function FeladatokClient({ hid }: { hid: string }) {
         setHiba(null);
         try {
             const p = new URLSearchParams();
-            if (statusz) p.set("statusz", statusz);
+            if (statusz !== MIND) p.set("statusz", statusz);
             if (debouncedQ) p.set("q", debouncedQ);
-            if (felelos) p.set("felelosFelhasznaloId", felelos);
-            if (toId) p.set("toId", toId);
+            if (felelos !== MIND) p.set("felelosFelhasznaloId", felelos);
+            if (toId !== MIND) p.set("toId", toId);
             const res = await fetch(`/api/halaszatok/${hid}/feladatok?${p}`, { cache: "no-store" });
             const json = await res.json().catch(() => null);
             if (!res.ok) throw new Error(json?.error ?? "Betöltési hiba.");
             setData(json);
-        } catch (e: any) {
-            setHiba(e?.message ?? "Ismeretlen hiba.");
+        } catch (e) {
+            setHiba(e instanceof Error ? e.message : "Ismeretlen hiba.");
         } finally {
             setLoading(false);
         }
@@ -105,9 +86,11 @@ export default function FeladatokClient({ hid }: { hid: string }) {
 
     const canManage = data?.viewerRole === "OWNER" || data?.viewerRole === "ADMIN";
 
-    // Tagok + tavak a szűrőkhöz / űrlaphoz (tagok csak ADMIN+-nak érhető el a dolgozok API-n)
+    // Tagok + tavak a szűrőkhöz / űrlaphoz (a tagok listája csak ADMIN+-nak érhető el a dolgozók API-n).
+    // Csak egyszer kell — a szerepkör nem változik az oldalon.
+    const vanAdat = data != null;
     useEffect(() => {
-        if (!data) return;
+        if (!vanAdat) return;
         (async () => {
             try {
                 const [tRes, toRes] = await Promise.all([
@@ -117,247 +100,174 @@ export default function FeladatokClient({ hid }: { hid: string }) {
                 if (tRes) {
                     const tj = await tRes.json().catch(() => ({}));
                     if (tRes.ok && Array.isArray(tj?.items)) {
-                        setTagok(tj.items.map((i: any) => ({ azonosito: i.felhasznalo.azonosito, nev: i.felhasznalo.nev, email: i.felhasznalo.email })));
+                        setTagok((tj.items as DolgozoApiTetel[]).map((i) => ({
+                            azonosito: i.felhasznalo.azonosito,
+                            nev: i.felhasznalo.nev,
+                            email: i.felhasznalo.email,
+                        })));
                     }
                 }
                 const toj = await toRes.json().catch(() => ({}));
-                if (toRes.ok && Array.isArray(toj?.toak)) setToak(toj.toak.map((t: any) => ({ azonosito: t.azonosito, nev: t.nev })));
+                if (toRes.ok && Array.isArray(toj?.toak)) {
+                    setToak((toj.toak as ToOpcio[]).map((t) => ({ azonosito: t.azonosito, nev: t.nev })));
+                }
             } catch { /* opcionális */ }
         })();
-    }, [hid, canManage, data]);
+    }, [hid, canManage, vanAdat]);
 
-    const feladatok = data?.feladatok ?? [];
+    const feladatok = useMemo(() => data?.feladatok ?? [], [data]);
+    const lejartDb = feladatok.filter((f) => f.lejart).length;
+    const vanSzuro = !!q || statusz !== MIND || felelos !== MIND || toId !== MIND;
+
+    function szurokTorlese() {
+        setQ("");
+        setStatusz(MIND);
+        setFelelos(MIND);
+        setToId(MIND);
+    }
+
+    const ujGomb = canManage && (
+        <Button onClick={() => setModalNyitva(true)}>
+            <Plus />
+            Új feladat
+        </Button>
+    );
 
     return (
-        <div style={{ display: "grid", gap: 18 }}>
-            <div className="glass card" style={{ display: "grid", gap: 14 }}>
-                <div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
-                    <div>
-                        <h1 className="h1">Feladatok</h1>
-                        <div className="muted" style={{ marginTop: 6 }}>
-                            {data ? <>{data.osszesen} feladat &bull; {data.nyitottDb} nyitott</> : "Feladatok betöltése…"}
-                        </div>
-                    </div>
-                    {canManage && (
-                        <button className="btn btn-primary" onClick={() => setUrlapNyitva((v) => !v)}>
-                            {urlapNyitva ? "Mégse" : "+ Új feladat"}
-                        </button>
-                    )}
-                </div>
+        <div className="grid grid-cols-[minmax(0,1fr)] gap-6">
+            <PageHeader
+                className="mb-0"
+                title="Feladatok"
+                description={
+                    data ? (
+                        <span>
+                            {data.osszesen} feladat · {data.nyitottDb} nyitott
+                            {lejartDb > 0 && <span className="font-medium text-destructive"> · {lejartDb} lejárt</span>}
+                        </span>
+                    ) : "Csapat feladatai és határidői."
+                }
+                actions={ujGomb}
+            />
 
-                <div className="search" style={{ maxWidth: 420 }}>
-                    <span style={{ opacity: 0.7 }}>⌕</span>
-                    <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Keresés cím vagy leírás szerint…" />
-                </div>
-
-                <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
-                    {SZUROK.map((s) => {
-                        const aktiv = statusz === s.ertek;
-                        return (
-                            <button key={s.ertek || "mind"} className="btn" onClick={() => setStatusz(s.ertek)}
-                                style={{ fontSize: 13, background: aktiv ? "rgba(208,138,91,0.25)" : undefined, borderColor: aktiv ? "rgba(208,138,91,0.7)" : undefined, color: aktiv ? "#d08a5b" : undefined, fontWeight: aktiv ? 700 : undefined }}>
-                                {s.cimke}
-                            </button>
-                        );
-                    })}
+            {/* ── Szűrők ── (minmax(0,1fr): a görgethető chip-sor ne szélesítse az oszlopot) */}
+            <div className="grid grid-cols-[minmax(0,1fr)] gap-3">
+                <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_auto_auto]">
+                    <InputGroup>
+                        <InputGroupInput
+                            value={q}
+                            onChange={(e) => setQ(e.target.value)}
+                            placeholder="Keresés cím vagy leírás szerint…"
+                            aria-label="Keresés a feladatok között"
+                        />
+                        <InputGroupAddon>
+                            <Search />
+                        </InputGroupAddon>
+                    </InputGroup>
                     {canManage && tagok.length > 0 && (
-                        <select value={felelos} onChange={(e) => setFelelos(e.target.value)} style={{ ...mezo, width: "auto" }}>
-                            <option value="">Minden felelős</option>
-                            {tagok.map((t) => <option key={t.azonosito} value={t.azonosito}>{t.nev || t.email}</option>)}
-                        </select>
+                        <Select value={felelos} onValueChange={setFelelos}>
+                            <SelectTrigger className="w-full md:w-48" aria-label="Felelős">
+                                <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value={MIND}>Minden felelős</SelectItem>
+                                {tagok.map((t) => <SelectItem key={t.azonosito} value={String(t.azonosito)}>{t.nev || t.email}</SelectItem>)}
+                            </SelectContent>
+                        </Select>
                     )}
                     {toak.length > 0 && (
-                        <select value={toId} onChange={(e) => setToId(e.target.value)} style={{ ...mezo, width: "auto" }}>
-                            <option value="">Minden vízegység</option>
-                            {toak.map((t) => <option key={t.azonosito} value={t.azonosito}>{t.nev}</option>)}
-                        </select>
+                        <Select value={toId} onValueChange={setToId}>
+                            <SelectTrigger className="w-full md:w-48" aria-label="Vízegység">
+                                <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value={MIND}>Minden vízegység</SelectItem>
+                                {toak.map((t) => <SelectItem key={t.azonosito} value={String(t.azonosito)}>{t.nev}</SelectItem>)}
+                            </SelectContent>
+                        </Select>
                     )}
                 </div>
 
-                {urlapNyitva && canManage && (
-                    <UjFeladatUrlap hid={hid} tagok={tagok} toak={toak} onKesz={() => { setUrlapNyitva(false); void betolt(); }} />
-                )}
+                <div className="flex flex-wrap items-center gap-3">
+                    {/* Mobilon vízszintesen görgethető chip-sor */}
+                    <ScrollArea className="-mx-4 min-w-0 flex-1 px-4 sm:mx-0 sm:px-0">
+                        <ToggleGroup
+                            type="single"
+                            variant="outline"
+                            size="sm"
+                            spacing={2}
+                            value={statusz}
+                            onValueChange={(v) => v && setStatusz(v)}
+                            aria-label="Szűrés státusz szerint"
+                            className="pb-2 sm:pb-0"
+                        >
+                            {SZUROK.map((s) => (
+                                <ToggleGroupItem key={s.ertek} value={s.ertek} className="px-3">{s.cimke}</ToggleGroupItem>
+                            ))}
+                        </ToggleGroup>
+                        <ScrollBar orientation="horizontal" />
+                    </ScrollArea>
+                    {vanSzuro && (
+                        <Button variant="ghost" size="sm" onClick={szurokTorlese}>
+                            <X />
+                            Szűrők törlése
+                        </Button>
+                    )}
+                </div>
             </div>
 
-            {loading ? (
-                <div className="glass card muted">Betöltés…</div>
+            {/* ── Lista ── */}
+            {loading && !data ? (
+                <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3" role="status" aria-label="Feladatok betöltése">
+                    {Array.from({ length: 6 }).map((_, i) => <Skeleton key={i} className="h-48 rounded-2xl" />)}
+                </div>
             ) : hiba ? (
-                <div className="glass card" style={{ borderColor: "rgba(255,120,120,0.3)", background: "rgba(100,20,20,0.2)" }}>
-                    <div style={{ fontWeight: 700, marginBottom: 4 }}>Hiba</div><div className="muted">{hiba}</div>
-                </div>
+                <ErrorState title="Nem sikerült betölteni a feladatokat" message={hiba} onRetry={() => betolt()} />
             ) : feladatok.length === 0 ? (
-                <div className="glass card" style={{ textAlign: "center", padding: "36px 16px" }}>
-                    <div style={{ fontWeight: 700, marginBottom: 6 }}>Nincs feladat</div>
-                    <div className="muted">{canManage ? "Hozz létre egyet a fenti gombbal." : "Jelenleg nincs a szűrőnek megfelelő feladat."}</div>
-                </div>
+                vanSzuro ? (
+                    <EmptyState
+                        icon={<SearchX />}
+                        title="Nincs találat"
+                        description="Nincs a szűrőknek megfelelő feladat."
+                        action={<Button variant="outline" onClick={szurokTorlese}>Szűrők törlése</Button>}
+                    />
+                ) : (
+                    <EmptyState
+                        icon={<ClipboardList />}
+                        title="Még nincs feladat"
+                        description={canManage ? "Hozz létre feladatot, és oszd ki a csapat egy tagjának." : "Jelenleg nincs neked kiosztott feladat."}
+                        action={ujGomb}
+                    />
+                )
             ) : (
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))", gap: 12 }}>
+                <div className={cn("grid items-stretch gap-4 sm:grid-cols-2 xl:grid-cols-3", loading && "opacity-60")} aria-busy={loading}>
                     {feladatok.map((f) => (
-                        <FeladatKartya key={f.id} f={f} hid={hid} canManage={canManage} viewerRole={data!.viewerRole} onValtozas={betolt} />
+                        <FeladatKartya key={f.id} f={f} hid={hid} canManage={canManage} onValtozas={() => void betolt()} />
                     ))}
                 </div>
             )}
 
-            <div className="glass card">
-                <div className="muted" style={{ fontSize: 12 }}>
-                    <strong>Megjegyzés:</strong> a feladatokat ADMIN/OWNER hozza létre és osztja ki; a dolgozó a
-                    <strong> neki kiosztott</strong> feladat státuszát állíthatja (Indítás / Kész). A szín csak
-                    ellenőrzött preset/hex érték lehet. <strong>Nincs</strong> push/e-mail értesítés, ismétlődő feladat
-                    vagy külső naptár-szinkron — ezek tervezettek. A kiosztás a Halászati naplóba is bekerül (FELADAT).
-                </div>
-            </div>
-        </div>
-    );
-}
+            <Tudnivalok cim="Hogyan működnek a feladatok?">
+                <p>
+                    A feladatokat tulajdonos vagy adminisztrátor hozza létre és osztja ki; a dolgozó a{" "}
+                    <strong>neki kiosztott</strong> feladat státuszát állíthatja (Indítás / Kész). A kiosztás a Halászati
+                    naplóba is bekerül.
+                </p>
+                <p>
+                    Még <strong>nincs</strong> push- vagy e-mail-értesítés, ismétlődő feladat és külső naptár-szinkron —
+                    ezek tervezettek.
+                </p>
+            </Tudnivalok>
 
-// ─── Feladat kártya ──────────────────────────────────────────────────────────
-
-function FeladatKartya({ f, hid, canManage, viewerRole, onValtozas }: {
-    f: Feladat; hid: string; canManage: boolean; viewerRole: string; onValtozas: () => void;
-}) {
-    const [fut, setFut] = useState(false);
-    const csik = f.szin || ALAP_SZIN;
-    const sStatusz = STATUSZ_SZIN[f.statusz] ?? "#64748b";
-    const nap = hatralevoNap(f.hatarido);
-
-    async function statuszValt(uj: string) {
-        setFut(true);
-        try {
-            const res = await fetch(`/api/halaszatok/${hid}/feladatok/${f.id}`, {
-                method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ statusz: uj }),
-            });
-            if (res.ok) onValtozas();
-        } finally { setFut(false); }
-    }
-
-    // A gyors státusz-gombok mindenkinek megjelennek; a szerver dönt a
-    // jogosultságról (STAFF csak a saját feladatán, különben 403).
-    void viewerRole;
-
-    return (
-        <div className="glass card" style={{ borderLeft: `4px solid ${csik}`, display: "grid", gap: 8, opacity: f.statusz === "TOROLVE" ? 0.55 : 1 }}>
-            <div style={{ display: "flex", justifyContent: "space-between", gap: 8, flexWrap: "wrap" }}>
-                <span style={{ fontWeight: 800 }}>{f.cim}</span>
-                <span className="badge" style={{ background: `${sStatusz}22`, color: sStatusz, border: `1px solid ${sStatusz}66` }}>
-                    {feladatStatuszCimke(f.statusz)}
-                </span>
-            </div>
-
-            <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-                <span className="badge" style={{ background: `${PRIORITAS_SZIN[f.prioritas]}22`, color: PRIORITAS_SZIN[f.prioritas], border: `1px solid ${PRIORITAS_SZIN[f.prioritas]}55`, fontSize: 11 }}>
-                    {feladatPrioritasCimke(f.prioritas)}
-                </span>
-                {f.hatarido && (
-                    <span className="badge" style={{ fontSize: 11, color: f.lejart ? "#ff9d9d" : undefined, borderColor: f.lejart ? "rgba(220,38,38,0.5)" : undefined }}>
-                        Határidő: {datumRovid(f.hatarido)}{f.lejart ? " (lejárt)" : nap != null && nap >= 0 ? ` (${nap} nap)` : ""}
-                    </span>
-                )}
-            </div>
-
-            {f.leiras && <div className="muted" style={{ fontSize: 13 }}>{f.leiras}</div>}
-
-            <div className="muted" style={{ fontSize: 12, display: "grid", gap: 2 }}>
-                <div>Felelős: <strong style={{ color: "rgba(255,255,255,0.85)" }}>{f.felelosNev ?? "nincs kiosztva"}</strong></div>
-                {f.toNev && <div>Vízegység: <strong style={{ color: "rgba(255,255,255,0.85)" }}>{f.toNev}</strong></div>}
-                <div>Létrehozta: {f.letrehozoNev ?? "—"}</div>
-            </div>
-
-            {f.statusz !== "TOROLVE" && (
-                <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-                    {f.statusz !== "FOLYAMATBAN" && f.statusz !== "KESZ" && (
-                        <button className="btn" style={{ fontSize: 12 }} disabled={fut} onClick={() => statuszValt("FOLYAMATBAN")}>Indítás</button>
-                    )}
-                    {f.statusz !== "KESZ" && (
-                        <button className="btn" style={{ fontSize: 12, color: "#16a34a" }} disabled={fut} onClick={() => statuszValt("KESZ")}>Kész</button>
-                    )}
-                    {f.statusz === "KESZ" && (
-                        <button className="btn" style={{ fontSize: 12 }} disabled={fut} onClick={() => statuszValt("FOLYAMATBAN")}>Újranyitás</button>
-                    )}
-                    {canManage && f.statusz !== "ELHALASZTVA" && (
-                        <button className="btn" style={{ fontSize: 12, color: "#f59e0b" }} disabled={fut} onClick={() => statuszValt("ELHALASZTVA")}>Halasztás</button>
-                    )}
-                </div>
+            {canManage && (
+                <UjFeladatModal
+                    hid={hid}
+                    open={modalNyitva}
+                    onOpenChange={setModalNyitva}
+                    tagok={tagok}
+                    toak={toak}
+                    onLetrehozva={() => void betolt()}
+                />
             )}
-        </div>
-    );
-}
-
-// ─── Új feladat űrlap ────────────────────────────────────────────────────────
-
-function UjFeladatUrlap({ hid, tagok, toak, onKesz }: { hid: string; tagok: Tag[]; toak: ToOpcio[]; onKesz: () => void }) {
-    const [cim, setCim] = useState("");
-    const [leiras, setLeiras] = useState("");
-    const [felelos, setFelelos] = useState("");
-    const [toId, setToId] = useState("");
-    const [hatarido, setHatarido] = useState("");
-    const [prioritas, setPrioritas] = useState("NORMAL");
-    const [szin, setSzin] = useState<string>(ALAP_SZIN);
-    const [saving, setSaving] = useState(false);
-    const [hiba, setHiba] = useState<string | null>(null);
-
-    async function mentes() {
-        if (cim.trim().length < 2) { setHiba("A cím legalább 2 karakter legyen."); return; }
-        setSaving(true);
-        setHiba(null);
-        try {
-            const res = await fetch(`/api/halaszatok/${hid}/feladatok`, {
-                method: "POST", headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    cim: cim.trim(), leiras: leiras.trim() || null,
-                    felelosFelhasznaloId: felelos || null, toId: toId || null,
-                    hatarido: hatarido || null, prioritas, szin,
-                }),
-            });
-            const json = await res.json().catch(() => ({}));
-            if (!res.ok) { setHiba(json?.error ?? "Nem sikerült menteni."); return; }
-            onKesz();
-        } catch { setHiba("Hálózati hiba."); } finally { setSaving(false); }
-    }
-
-    return (
-        <div style={{ display: "grid", gap: 10, paddingTop: 6, borderTop: "1px solid rgba(255,255,255,0.08)" }}>
-            <div style={{ fontWeight: 800 }}>Új feladat</div>
-            {hiba && <div style={{ color: "#ff9d9d", fontSize: 13 }}>{hiba}</div>}
-
-            <input style={mezo} value={cim} onChange={(e) => setCim(e.target.value)} placeholder="Feladat címe *" />
-            <textarea style={{ ...mezo, resize: "vertical" }} rows={2} value={leiras} onChange={(e) => setLeiras(e.target.value)} placeholder="Leírás (opcionális)" />
-
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px,1fr))", gap: 10 }}>
-                <label style={{ display: "grid", gap: 4 }}><span className="muted" style={{ fontSize: 12 }}>Felelős</span>
-                    <select style={mezo} value={felelos} onChange={(e) => setFelelos(e.target.value)}>
-                        <option value="">— nincs —</option>
-                        {tagok.map((t) => <option key={t.azonosito} value={t.azonosito}>{t.nev || t.email}</option>)}
-                    </select></label>
-                <label style={{ display: "grid", gap: 4 }}><span className="muted" style={{ fontSize: 12 }}>Vízegység</span>
-                    <select style={mezo} value={toId} onChange={(e) => setToId(e.target.value)}>
-                        <option value="">— nincs —</option>
-                        {toak.map((t) => <option key={t.azonosito} value={t.azonosito}>{t.nev}</option>)}
-                    </select></label>
-                <label style={{ display: "grid", gap: 4 }}><span className="muted" style={{ fontSize: 12 }}>Határidő</span>
-                    <input style={mezo} type="date" value={hatarido} onChange={(e) => setHatarido(e.target.value)} /></label>
-                <label style={{ display: "grid", gap: 4 }}><span className="muted" style={{ fontSize: 12 }}>Prioritás</span>
-                    <select style={mezo} value={prioritas} onChange={(e) => setPrioritas(e.target.value)}>
-                        <option value="ALACSONY">Alacsony</option>
-                        <option value="NORMAL">Normál</option>
-                        <option value="MAGAS">Magas</option>
-                        <option value="SURGOS">Sürgős</option>
-                    </select></label>
-            </div>
-
-            <div style={{ display: "grid", gap: 4 }}>
-                <span className="muted" style={{ fontSize: 12 }}>Szín</span>
-                <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                    {FELADAT_SZINEK.map((c) => (
-                        <button key={c} type="button" onClick={() => setSzin(c)} title={c}
-                            style={{ width: 26, height: 26, borderRadius: "50%", background: c, cursor: "pointer",
-                                border: szin === c ? "3px solid #fff" : "2px solid rgba(255,255,255,0.2)" }} />
-                    ))}
-                </div>
-            </div>
-
-            <button className="btn btn-primary" onClick={mentes} disabled={saving} style={{ justifySelf: "start" }}>
-                {saving ? "Mentés…" : "Feladat létrehozása"}
-            </button>
         </div>
     );
 }

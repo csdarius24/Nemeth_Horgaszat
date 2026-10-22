@@ -1,90 +1,124 @@
 "use client";
 
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
-    BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
-    ResponsiveContainer, Cell, PieChart, Pie, Legend,
-} from "recharts";
+    AlertTriangle,
+    Eye,
+    EyeOff,
+    History,
+    MoreHorizontal,
+    PackageOpen,
+    Plus,
+    PlusCircle,
+    Search,
+    SearchX,
+    Trash2,
+    TrendingDown,
+    Wheat,
+} from "lucide-react";
+import { Cell, Label, Pie, PieChart } from "recharts";
 
-// ─── Típusok ─────────────────────────────────────────────────────────────────
+import { cn } from "@/lib/utils";
+import { fmtSzam, GrafikonKartya, VizszintesOszlop } from "@/components/app/grafikonok";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } from "@/components/ui/chart";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuSeparator,
+    DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group";
+import { Label as FormLabel } from "@/components/ui/label";
+import { PageHeader } from "@/components/ui/page-header";
+import { Skeleton } from "@/components/ui/skeleton";
+import { StatCard, StatGrid } from "@/components/ui/stat-card";
+import { EmptyState, ErrorState } from "@/components/ui/states";
+import { Switch } from "@/components/ui/switch";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { toast } from "@/components/ui/toast";
 
-type Takarmany = {
-    azonosito: number;
-    nev: string;
-    egyseg: string;
-    keszlet: number;
-    szin: string | null;
-    aktiv: boolean;
-};
+import { MozgasModal } from "./MozgasModal";
+import { MozgasNaploModal } from "./MozgasNaploModal";
+import { ALACSONY_KESZLET, fmtMennyiseg, keszletAllapot, szinHex, type Takarmany } from "./takarmany";
+import { UjTakarmanyModal } from "./UjTakarmanyModal";
 
-type Mozgas = {
-    azonosito: number;
-    tipus: "BEVETEL" | "FELHASZNALVA";
-    mennyiseg: number;
-    datum: string;
-    megjegyzes: string | null;
-    rogzitoNev?: string | null;
-};
+// ─── Készlet-megoszlás fánkdiagram ──────────────────────────────────────────
 
-// ─── Konstansok ───────────────────────────────────────────────────────────────
-
-const SZINEK = [
-    { ertek: "narancs", hex: "#d08a5b" },
-    { ertek: "piros",   hex: "#b24b25" },
-    { ertek: "zold",    hex: "#4caf50" },
-    { ertek: "kek",     hex: "#4e8bbd" },
-    { ertek: "lila",    hex: "#9c6bc4" },
-    { ertek: "szurke",  hex: "#8a8a8a" },
-];
-
-const DEFAULT_SZIN = "#d08a5b";
-
-function szinHex(szin: string | null) {
-    return SZINEK.find((s) => s.ertek === szin)?.hex ?? DEFAULT_SZIN;
-}
-
-const TOOLTIP_STILUS = {
-    backgroundColor: "rgba(30,10,5,0.95)",
-    border: "1px solid rgba(208,138,91,0.3)",
-    borderRadius: 10,
-    color: "#e8cdb8",
-    fontSize: 13,
-};
-
-const EGYSEGEK = ["kg", "l", "db", "t", "zsák", "bála"];
-
-// ─── KPI kártya ───────────────────────────────────────────────────────────────
-
-function KpiKartya({ cim, ertek, alcim, szin }: { cim: string; ertek: string; alcim?: string; szin?: string }) {
-    const c = szin ?? DEFAULT_SZIN;
+function MegoszlasFank({ tetelek }: { tetelek: Takarmany[] }) {
+    const adat = tetelek.map((t, i) => ({ kulcs: `t${i}`, nev: t.nev, ertek: Number(t.keszlet), fill: szinHex(t.szin) }));
+    const config: ChartConfig = Object.fromEntries(adat.map((a) => [a.kulcs, { label: a.nev, color: a.fill }]));
     return (
-        <div style={{
-            background: `radial-gradient(ellipse at top left, ${c}18, transparent 70%), rgba(255,255,255,0.04)`,
-            border: `1px solid ${c}33`,
-            borderLeft: `3px solid ${c}`,
-            borderRadius: 14,
-            padding: "16px 20px",
-        }}>
-            <div style={{ fontSize: 12, opacity: 0.65, marginBottom: 4 }}>{cim}</div>
-            <div style={{ fontSize: 22, fontWeight: 800 }}>{ertek}</div>
-            {alcim && <div style={{ fontSize: 12, opacity: 0.55, marginTop: 2 }}>{alcim}</div>}
-        </div>
+        <ChartContainer config={config} className="mx-auto aspect-square max-h-60 w-full">
+            <PieChart>
+                <ChartTooltip content={<ChartTooltipContent nameKey="kulcs" hideLabel />} />
+                <Pie data={adat} dataKey="ertek" nameKey="kulcs" innerRadius="58%" strokeWidth={3} paddingAngle={2}>
+                    {adat.map((a) => <Cell key={a.kulcs} fill={a.fill} />)}
+                    <Label
+                        content={({ viewBox }) => {
+                            if (!viewBox || !("cx" in viewBox)) return null;
+                            return (
+                                <text x={viewBox.cx} y={viewBox.cy} textAnchor="middle" dominantBaseline="middle">
+                                    <tspan x={viewBox.cx} y={viewBox.cy} className="fill-foreground font-heading text-2xl font-bold">
+                                        {tetelek.length}
+                                    </tspan>
+                                    <tspan x={viewBox.cx} y={(viewBox.cy ?? 0) + 20} className="fill-muted-foreground text-xs">
+                                        takarmány
+                                    </tspan>
+                                </text>
+                            );
+                        }}
+                    />
+                </Pie>
+            </PieChart>
+        </ChartContainer>
     );
 }
 
-// ─── Fő komponens ─────────────────────────────────────────────────────────────
+// ─── Készlet cella ──────────────────────────────────────────────────────────
+
+function KeszletJelzo({ t }: { t: Takarmany }) {
+    const keszlet = Number(t.keszlet);
+    const allapot = keszletAllapot(keszlet);
+    return (
+        <span className="inline-flex flex-wrap items-center justify-end gap-2">
+            <span
+                className={cn(
+                    "font-semibold tabular-nums",
+                    allapot === "ures" && "text-destructive",
+                    allapot === "alacsony" && "text-warning"
+                )}
+            >
+                {fmtMennyiseg(keszlet, t.egyseg)}
+            </span>
+            {allapot === "ures" && <Badge variant="danger">Üres</Badge>}
+            {allapot === "alacsony" && <Badge variant="warning">Alacsony</Badge>}
+        </span>
+    );
+}
+
+// ─── Fő komponens ────────────────────────────────────────────────────────────
 
 export default function TakarmanyokClient({ hid }: { hid: string }) {
     const [takarmanyok, setTakarmanyok] = useState<Takarmany[]>([]);
     const [viewerRole, setViewerRole] = useState<string>("STAFF");
     const [betoltes, setBetoltes] = useState(true);
+    const [elsoBetoltes, setElsoBetoltes] = useState(true);
     const [hiba, setHiba] = useState<string | null>(null);
 
-    // UI state
+    // UI állapot
     const [inaktivakMutatasa, setInaktivakMutatasa] = useState(false);
+    const [q, setQ] = useState("");
     const [ujModalNyitva, setUjModalNyitva] = useState(false);
-    const [mozgasModalId, setMozgasModalId] = useState<number | null>(null);
-    const [reszletekId, setReszletekId] = useState<number | null>(null);
+    const [mozgasCel, setMozgasCel] = useState<{ id: number; tipus: "BEVETEL" | "FELHASZNALVA" } | null>(null);
+    const [naploId, setNaploId] = useState<number | null>(null);
+    const [torlendo, setTorlendo] = useState<Takarmany | null>(null);
+    const [inaktivalando, setInaktivalando] = useState<{ t: Takarmany; uzenet: string } | null>(null);
+    const [muveletFut, setMuveletFut] = useState(false);
 
     const canAdmin = viewerRole === "OWNER" || viewerRole === "ADMIN";
 
@@ -92,667 +126,331 @@ export default function TakarmanyokClient({ hid }: { hid: string }) {
         setBetoltes(true);
         setHiba(null);
         try {
-            const res = await fetch(`/api/halaszatok/${hid}/takarmanyok?active=${inaktivakMutatasa ? "0" : "1"}`);
-            const data = await res.json();
-            if (!res.ok) throw new Error(data.error ?? "Hiba");
+            const res = await fetch(`/api/halaszatok/${hid}/takarmanyok?active=${inaktivakMutatasa ? "0" : "1"}`, { cache: "no-store" });
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok) throw new Error(data.error ?? "Nem sikerült betölteni a takarmányokat.");
             setTakarmanyok(data.items ?? []);
             setViewerRole(data.viewerRole ?? "STAFF");
-        } catch (e: any) {
-            setHiba(e.message);
+        } catch (e) {
+            setHiba(e instanceof Error ? e.message : "Ismeretlen hiba");
         } finally {
             setBetoltes(false);
+            setElsoBetoltes(false);
         }
     }, [hid, inaktivakMutatasa]);
 
-    useEffect(() => { betolt(); }, [betolt]);
+    useEffect(() => { void betolt(); }, [betolt]);
 
-    // ─── KPI számítás ──────────────────────────────────────────────────────
-    const aktivak = takarmanyok.filter((t) => t.aktiv);
-    const osszkeszlet = aktivak.reduce((s, t) => s + Number(t.keszlet), 0);
-    const urestakarmany = aktivak.filter((t) => Number(t.keszlet) === 0).length;
-    const alacsonyKeszlet = aktivak.filter((t) => Number(t.keszlet) > 0 && Number(t.keszlet) < 50).length;
+    // ─── Műveletek ─────────────────────────────────────────────────────────
 
-    // ─── Diagram adatok ────────────────────────────────────────────────────
-    const keszletGrafikon = aktivak
-        .filter((t) => Number(t.keszlet) > 0)
-        .sort((a, b) => Number(b.keszlet) - Number(a.keszlet));
-
-    const keszletOsszesites = aktivak.map((t) => ({
-        nev: t.nev,
-        ertek: Number(t.keszlet),
-        szin: szinHex(t.szin),
-    }));
-
-    if (betoltes) return (
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: 220, gap: 12, opacity: 0.7 }}>
-            <div style={{
-                width: 22, height: 22, borderRadius: "50%",
-                border: "3px solid rgba(208,138,91,0.3)",
-                borderTopColor: "#d08a5b",
-                animation: "spin 0.8s linear infinite",
-            }} />
-            Betöltés...
-        </div>
-    );
-
-    return (
-        <div style={{ display: "grid", gap: 18 }}>
-            {hiba && (
-                <div style={{ background: "rgba(178,75,37,0.18)", border: "1px solid rgba(178,75,37,0.4)", borderRadius: 12, padding: "12px 16px", display: "flex", gap: 12, alignItems: "center" }}>
-                    <span style={{ flex: 1 }}>{hiba}</span>
-                    <button onClick={() => setHiba(null)} style={{ background: "none", border: "none", cursor: "pointer", opacity: 0.6, fontSize: 18 }}>&times;</button>
-                </div>
-            )}
-
-            {/* KPI kártyák */}
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))", gap: 14 }}>
-                <KpiKartya cim="Takarmányfajták" ertek={String(aktivak.length)} alcim="aktív típus" szin="#d08a5b" />
-                <KpiKartya cim="Összkészlet" ertek={osszkeszlet.toFixed(1)} alcim="összesített egység" szin="#4caf50" />
-                <KpiKartya cim="Üres készlet" ertek={String(urestakarmany)} alcim="feltöltésre vár" szin={urestakarmany > 0 ? "#b24b25" : "#4caf50"} />
-                <KpiKartya cim="Alacsony készlet" ertek={String(alacsonyKeszlet)} alcim="50 egység alatt" szin={alacsonyKeszlet > 0 ? "#d08a5b" : "#4caf50"} />
-            </div>
-
-            {/* Diagramok */}
-            {keszletGrafikon.length > 0 && (
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
-
-                    {/* Vízszintes sávdiagram */}
-                    <div className="glass card">
-                        <div style={{ fontWeight: 700, marginBottom: 14, fontSize: 14 }}>Készlet takarmányonként</div>
-                        <ResponsiveContainer width="100%" height={Math.max(160, keszletGrafikon.length * 44)}>
-                            <BarChart
-                                data={keszletGrafikon.map((t) => ({ nev: t.nev, keszlet: Number(t.keszlet), egyseg: t.egyseg, szin: szinHex(t.szin) }))}
-                                layout="vertical"
-                                margin={{ left: 8, right: 48, top: 4, bottom: 4 }}
-                            >
-                                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" horizontal={false} />
-                                <XAxis type="number" tick={{ fontSize: 11, fill: "#b89a82" }} axisLine={false} tickLine={false} />
-                                <YAxis dataKey="nev" type="category" width={90} tick={{ fontSize: 11, fill: "#b89a82" }} axisLine={false} tickLine={false} />
-                                <Tooltip
-                                    contentStyle={TOOLTIP_STILUS}
-                                    formatter={(v: any, _n: any, props: any) => [`${v} ${props?.payload?.egyseg ?? ""}`, "Készlet"]}
-                                />
-                                <Bar dataKey="keszlet" radius={[0, 6, 6, 0]} label={{ position: "right", fontSize: 11, fill: "#b89a82", formatter: (v: any) => v }}>
-                                    {keszletGrafikon.map((t) => (
-                                        <Cell key={t.azonosito} fill={szinHex(t.szin)} />
-                                    ))}
-                                </Bar>
-                            </BarChart>
-                        </ResponsiveContainer>
-                    </div>
-
-                    {/* Kördiagram — arány */}
-                    <div className="glass card">
-                        <div style={{ fontWeight: 700, marginBottom: 14, fontSize: 14 }}>Készlet megoszlása</div>
-                        <ResponsiveContainer width="100%" height={Math.max(160, keszletGrafikon.length * 44)}>
-                            <PieChart>
-                                <Pie
-                                    data={keszletOsszesites.filter((k) => k.ertek > 0)}
-                                    dataKey="ertek"
-                                    nameKey="nev"
-                                    cx="50%"
-                                    cy="50%"
-                                    outerRadius={80}
-                                    label={({ name, percent }: any) => `${name} ${((percent ?? 0) * 100).toFixed(0)}%`}
-                                    labelLine={false}
-                                >
-                                    {keszletOsszesites.filter((k) => k.ertek > 0).map((k, i) => (
-                                        <Cell key={i} fill={k.szin} />
-                                    ))}
-                                </Pie>
-                                <Tooltip contentStyle={TOOLTIP_STILUS} formatter={(v: any, n: any) => [`${v}`, n] as [string, string]} />
-                                <Legend wrapperStyle={{ fontSize: 12, color: "#b89a82" }} />
-                            </PieChart>
-                        </ResponsiveContainer>
-                    </div>
-                </div>
-            )}
-
-            {/* Fejléc + gombok */}
-            <div className="glass card" style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-                <div style={{ fontWeight: 700, fontSize: 15, flex: 1 }}>Takarmánylista</div>
-                <button
-                    className="btn"
-                    style={{ fontSize: 12, opacity: 0.75 }}
-                    onClick={() => setInaktivakMutatasa((v) => !v)}
-                >
-                    {inaktivakMutatasa ? "Csak aktívak" : "Inaktívak is"}
-                </button>
-                {canAdmin && (
-                    <button className="btn" onClick={() => setUjModalNyitva(true)}>
-                        + Új takarmány
-                    </button>
-                )}
-            </div>
-
-            {/* Táblázat */}
-            <div className="glass card" style={{ padding: 0, overflow: "hidden" }}>
-                <table style={{ width: "100%", borderCollapse: "collapse" }}>
-                    <thead>
-                        <tr style={{ borderBottom: "1px solid rgba(255,255,255,0.08)" }}>
-                            {["Takarmány", "Egység", "Készlet", "Állapot", ""].map((h) => (
-                                <th key={h} style={{ padding: "12px 16px", textAlign: "left", fontSize: 12, opacity: 0.55, fontWeight: 600, whiteSpace: "nowrap" }}>{h}</th>
-                            ))}
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {takarmanyok.length === 0 && (
-                            <tr>
-                                <td colSpan={5} style={{ padding: "32px 16px", textAlign: "center", opacity: 0.45 }}>
-                                    Nincs takarmány rögzítve.
-                                </td>
-                            </tr>
-                        )}
-                        {takarmanyok.map((t) => (
-                            <TakarmanyRow
-                                key={t.azonosito}
-                                takarmany={t}
-                                canAdmin={canAdmin}
-                                hid={hid}
-                                onMozgas={() => setMozgasModalId(t.azonosito)}
-                                onReszletek={() => setReszletekId(t.azonosito)}
-                                onFrissit={betolt}
-                            />
-                        ))}
-                    </tbody>
-                </table>
-            </div>
-
-            {/* Új takarmány modal */}
-            {ujModalNyitva && (
-                <UjTakarmanyModal
-                    hid={hid}
-                    onBezar={() => setUjModalNyitva(false)}
-                    onSiker={() => { setUjModalNyitva(false); betolt(); }}
-                />
-            )}
-
-            {/* Mozgás rögzítés modal */}
-            {mozgasModalId !== null && (
-                <MozgasModal
-                    hid={hid}
-                    takarmany={takarmanyok.find((t) => t.azonosito === mozgasModalId)!}
-                    onBezar={() => setMozgasModalId(null)}
-                    onSiker={() => { setMozgasModalId(null); betolt(); }}
-                />
-            )}
-
-            {/* Mozgások részletei */}
-            {reszletekId !== null && (
-                <MozgasokModal
-                    hid={hid}
-                    takarmany={takarmanyok.find((t) => t.azonosito === reszletekId)!}
-                    onBezar={() => setReszletekId(null)}
-                />
-            )}
-        </div>
-    );
-}
-
-// ─── Sor komponens ────────────────────────────────────────────────────────────
-
-function TakarmanyRow({
-    takarmany, canAdmin, hid, onMozgas, onReszletek, onFrissit,
-}: {
-    takarmany: Takarmany;
-    canAdmin: boolean;
-    hid: string;
-    onMozgas: () => void;
-    onReszletek: () => void;
-    onFrissit: () => void;
-}) {
-    const [muveletFut, setMuveletFut] = useState(false);
-    const szin = szinHex(takarmany.szin);
-    const keszlet = Number(takarmany.keszlet);
-    const kritikus = keszlet === 0;
-    const alacsony = keszlet > 0 && keszlet < 50;
-
-    async function aktivToggle() {
+    async function aktivValtas(t: Takarmany) {
         setMuveletFut(true);
         try {
-            await fetch(`/api/halaszatok/${hid}/takarmanyok/${takarmany.azonosito}`, {
+            const res = await fetch(`/api/halaszatok/${hid}/takarmanyok/${t.azonosito}`, {
                 method: "PATCH",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ aktiv: !takarmany.aktiv }),
+                body: JSON.stringify({ aktiv: !t.aktiv }),
             });
-            onFrissit();
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok) throw new Error(data.error ?? "Nem sikerült módosítani.");
+            toast.success(t.aktiv ? "Takarmány inaktiválva" : "Takarmány aktiválva", { description: t.nev });
+            await betolt();
+        } catch (e) {
+            toast.error("Hiba", { description: e instanceof Error ? e.message : "Ismeretlen hiba" });
         } finally {
             setMuveletFut(false);
         }
     }
 
-    async function torol() {
-        if (!confirm(`Biztosan törlöd: "${takarmany.nev}"?`)) return;
+    async function torles(t: Takarmany) {
         setMuveletFut(true);
         try {
-            const res = await fetch(`/api/halaszatok/${hid}/takarmanyok/${takarmany.azonosito}`, { method: "DELETE" });
-            const data = await res.json();
+            const res = await fetch(`/api/halaszatok/${hid}/takarmanyok/${t.azonosito}`, { method: "DELETE" });
+            const data = await res.json().catch(() => ({}));
+            setTorlendo(null);
             if (!res.ok) {
-                if (data.inaktivalhatjuk && confirm(`${data.error}\n\nInaktiváljuk helyette?`)) {
-                    await aktivToggle();
-                }
+                // Ha van már mozgása, nem törölhető — az API inaktiválást ajánl helyette.
+                if (data.inaktivalhatjuk) setInaktivalando({ t, uzenet: data.error ?? "Ez a takarmány nem törölhető." });
+                else toast.error("Nem sikerült törölni", { description: data.error });
                 return;
             }
-            onFrissit();
+            toast.success("Takarmány törölve", { description: t.nev });
+            await betolt();
         } finally {
             setMuveletFut(false);
         }
     }
 
-    return (
-        <tr style={{
-            borderBottom: "1px solid rgba(255,255,255,0.05)",
-            opacity: takarmany.aktiv ? 1 : 0.5,
-            transition: "background 0.15s",
-        }}>
-            <td style={{ padding: "11px 16px" }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                    <div style={{ width: 10, height: 10, borderRadius: "50%", background: szin, flexShrink: 0 }} />
-                    <span style={{ fontWeight: 600 }}>{takarmany.nev}</span>
-                </div>
-            </td>
-            <td style={{ padding: "11px 16px", opacity: 0.7 }}>{takarmany.egyseg}</td>
-            <td style={{ padding: "11px 16px" }}>
-                <span style={{
-                    fontWeight: 700,
-                    color: kritikus ? "#ff6b6b" : alacsony ? "#ffa94d" : "#6bcb77",
-                }}>
-                    {keszlet.toFixed(2)} {takarmany.egyseg}
-                </span>
-                {kritikus && <span style={{ marginLeft: 6, fontSize: 11, color: "#ff6b6b", opacity: 0.8 }}>&#9888; Üres</span>}
-                {alacsony && !kritikus && <span style={{ marginLeft: 6, fontSize: 11, color: "#ffa94d", opacity: 0.8 }}>&#9660; Alacsony</span>}
-            </td>
-            <td style={{ padding: "11px 16px" }}>
-                <span className="badge" style={{
-                    background: takarmany.aktiv ? "rgba(76,175,80,0.18)" : "rgba(120,120,120,0.18)",
-                    color: takarmany.aktiv ? "#6bcb77" : "#999",
-                    border: "1px solid " + (takarmany.aktiv ? "rgba(76,175,80,0.3)" : "rgba(120,120,120,0.3)"),
-                }}>
-                    {takarmany.aktiv ? "Aktív" : "Inaktív"}
-                </span>
-            </td>
-            <td style={{ padding: "11px 16px" }}>
-                <div style={{ display: "flex", gap: 6, justifyContent: "flex-end" }}>
-                    <button
-                        className="btn" style={{ fontSize: 12, padding: "4px 10px" }}
-                        onClick={onReszletek} disabled={muveletFut}
-                        title="Mozgások megtekintése"
-                    >
-                        Napló
-                    </button>
-                    {canAdmin && (
-                        <>
-                            <button
-                                className="btn" style={{ fontSize: 12, padding: "4px 10px", background: "rgba(208,138,91,0.18)", borderColor: "rgba(208,138,91,0.4)" }}
-                                onClick={onMozgas} disabled={muveletFut}
-                                title="Mozgás rögzítése"
-                            >
-                                + / &minus;
-                            </button>
-                            <button
-                                onClick={aktivToggle} disabled={muveletFut}
-                                title={takarmany.aktiv ? "Inaktiválás" : "Aktiválás"}
-                                style={{ background: "none", border: "none", cursor: "pointer", opacity: 0.7, padding: "4px 6px", fontSize: 16 }}
-                            >
-                                {takarmany.aktiv ? (
-                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
-                                        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8Z" /><circle cx="12" cy="12" r="3" />
-                                    </svg>
-                                ) : (
-                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#6bcb77" strokeWidth={2}>
-                                        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8Z" /><circle cx="12" cy="12" r="3" />
-                                    </svg>
-                                )}
-                            </button>
-                            <button
-                                onClick={torol} disabled={muveletFut}
-                                title="Törlés"
-                                style={{ background: "none", border: "none", cursor: "pointer", opacity: 0.7, padding: "4px 6px", color: "#ff6b6b", fontSize: 16 }}
-                            >
-                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
-                                    <polyline points="3 6 5 6 21 6" />
-                                    <path d="M19 6l-1 14H6L5 6" />
-                                    <path d="M10 11v6M14 11v6" />
-                                    <path d="M9 6V4h6v2" />
-                                </svg>
-                            </button>
-                        </>
-                    )}
-                </div>
-            </td>
-        </tr>
+    // ─── Származtatott adatok ──────────────────────────────────────────────
+
+    const aktivak = takarmanyok.filter((t) => t.aktiv);
+    const osszkeszlet = aktivak.reduce((s, t) => s + Number(t.keszlet), 0);
+    const uresDb = aktivak.filter((t) => keszletAllapot(Number(t.keszlet)) === "ures").length;
+    const alacsonyDb = aktivak.filter((t) => keszletAllapot(Number(t.keszlet)) === "alacsony").length;
+
+    const keszletesek = useMemo(
+        () => takarmanyok.filter((t) => t.aktiv && Number(t.keszlet) > 0).sort((a, b) => Number(b.keszlet) - Number(a.keszlet)),
+        [takarmanyok]
     );
-}
+    const oszlopAdat = keszletesek.map((t, i) => ({ nev: t.nev, ertek: Number(t.keszlet), kulcs: `t${i}`, fill: szinHex(t.szin) }));
+    const oszlopConfig: ChartConfig = Object.fromEntries(oszlopAdat.map((a) => [a.kulcs, { label: a.nev, color: a.fill }]));
+    const egysegek = [...new Set(aktivak.map((t) => t.egyseg))];
 
-// ─── Új takarmány modal ───────────────────────────────────────────────────────
+    const szurt = useMemo(() => {
+        const s = q.trim().toLowerCase();
+        return s ? takarmanyok.filter((t) => t.nev.toLowerCase().includes(s) || t.egyseg.toLowerCase().includes(s)) : takarmanyok;
+    }, [q, takarmanyok]);
 
-function UjTakarmanyModal({ hid, onBezar, onSiker }: { hid: string; onBezar: () => void; onSiker: () => void }) {
-    const [nev, setNev] = useState("");
-    const [egyseg, setEgyseg] = useState("kg");
-    const [szin, setSzin] = useState("narancs");
-    const [kuldFut, setKuldFut] = useState(false);
-    const [hiba, setHiba] = useState<string | null>(null);
+    // ─── Render ────────────────────────────────────────────────────────────
 
-    async function kuldes(e: React.FormEvent) {
-        e.preventDefault();
-        setKuldFut(true);
-        setHiba(null);
-        try {
-            const res = await fetch(`/api/halaszatok/${hid}/takarmanyok`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ nev: nev.trim(), egyseg, szin }),
-            });
-            const data = await res.json();
-            if (!res.ok) { setHiba(data.error ?? "Hiba"); return; }
-            onSiker();
-        } finally {
-            setKuldFut(false);
-        }
+    const fejlec = (
+        <PageHeader
+            className="mb-0"
+            title="Takarmányok"
+            description="Takarmánykészlet nyilvántartása: bevétel, felhasználás és a készlet követése."
+            actions={canAdmin && (
+                <Button onClick={() => setUjModalNyitva(true)}>
+                    <Plus />
+                    Új takarmány
+                </Button>
+            )}
+        />
+    );
+
+    if (elsoBetoltes) {
+        return (
+            <div className="grid gap-6" role="status" aria-label="Takarmányok betöltése">
+                {fejlec}
+                <div className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
+                    {Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-[104px] rounded-2xl" />)}
+                </div>
+                <Skeleton className="h-80 rounded-2xl" />
+            </div>
+        );
     }
 
+    const muveletMenu = (t: Takarmany) => (
+        <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon-sm" aria-label={`Műveletek: ${t.nev}`} disabled={muveletFut}>
+                    <MoreHorizontal />
+                </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-52">
+                <DropdownMenuItem onSelect={() => setNaploId(t.azonosito)}>
+                    <History />
+                    Mozgásnapló
+                </DropdownMenuItem>
+                {canAdmin && (
+                    <>
+                        <DropdownMenuItem onSelect={() => setMozgasCel({ id: t.azonosito, tipus: "BEVETEL" })}>
+                            <PlusCircle />
+                            Bevétel rögzítése
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onSelect={() => setMozgasCel({ id: t.azonosito, tipus: "FELHASZNALVA" })}>
+                            <TrendingDown />
+                            Felhasználás rögzítése
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem onSelect={() => void aktivValtas(t)}>
+                            {t.aktiv ? <EyeOff /> : <Eye />}
+                            {t.aktiv ? "Inaktiválás" : "Aktiválás"}
+                        </DropdownMenuItem>
+                        <DropdownMenuItem variant="destructive" onSelect={() => setTorlendo(t)}>
+                            <Trash2 />
+                            Törlés
+                        </DropdownMenuItem>
+                    </>
+                )}
+            </DropdownMenuContent>
+        </DropdownMenu>
+    );
+
     return (
-        <ModalAlap cim="Új takarmány" onBezar={onBezar}>
-            <form onSubmit={kuldes} style={{ display: "grid", gap: 14 }}>
-                {hiba && <div style={{ color: "#ff6b6b", fontSize: 13 }}>{hiba}</div>}
-                <div>
-                    <label style={{ fontSize: 12, opacity: 0.7, display: "block", marginBottom: 4 }}>Megnevezés *</label>
-                    <input
-                        className="input"
-                        value={nev}
-                        onChange={(e) => setNev(e.target.value)}
-                        placeholder="pl. Ponty granulátum"
-                        required
-                        autoFocus
-                    />
+        <div className="grid grid-cols-[minmax(0,1fr)] gap-6">
+            {fejlec}
+
+            {hiba && <ErrorState title="Nem sikerült betölteni a takarmányokat" message={hiba} onRetry={() => betolt()} />}
+
+            {/* KPI-k */}
+            <StatGrid className="xl:grid-cols-4">
+                <StatCard cim="Takarmányfajták" ertek={aktivak.length} alcim="aktív típus" ikon={Wheat} />
+                <StatCard
+                    cim="Összkészlet"
+                    ertek={fmtSzam(osszkeszlet)}
+                    alcim={egysegek.length === 0 ? "nincs készlet" : egysegek.length === 1 ? egysegek[0] : "vegyes mértékegység"}
+                    ikon={PackageOpen}
+                    tonus="success"
+                />
+                <StatCard
+                    cim="Üres készlet"
+                    ertek={uresDb}
+                    alcim="feltöltésre vár"
+                    ikon={AlertTriangle}
+                    tonus={uresDb > 0 ? "danger" : "success"}
+                />
+                <StatCard
+                    cim="Alacsony készlet"
+                    ertek={alacsonyDb}
+                    alcim={`${ALACSONY_KESZLET} egység alatt`}
+                    ikon={TrendingDown}
+                    tonus={alacsonyDb > 0 ? "warning" : "success"}
+                />
+            </StatGrid>
+
+            {/* Grafikonok */}
+            {keszletesek.length > 0 && (
+                <div className="grid gap-4 lg:grid-cols-2">
+                    <GrafikonKartya cim="Készlet takarmányonként" leiras="Aktív takarmányok, saját mértékegységben">
+                        <VizszintesOszlop adat={oszlopAdat} config={oszlopConfig} mertekegyseg="" />
+                    </GrafikonKartya>
+                    <GrafikonKartya cim="Készlet megoszlása" leiras="Arány az összkészletből">
+                        <MegoszlasFank tetelek={keszletesek} />
+                    </GrafikonKartya>
                 </div>
-                <div>
-                    <label style={{ fontSize: 12, opacity: 0.7, display: "block", marginBottom: 4 }}>Mértékegység *</label>
-                    <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                        {EGYSEGEK.map((e) => (
-                            <button key={e} type="button"
-                                onClick={() => setEgyseg(e)}
-                                className="btn"
-                                style={{
-                                    fontSize: 13, padding: "4px 12px",
-                                    background: egyseg === e ? "rgba(208,138,91,0.25)" : undefined,
-                                    borderColor: egyseg === e ? "rgba(208,138,91,0.7)" : undefined,
-                                    color: egyseg === e ? "#d08a5b" : undefined,
-                                }}
-                            >
-                                {e}
-                            </button>
-                        ))}
-                        <input
-                            className="input"
-                            value={EGYSEGEK.includes(egyseg) ? "" : egyseg}
-                            onChange={(e) => setEgyseg(e.target.value)}
-                            placeholder="Egyéb..."
-                            style={{ width: 90 }}
+            )}
+
+            {/* Lista */}
+            <Card>
+                <CardHeader>
+                    <CardTitle>Takarmánylista</CardTitle>
+                    <CardDescription>
+                        {canAdmin ? "Bevételt, felhasználást a sor menüjéből rögzíthetsz." : "A készletmozgásokat a sor menüjéből nézheted meg."}
+                    </CardDescription>
+                    <CardAction className="flex items-center gap-2">
+                        <Switch
+                            id="inaktivak"
+                            checked={inaktivakMutatasa}
+                            onCheckedChange={setInaktivakMutatasa}
                         />
-                    </div>
-                </div>
-                <div>
-                    <label style={{ fontSize: 12, opacity: 0.7, display: "block", marginBottom: 4 }}>Szín</label>
-                    <div style={{ display: "flex", gap: 8 }}>
-                        {SZINEK.map((s) => (
-                            <button key={s.ertek} type="button"
-                                onClick={() => setSzin(s.ertek)}
-                                style={{
-                                    width: 28, height: 28, borderRadius: "50%",
-                                    background: s.hex, border: szin === s.ertek ? "3px solid #fff" : "3px solid transparent",
-                                    cursor: "pointer",
-                                }}
+                        <FormLabel htmlFor="inaktivak" className="text-sm font-normal text-muted-foreground">
+                            Inaktívak is
+                        </FormLabel>
+                    </CardAction>
+                </CardHeader>
+                <CardContent className={cn("grid gap-3", betoltes && "opacity-60")} aria-busy={betoltes}>
+                    {takarmanyok.length > 0 && (
+                        <InputGroup className="sm:max-w-xs">
+                            <InputGroupInput
+                                value={q}
+                                onChange={(e) => setQ(e.target.value)}
+                                placeholder="Keresés név vagy egység szerint…"
+                                aria-label="Keresés a takarmányok között"
                             />
-                        ))}
-                    </div>
-                </div>
-                <div style={{ display: "flex", gap: 10, justifyContent: "flex-end", marginTop: 4 }}>
-                    <button type="button" className="btn" onClick={onBezar} disabled={kuldFut} style={{ opacity: 0.7 }}>Mégse</button>
-                    <button type="submit" className="btn" disabled={kuldFut || !nev.trim()}>
-                        {kuldFut ? "Mentés..." : "Létrehozás"}
-                    </button>
-                </div>
-            </form>
-        </ModalAlap>
-    );
-}
+                            <InputGroupAddon>
+                                <Search />
+                            </InputGroupAddon>
+                        </InputGroup>
+                    )}
 
-// ─── Mozgás rögzítés modal ────────────────────────────────────────────────────
-
-function MozgasModal({ hid, takarmany, onBezar, onSiker }: {
-    hid: string;
-    takarmany: Takarmany;
-    onBezar: () => void;
-    onSiker: () => void;
-}) {
-    const [tipus, setTipus] = useState<"BEVETEL" | "FELHASZNALVA">("BEVETEL");
-    const [mennyiseg, setMennyiseg] = useState("");
-    const [megjegyzes, setMegjegyzes] = useState("");
-    const [datum, setDatum] = useState(new Date().toISOString().slice(0, 16));
-    const [kuldFut, setKuldFut] = useState(false);
-    const [hiba, setHiba] = useState<string | null>(null);
-
-    async function kuldes(e: React.FormEvent) {
-        e.preventDefault();
-        const m = parseFloat(mennyiseg);
-        if (isNaN(m) || m <= 0) { setHiba("Érvényes mennyiséget adj meg."); return; }
-        setKuldFut(true);
-        setHiba(null);
-        try {
-            const res = await fetch(`/api/halaszatok/${hid}/takarmanyok/${takarmany.azonosito}/mozgasok`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ tipus, mennyiseg: m, megjegyzes: megjegyzes.trim() || null, datum }),
-            });
-            const data = await res.json();
-            if (!res.ok) { setHiba(data.error ?? "Hiba"); return; }
-            onSiker();
-        } finally {
-            setKuldFut(false);
-        }
-    }
-
-    return (
-        <ModalAlap cim={`Mozgás rögzítése — ${takarmany.nev}`} onBezar={onBezar}>
-            <form onSubmit={kuldes} style={{ display: "grid", gap: 14 }}>
-                <div style={{ fontSize: 13, opacity: 0.7 }}>
-                    Jelenlegi készlet: <strong style={{ color: "#d08a5b" }}>{Number(takarmany.keszlet).toFixed(2)} {takarmany.egyseg}</strong>
-                </div>
-                {hiba && <div style={{ color: "#ff6b6b", fontSize: 13 }}>{hiba}</div>}
-
-                <div>
-                    <label style={{ fontSize: 12, opacity: 0.7, display: "block", marginBottom: 6 }}>Mozgás típusa *</label>
-                    <div style={{ display: "flex", gap: 10 }}>
-                        {[
-                            { ertek: "BEVETEL", label: "+ Bevétel", szin: "#4caf50" },
-                            { ertek: "FELHASZNALVA", label: "- Felhasználás", szin: "#b24b25" },
-                        ].map((t) => (
-                            <button key={t.ertek} type="button"
-                                onClick={() => setTipus(t.ertek as any)}
-                                className="btn"
-                                style={{
-                                    flex: 1, fontSize: 13,
-                                    background: tipus === t.ertek ? `${t.szin}28` : undefined,
-                                    borderColor: tipus === t.ertek ? `${t.szin}88` : undefined,
-                                    color: tipus === t.ertek ? t.szin : undefined,
-                                    fontWeight: tipus === t.ertek ? 700 : undefined,
-                                }}
-                            >
-                                {t.label}
-                            </button>
-                        ))}
-                    </div>
-                </div>
-
-                <div>
-                    <label style={{ fontSize: 12, opacity: 0.7, display: "block", marginBottom: 4 }}>Mennyiség ({takarmany.egyseg}) *</label>
-                    <input
-                        className="input"
-                        type="number"
-                        min="0.01"
-                        step="0.01"
-                        value={mennyiseg}
-                        onChange={(e) => setMennyiseg(e.target.value)}
-                        placeholder="0.00"
-                        autoFocus
-                        required
-                    />
-                </div>
-
-                <div>
-                    <label style={{ fontSize: 12, opacity: 0.7, display: "block", marginBottom: 4 }}>Dátum</label>
-                    <input
-                        className="input"
-                        type="datetime-local"
-                        value={datum}
-                        onChange={(e) => setDatum(e.target.value)}
-                    />
-                </div>
-
-                <div>
-                    <label style={{ fontSize: 12, opacity: 0.7, display: "block", marginBottom: 4 }}>Megjegyzés</label>
-                    <input
-                        className="input"
-                        value={megjegyzes}
-                        onChange={(e) => setMegjegyzes(e.target.value)}
-                        placeholder="Opcionális..."
-                    />
-                </div>
-
-                <div style={{ display: "flex", gap: 10, justifyContent: "flex-end", marginTop: 4 }}>
-                    <button type="button" className="btn" onClick={onBezar} disabled={kuldFut} style={{ opacity: 0.7 }}>Mégse</button>
-                    <button type="submit" className="btn" disabled={kuldFut || !mennyiseg}>
-                        {kuldFut ? "Rögzítés..." : "Rögzítés"}
-                    </button>
-                </div>
-            </form>
-        </ModalAlap>
-    );
-}
-
-// ─── Mozgásnapló modal ────────────────────────────────────────────────────────
-
-function MozgasokModal({ hid, takarmany, onBezar }: {
-    hid: string;
-    takarmany: Takarmany;
-    onBezar: () => void;
-}) {
-    const [mozgasok, setMozgasok] = useState<Mozgas[]>([]);
-    const [betoltes, setBetoltes] = useState(true);
-
-    useEffect(() => {
-        (async () => {
-            const res = await fetch(`/api/halaszatok/${hid}/takarmanyok/${takarmany.azonosito}/mozgasok`);
-            const data = await res.json();
-            setMozgasok(data.mozgasok ?? []);
-            setBetoltes(false);
-        })();
-    }, [hid, takarmany.azonosito]);
-
-    // trend chart adatok
-    const chartAdat = mozgasok.slice(0, 20).reverse().map((m) => ({
-        datum: new Date(m.datum).toLocaleDateString("hu-HU", { month: "short", day: "numeric" }),
-        be: m.tipus === "BEVETEL" ? Number(m.mennyiseg) : 0,
-        ki: m.tipus === "FELHASZNALVA" ? Number(m.mennyiseg) : 0,
-    }));
-
-    return (
-        <ModalAlap cim={`Mozgásnapló — ${takarmany.nev}`} onBezar={onBezar} szeles>
-            <div style={{ display: "grid", gap: 18 }}>
-                <div style={{ fontSize: 13, opacity: 0.7 }}>
-                    Aktuális készlet: <strong style={{ color: "#d08a5b" }}>{Number(takarmany.keszlet).toFixed(2)} {takarmany.egyseg}</strong>
-                </div>
-
-                {chartAdat.length > 1 && (
-                    <div>
-                        <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 10, opacity: 0.8 }}>Utolsó 20 mozgás trendje</div>
-                        <ResponsiveContainer width="100%" height={160}>
-                            <BarChart data={chartAdat} margin={{ left: 0, right: 0, top: 4, bottom: 4 }}>
-                                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" />
-                                <XAxis dataKey="datum" tick={{ fontSize: 10, fill: "#b89a82" }} axisLine={false} tickLine={false} />
-                                <YAxis tick={{ fontSize: 10, fill: "#b89a82" }} axisLine={false} tickLine={false} />
-                                <Tooltip contentStyle={TOOLTIP_STILUS} />
-                                <Bar dataKey="be" name="Bevétel" fill="#4caf50" stackId="a" radius={[3, 3, 0, 0]} />
-                                <Bar dataKey="ki" name="Felhasználás" fill="#b24b25" stackId="b" radius={[3, 3, 0, 0]} />
-                            </BarChart>
-                        </ResponsiveContainer>
-                    </div>
-                )}
-
-                {betoltes ? (
-                    <div style={{ textAlign: "center", opacity: 0.5, padding: 24 }}>Betöltés...</div>
-                ) : mozgasok.length === 0 ? (
-                    <div style={{ textAlign: "center", opacity: 0.5, padding: 24 }}>Még nincs rögzített mozgás.</div>
-                ) : (
-                    <div style={{ maxHeight: 300, overflowY: "auto" }}>
-                        <table style={{ width: "100%", borderCollapse: "collapse" }}>
-                            <thead>
-                                <tr style={{ borderBottom: "1px solid rgba(255,255,255,0.08)" }}>
-                                    {["Dátum", "Típus", "Mennyiség", "Megjegyzés", "Rögzítette"].map((h) => (
-                                        <th key={h} style={{ padding: "8px 12px", textAlign: "left", fontSize: 11, opacity: 0.55, fontWeight: 600 }}>{h}</th>
-                                    ))}
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {mozgasok.map((m) => (
-                                    <tr key={m.azonosito} style={{ borderBottom: "1px solid rgba(255,255,255,0.04)" }}>
-                                        <td style={{ padding: "8px 12px", fontSize: 12 }}>
-                                            {new Date(m.datum).toLocaleString("hu-HU", { year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" })}
-                                        </td>
-                                        <td style={{ padding: "8px 12px" }}>
-                                            <span style={{
-                                                fontSize: 11, fontWeight: 600, padding: "2px 8px", borderRadius: 6,
-                                                background: m.tipus === "BEVETEL" ? "rgba(76,175,80,0.18)" : "rgba(178,75,37,0.18)",
-                                                color: m.tipus === "BEVETEL" ? "#6bcb77" : "#e07050",
-                                                border: "1px solid " + (m.tipus === "BEVETEL" ? "rgba(76,175,80,0.3)" : "rgba(178,75,37,0.3)"),
-                                            }}>
-                                                {m.tipus === "BEVETEL" ? "+ Bevétel" : "- Felhasználás"}
-                                            </span>
-                                        </td>
-                                        <td style={{ padding: "8px 12px", fontWeight: 700 }}>
-                                            <span style={{ color: m.tipus === "BEVETEL" ? "#6bcb77" : "#e07050" }}>
-                                                {m.tipus === "BEVETEL" ? "+" : "-"}{Number(m.mennyiseg).toFixed(2)} {takarmany.egyseg}
-                                            </span>
-                                        </td>
-                                        <td style={{ padding: "8px 12px", fontSize: 12, opacity: 0.65 }}>{m.megjegyzes ?? "—"}</td>
-                                        <td style={{ padding: "8px 12px", fontSize: 12, opacity: 0.65 }}>{m.rogzitoNev ?? "—"}</td>
-                                    </tr>
+                    {takarmanyok.length === 0 ? (
+                        <EmptyState
+                            className="p-6 md:p-10"
+                            icon={<Wheat />}
+                            title="Nincs takarmány rögzítve"
+                            description={canAdmin ? "Vedd fel az első takarmányt, aztán rögzítsd a bevételt." : "Takarmányt tulajdonos vagy adminisztrátor vehet fel."}
+                            action={canAdmin && (
+                                <Button onClick={() => setUjModalNyitva(true)}>
+                                    <Plus />
+                                    Új takarmány
+                                </Button>
+                            )}
+                        />
+                    ) : szurt.length === 0 ? (
+                        <EmptyState className="p-6" icon={<SearchX />} title="Nincs találat" description={`Nincs „${q}” nevű takarmány.`} />
+                    ) : (
+                        <Table>
+                            <TableHeader>
+                                <TableRow>
+                                    <TableHead>Takarmány</TableHead>
+                                    <TableHead className="hidden sm:table-cell">Egység</TableHead>
+                                    <TableHead className="text-right">Készlet</TableHead>
+                                    <TableHead className="hidden md:table-cell">Állapot</TableHead>
+                                    <TableHead className="w-0"><span className="sr-only">Műveletek</span></TableHead>
+                                </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                                {szurt.map((t) => (
+                                    <TableRow key={t.azonosito} className={cn(!t.aktiv && "opacity-60")}>
+                                        <TableCell>
+                                            <button
+                                                type="button"
+                                                onClick={() => setNaploId(t.azonosito)}
+                                                className="flex items-center gap-2.5 rounded-sm text-left font-semibold outline-none hover:underline focus-visible:ring-[3px] focus-visible:ring-ring/50"
+                                            >
+                                                <span className="size-2.5 shrink-0 rounded-full" style={{ background: szinHex(t.szin) }} aria-hidden="true" />
+                                                {t.nev}
+                                            </button>
+                                        </TableCell>
+                                        <TableCell className="hidden text-muted-foreground sm:table-cell">{t.egyseg}</TableCell>
+                                        <TableCell className="text-right"><KeszletJelzo t={t} /></TableCell>
+                                        <TableCell className="hidden md:table-cell">
+                                            <Badge variant={t.aktiv ? "success" : "secondary"}>{t.aktiv ? "Aktív" : "Inaktív"}</Badge>
+                                        </TableCell>
+                                        <TableCell className="text-right">
+                                            <div className="flex items-center justify-end gap-1">
+                                                {canAdmin && t.aktiv && (
+                                                    <Button
+                                                        variant="outline"
+                                                        size="sm"
+                                                        className="hidden sm:inline-flex"
+                                                        onClick={() => setMozgasCel({ id: t.azonosito, tipus: "BEVETEL" })}
+                                                    >
+                                                        <PlusCircle />
+                                                        Mozgás
+                                                    </Button>
+                                                )}
+                                                {muveletMenu(t)}
+                                            </div>
+                                        </TableCell>
+                                    </TableRow>
                                 ))}
-                            </tbody>
-                        </table>
-                    </div>
-                )}
-            </div>
-        </ModalAlap>
-    );
-}
+                            </TableBody>
+                        </Table>
+                    )}
+                </CardContent>
+            </Card>
 
-// ─── Modal alap wrapper ───────────────────────────────────────────────────────
+            {/* Modálok */}
+            {canAdmin && (
+                <UjTakarmanyModal hid={hid} open={ujModalNyitva} onOpenChange={setUjModalNyitva} onLetrehozva={() => void betolt()} />
+            )}
+            <MozgasModal
+                hid={hid}
+                takarmany={takarmanyok.find((t) => t.azonosito === mozgasCel?.id) ?? null}
+                kezdoTipus={mozgasCel?.tipus}
+                onOpenChange={(v) => !v && setMozgasCel(null)}
+                onMentve={() => void betolt()}
+            />
+            <MozgasNaploModal
+                hid={hid}
+                takarmany={takarmanyok.find((t) => t.azonosito === naploId) ?? null}
+                onOpenChange={(v) => !v && setNaploId(null)}
+            />
 
-function ModalAlap({ cim, onBezar, children, szeles }: {
-    cim: string;
-    onBezar: () => void;
-    children: React.ReactNode;
-    szeles?: boolean;
-}) {
-    return (
-        <div style={{
-            position: "fixed", inset: 0, zIndex: 200,
-            background: "rgba(0,0,0,0.6)", backdropFilter: "blur(4px)",
-            display: "flex", alignItems: "center", justifyContent: "center",
-            padding: 16,
-        }} onClick={(e) => { if (e.target === e.currentTarget) onBezar(); }}>
-            <div className="glass card" style={{
-                width: "100%", maxWidth: szeles ? 680 : 440,
-                maxHeight: "90vh", overflowY: "auto",
-            }}>
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 18 }}>
-                    <div style={{ fontWeight: 700, fontSize: 15 }}>{cim}</div>
-                    <button onClick={onBezar} style={{ background: "none", border: "none", cursor: "pointer", opacity: 0.6, fontSize: 20, lineHeight: 1 }}>&times;</button>
-                </div>
-                {children}
-            </div>
+            <ConfirmDialog
+                open={torlendo != null}
+                onOpenChange={(v) => !v && setTorlendo(null)}
+                title={`Törlöd: „${torlendo?.nev ?? ""}”?`}
+                description="A takarmány véglegesen törlődik. Ha már van rögzített mozgása, csak inaktiválni lehet."
+                confirmLabel="Törlés"
+                destructive
+                loading={muveletFut}
+                onConfirm={() => { if (torlendo) void torles(torlendo); }}
+            />
+            <ConfirmDialog
+                open={inaktivalando != null}
+                onOpenChange={(v) => !v && setInaktivalando(null)}
+                title="Nem törölhető"
+                description={inaktivalando?.uzenet}
+                confirmLabel="Inaktiválás helyette"
+                loading={muveletFut}
+                onConfirm={async () => {
+                    if (!inaktivalando) return;
+                    await aktivValtas(inaktivalando.t);
+                    setInaktivalando(null);
+                }}
+            />
         </div>
     );
 }

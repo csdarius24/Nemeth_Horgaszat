@@ -1,30 +1,28 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import GlassModal from "@/components/ui/GlassModal";
+
+import { Field, FieldDescription, FieldGroup, FieldLabel } from "@/components/ui/field";
+import { Input } from "@/components/ui/input";
+import { Modal } from "@/components/ui/modal";
+import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
+import { toast } from "@/components/ui/toast";
+
+import { HibaAlert, MertekegysegesInput } from "@/components/app/urlap";
+
+import { apiHiba, MuveletLablec, type MuveletModalProps } from "./kozos";
 
 type Halfaj = { azonosito: number; nev: string };
 
-export default function TelepitesModal({
-                                           open,
-                                           onCloseAction,
-                                           hid,
-                                           toId,
-                                           onSavedAction,
-                                       }: {
-    open: boolean;
-    onCloseAction: () => void;
-    hid: string;
-    toId: string;
-    onSavedAction: () => void;
-}) {
+export default function TelepitesModal({ open, onOpenChange, hid, toId, onMentve }: MuveletModalProps) {
     const [halfajok, setHalfajok] = useState<Halfaj[]>([]);
+    const [halfajBetoltve, setHalfajBetoltve] = useState(false);
     const [halfajId, setHalfajId] = useState<number>(0);
-    const [darab, setDarab] = useState<number>(100);
-    const [minKg, setMinKg] = useState<number>(0);
-    const [maxKg, setMaxKg] = useState<number>(0);
-    const [forras, setForras] = useState<string>("");
-    const [megjegyzes, setMegjegyzes] = useState<string>("");
+    const [darab, setDarab] = useState("100");
+    const [minKg, setMinKg] = useState("");
+    const [maxKg, setMaxKg] = useState("");
+    const [forras, setForras] = useState("");
+    const [megjegyzes, setMegjegyzes] = useState("");
 
     const [saving, setSaving] = useState(false);
     const [err, setErr] = useState<string | null>(null);
@@ -33,6 +31,7 @@ export default function TelepitesModal({
         if (!open) return;
 
         setErr(null);
+        setHalfajBetoltve(false);
         fetch(`/api/halaszatok/${hid}/halfajok`, { cache: "no-store" })
             .then((r) => r.json())
             .then((j) => {
@@ -40,25 +39,33 @@ export default function TelepitesModal({
                 setHalfajok(items);
                 if (items.length) setHalfajId((prev) => (prev ? prev : items[0].azonosito));
             })
-            .catch(() => {});
+            .catch(() => {})
+            .finally(() => setHalfajBetoltve(true));
 
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [open]);
 
-    async function submit() {
+    async function submit(e: React.FormEvent) {
+        e.preventDefault();
+        const darabSzam = Math.floor(Number(darab));
+        const min = Number(minKg.replace(",", "."));
+        const max = Number(maxKg.replace(",", "."));
+        if (!Number.isFinite(darabSzam) || darabSzam <= 0) return setErr("A darabszám legyen pozitív egész.");
+        if (min > 0 && max > 0 && min > max) return setErr("A minimum tömeg nem lehet nagyobb a maximumnál.");
+
         setSaving(true);
         setErr(null);
         try {
-            const payload: any = {
+            const payload: Record<string, unknown> = {
                 halfajId,
-                darab,
+                darab: darabSzam,
                 forras: forras || null,
                 megjegyzes: megjegyzes || null,
             };
 
-            if (minKg > 0 && maxKg > 0) {
-                payload.minTomegKg = minKg;
-                payload.maxTomegKg = maxKg;
+            if (min > 0 && max > 0) {
+                payload.minTomegKg = min;
+                payload.maxTomegKg = max;
             }
 
             const res = await fetch(`/api/halaszatok/${hid}/toak/${toId}/telepites`, {
@@ -68,108 +75,112 @@ export default function TelepitesModal({
             });
 
             const json = await res.json().catch(() => ({}));
-            if (!res.ok) throw new Error(json?.error ?? "Hiba a telepítés mentésekor.");
+            if (!res.ok) throw new Error(apiHiba(json, "Hiba a telepítés mentésekor."));
 
-            onCloseAction();
-            onSavedAction();
-        } catch (e: any) {
-            setErr(e?.message ?? "Ismeretlen hiba");
+            const nev = halfajok.find((h) => h.azonosito === halfajId)?.nev;
+            toast.success("Telepítés rögzítve", { description: `${darabSzam.toLocaleString("hu-HU")} db ${nev ?? ""}`.trim() });
+            onOpenChange(false);
+            await onMentve();
+        } catch (e) {
+            setErr(e instanceof Error ? e.message : "Ismeretlen hiba");
         } finally {
             setSaving(false);
         }
     }
 
+    const nincsHalfaj = halfajBetoltve && halfajok.length === 0;
+
     return (
-        <GlassModal
+        <Modal
             open={open}
-            onCloseAction={onCloseAction}
+            onOpenChange={onOpenChange}
             title="Hal telepítése"
-            subtitle="Válassz halfajt, add meg a darabszámot és (opcionálisan) tömegtartományt."
-            width={560}
-            footer={
-                <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
-                    <button className="btn" onClick={onCloseAction} disabled={saving}>
-                        Mégse
-                    </button>
-                    <button className="btn btn-primary" onClick={submit} disabled={saving || !halfajId}>
-                        {saving ? "Mentés…" : "Mentés"}
-                    </button>
-                </div>
-            }
+            description="Válassz halfajt, add meg a darabszámot és opcionálisan a tömegtartományt."
+            preventClose={saving}
+            footer={<MuveletLablec formId="telepites-urlap" saving={saving} onMegse={() => onOpenChange(false)} disabled={!halfajId} />}
         >
-            <div style={{ display: "grid", gap: 12 }}>
-                <label style={{ display: "grid", gap: 6 }}>
-                    <span className="muted">Halfaj</span>
-                    <select value={halfajId} onChange={(e) => setHalfajId(Number(e.target.value))} style={inputStyle}>
-                        {halfajok.length ? (
-                            halfajok.map((h) => (
-                                <option key={h.azonosito} value={h.azonosito}>
-                                    {h.nev}
-                                </option>
-                            ))
-                        ) : (
-                            <option value={halfajId || 0}>— nincs lista —</option>
-                        )}
-                    </select>
-                </label>
-
-                <label style={{ display: "grid", gap: 6 }}>
-                    <span className="muted">Darab (db)</span>
-                    <input type="number" value={darab} onChange={(e) => setDarab(Number(e.target.value))} style={inputStyle} />
-                </label>
-
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-                    <label style={{ display: "grid", gap: 6 }}>
-                        <span className="muted">Min tömeg (kg) (opcionális)</span>
-                        <input type="number" step="0.01" value={minKg} onChange={(e) => setMinKg(Number(e.target.value))} style={inputStyle} />
-                    </label>
-
-                    <label style={{ display: "grid", gap: 6 }}>
-                        <span className="muted">Max tömeg (kg) (opcionális)</span>
-                        <input type="number" step="0.01" value={maxKg} onChange={(e) => setMaxKg(Number(e.target.value))} style={inputStyle} />
-                    </label>
-                </div>
-
-                <label style={{ display: "grid", gap: 6 }}>
-                    <span className="muted">Forrás (opcionális)</span>
-                    <input value={forras} onChange={(e) => setForras(e.target.value)} style={inputStyle} />
-                </label>
-
-                <label style={{ display: "grid", gap: 6 }}>
-                    <span className="muted">Megjegyzés (opcionális)</span>
-                    <input value={megjegyzes} onChange={(e) => setMegjegyzes(e.target.value)} style={inputStyle} />
-                </label>
-
-                {err ? (
-                    <div
-                        className="glass"
-                        style={{
-                            padding: 12,
-                            borderRadius: 16,
-                            border: "1px solid rgba(255,120,120,0.35)",
-                            background: "rgba(120,20,20,0.22)",
-                        }}
-                    >
-                        <div style={{ fontWeight: 800, marginBottom: 6 }}>Hiba</div>
-                        <div className="muted">{err}</div>
+            <form id="telepites-urlap" onSubmit={submit}>
+                <FieldGroup>
+                    <div className="grid gap-4 sm:grid-cols-2">
+                        <Field>
+                            <FieldLabel htmlFor="telepites-halfaj">Halfaj</FieldLabel>
+                            <NativeSelect
+                                id="telepites-halfaj"
+                                value={halfajId}
+                                onChange={(e) => setHalfajId(Number(e.target.value))}
+                                disabled={saving || halfajok.length === 0}
+                            >
+                                {halfajok.length ? (
+                                    halfajok.map((h) => (
+                                        <NativeSelectOption key={h.azonosito} value={h.azonosito}>{h.nev}</NativeSelectOption>
+                                    ))
+                                ) : (
+                                    <NativeSelectOption value={0}>{halfajBetoltve ? "Nincs halfaj" : "Betöltés…"}</NativeSelectOption>
+                                )}
+                            </NativeSelect>
+                        </Field>
+                        <Field>
+                            <FieldLabel htmlFor="telepites-darab">Darabszám</FieldLabel>
+                            <MertekegysegesInput
+                                id="telepites-darab"
+                                egyseg="db"
+                                inputMode="numeric"
+                                min={1}
+                                step={1}
+                                value={darab}
+                                onChange={(e) => setDarab(e.target.value)}
+                                disabled={saving}
+                                required
+                            />
+                        </Field>
                     </div>
-                ) : null}
 
-                {halfajok.length === 0 ? (
-                    <div className="muted" style={{ fontSize: 12 }}>
-                        Nincs halfaj lista ehhez a halászathoz (vagy nincs jogosultság). Előbb adj hozzá halfajt.
+                    <Field>
+                        <FieldLabel>Tömegtartomány (egyedenként, opcionális)</FieldLabel>
+                        <div className="grid grid-cols-2 gap-3">
+                            <MertekegysegesInput
+                                aria-label="Minimum tömeg"
+                                egyseg="kg"
+                                step="0.01"
+                                min={0}
+                                placeholder="min"
+                                value={minKg}
+                                onChange={(e) => setMinKg(e.target.value)}
+                                disabled={saving}
+                            />
+                            <MertekegysegesInput
+                                aria-label="Maximum tömeg"
+                                egyseg="kg"
+                                step="0.01"
+                                min={0}
+                                placeholder="max"
+                                value={maxKg}
+                                onChange={(e) => setMaxKg(e.target.value)}
+                                disabled={saving}
+                            />
+                        </div>
+                        <FieldDescription>Ebből becsüljük a tó halállományát kilogrammban.</FieldDescription>
+                    </Field>
+
+                    <div className="grid gap-4 sm:grid-cols-2">
+                        <Field>
+                            <FieldLabel htmlFor="telepites-forras">Forrás (opcionális)</FieldLabel>
+                            <Input id="telepites-forras" value={forras} onChange={(e) => setForras(e.target.value)} disabled={saving} placeholder="pl. saját keltető" />
+                        </Field>
+                        <Field>
+                            <FieldLabel htmlFor="telepites-megjegyzes">Megjegyzés (opcionális)</FieldLabel>
+                            <Input id="telepites-megjegyzes" value={megjegyzes} onChange={(e) => setMegjegyzes(e.target.value)} disabled={saving} />
+                        </Field>
                     </div>
-                ) : null}
-            </div>
-        </GlassModal>
+
+                    {nincsHalfaj && (
+                        <FieldDescription>
+                            Nincs halfaj ehhez a halászathoz. Előbb vegyél fel halfajt a <a href={`/halaszatok/${hid}/halfajok`}>Halfajok</a> oldalon.
+                        </FieldDescription>
+                    )}
+                    <HibaAlert uzenet={err} />
+                </FieldGroup>
+            </form>
+        </Modal>
     );
 }
-
-const inputStyle: React.CSSProperties = {
-    padding: 12,
-    borderRadius: 16,
-    border: "1px solid rgba(255,255,255,0.14)",
-    background: "rgba(0,0,0,0.16)",
-    color: "rgba(255,255,255,0.92)",
-    outline: "none",
-};

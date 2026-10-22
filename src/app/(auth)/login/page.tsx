@@ -3,9 +3,14 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Mail, Lock, AlertCircle, Fish } from "lucide-react";
-import { Button } from "@/components/ui/Button";
-import { Input } from "@/components/ui/Input";
+import { AlertCircle } from "lucide-react";
+
+import { AuthCard } from "@/components/app/AuthCard";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
+import { Field, FieldDescription, FieldGroup, FieldLabel } from "@/components/ui/field";
+import { Input } from "@/components/ui/input";
+import { PasswordInput } from "@/components/ui/password-input";
 
 export default function LoginPage() {
     const router = useRouter();
@@ -43,96 +48,55 @@ export default function LoginPage() {
     }
 
     return (
-        <div className="min-h-screen w-full flex bg-white">
+        <AuthCard
+            title="Üdv újra!"
+            description="Lépj be az email címeddel és a jelszavaddal."
+        >
+            <form onSubmit={onSubmit}>
+                <FieldGroup>
+                    <Field>
+                        <FieldLabel htmlFor="email">Email cím</FieldLabel>
+                        <Input
+                            id="email"
+                            type="email"
+                            value={email}
+                            onChange={(e) => setEmail(e.target.value)}
+                            autoComplete="email"
+                            placeholder="pelda@email.com"
+                            aria-invalid={!!hiba || undefined}
+                            required
+                        />
+                    </Field>
 
-            {/* BAL OLDAL - Brand Panel */}
-            <div className="hidden lg:flex w-1/2 bg-slate-900 relative flex-col justify-between p-12 overflow-hidden">
-                <div className="absolute inset-0 bg-primary/10" />
-                <div className="absolute -left-1/4 -top-1/4 w-[800px] h-[800px] rounded-full bg-primary/20 blur-[120px]" />
+                    <Field>
+                        <FieldLabel htmlFor="password">Jelszó</FieldLabel>
+                        <PasswordInput
+                            id="password"
+                            value={password}
+                            onChange={(e) => setPassword(e.target.value)}
+                            autoComplete="current-password"
+                            aria-invalid={!!hiba || undefined}
+                            required
+                        />
+                    </Field>
 
-                {/* Prémium Logó terület */}
-                <div className="relative z-10 flex items-center gap-3.5">
-                    <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-sky-400 to-primary flex items-center justify-center shadow-[0_0_30px_rgba(14,165,233,0.3)] border border-white/20">
-                        <Fish className="w-6 h-6 text-white" strokeWidth={2.5} />
-                    </div>
-                    <span className="text-2xl font-extrabold tracking-tight text-white drop-shadow-sm">
-                        Fish App
-                    </span>
-                </div>
+                    {hiba && (
+                        <Alert variant="destructive">
+                            <AlertCircle />
+                            <AlertDescription>{hiba}</AlertDescription>
+                        </Alert>
+                    )}
 
-                {/* Hero Szöveg */}
-                <div className="relative z-10 max-w-lg mb-12 text-white">
-                    <h2 className="text-4xl font-bold leading-tight mb-5">
-                        Professzionális halgazdálkodás és vízegység kezelés.
-                    </h2>
-                    <p className="text-slate-300 text-lg leading-relaxed">
-                        Kezeld a tavakat, kövesd a takarmányozást és vezesd a halászati naplót egyetlen modern felületen.
-                    </p>
-                </div>
-
-            </div>
-
-            {/* JOBB OLDAL - Auth Form */}
-            <div className="flex-1 flex items-center justify-center p-6 sm:p-12 relative">
-                <div className="w-full max-w-[400px] grid gap-8">
-
-                    <div className="grid gap-2">
-                        <h1 className="text-3xl font-bold text-foreground">Bejelentkezés</h1>
-                        <p className="text-slate-500 font-medium">Lépj be a fiókodba a folytatáshoz.</p>
-                    </div>
-
-                    <form onSubmit={onSubmit} className="grid gap-5">
-                        <div className="grid gap-2">
-                            <label className="text-sm font-bold text-foreground">Email cím</label>
-                            <Input
-                                type="email"
-                                value={email}
-                                onChange={(e) => setEmail(e.target.value)}
-                                autoComplete="email"
-                                placeholder="pelda@email.com"
-                                icon={<Mail />}
-                                required
-                            />
-                        </div>
-
-                        <div className="grid gap-2">
-                            <div className="flex items-center justify-between">
-                                <label className="text-sm font-bold text-foreground">Jelszó</label>
-                                <Link href="#" className="text-sm font-bold text-primary hover:text-primary-hover transition-colors">
-                                    Elfelejtett jelszó?
-                                </Link>
-                            </div>
-                            <Input
-                                type="password"
-                                value={password}
-                                onChange={(e) => setPassword(e.target.value)}
-                                autoComplete="current-password"
-                                placeholder="••••••••"
-                                icon={<Lock />}
-                                required
-                            />
-                        </div>
-
-                        {hiba && (
-                            <div className="flex items-start gap-2.5 p-3.5 rounded-xl bg-red-50 border border-red-100 text-danger">
-                                <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" />
-                                <div className="text-sm font-semibold">{hiba}</div>
-                            </div>
-                        )}
-
-                        <Button type="submit" variant="primary" size="lg" isLoading={loading} className="w-full mt-2">
+                    <Field>
+                        <Button type="submit" loading={loading}>
                             {loading ? "Beléptetés…" : "Belépés"}
                         </Button>
-                    </form>
-
-                    <div className="text-center text-sm text-slate-500 font-medium mt-2">
-                        Nincs még fiókod?{" "}
-                        <Link href="/register" className="text-primary hover:text-primary-hover transition-colors font-bold">
-                            Regisztrálj most
-                        </Link>
-                    </div>
-                </div>
-            </div>
-        </div>
+                        <FieldDescription className="text-center">
+                            Nincs még fiókod? <Link href="/register">Regisztrálj</Link>
+                        </FieldDescription>
+                    </Field>
+                </FieldGroup>
+            </form>
+        </AuthCard>
     );
 }

@@ -1,6 +1,10 @@
 "use client";
 
+import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { ChevronRight, Plus, Search, SearchX, Waves } from "lucide-react";
+
+import { cn } from "@/lib/utils";
 import {
     NINCS_ADAT,
     toTipusCimke,
@@ -8,8 +12,22 @@ import {
     ertekVagyNincsAdat,
     type Allapot,
 } from "@/lib/toak/attekintes";
+import { Tudnivalok } from "@/components/app/Tudnivalok";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group";
+import { PageHeader } from "@/components/ui/page-header";
+import { Progress } from "@/components/ui/progress";
+import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
+import { Separator } from "@/components/ui/separator";
+import { Skeleton } from "@/components/ui/skeleton";
+import { EmptyState, ErrorState } from "@/components/ui/states";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 
-// ─── Tipusok ─────────────────────────────────────────────────────────────────
+import { UjVizegysegModal, VIZEGYSEG_TIPUSOK } from "./UjVizegysegModal";
+
+// ─── Típusok ─────────────────────────────────────────────────────────────────
 
 type Egyseg = {
     azonosito: number;
@@ -43,143 +61,156 @@ type Valasz = {
     takarmany: { keszletKg: number; halaszatAtlagNapiKg: number; halaszatFedezetNap: number | null };
 };
 
-const SZUROK = [
-    { ertek: "OSSZES", cimke: "Összes" },
-    { ertek: "TO", cimke: "Tó" },
-    { ertek: "TELELO", cimke: "Telelő" },
-    { ertek: "IVADEKNEVELO", cimke: "Ivadéknevelő" },
-    { ertek: "KELTETO_MEDENCE", cimke: "Keltető medence" },
-] as const;
+const SZUROK = [{ ertek: "OSSZES", cimke: "Összes" }, ...VIZEGYSEG_TIPUSOK] as const;
 
-const ALLAPOT_SZIN: Record<Allapot, string> = {
-    kivalo: "#6bcb77",
-    jo: "#d08a5b",
-    figyelendo: "#ffa94d",
-    nincs_adat: "#8a8a8a",
+/** Állapot → badge-változat és a kártya bal szélén futó színcsík. */
+const ALLAPOT_STILUS: Record<Allapot, { badge: "success" | "primary" | "warning" | "secondary"; csik: string }> = {
+    kivalo: { badge: "success", csik: "before:bg-success" },
+    jo: { badge: "primary", csik: "before:bg-primary" },
+    figyelendo: { badge: "warning", csik: "before:bg-warning" },
+    nincs_adat: { badge: "secondary", csik: "before:bg-border" },
 };
 
-const mezoStilus: React.CSSProperties = {
-    padding: 10,
-    borderRadius: 12,
-    border: "1px solid rgba(255,255,255,0.14)",
-    background: "rgba(0,0,0,0.16)",
-    color: "rgba(255,255,255,0.92)",
-    outline: "none",
-    width: "100%",
-};
+// ─── Segédek ─────────────────────────────────────────────────────────────────
 
-function datumSzoveg(iso: string | null): string {
-    if (!iso) return NINCS_ADAT;
-    const d = new Date(iso);
-    if (Number.isNaN(d.getTime())) return NINCS_ADAT;
-    return d.toLocaleString("hu-HU", {
-        year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit",
-    });
+function hanyNapja(nap: number | null, iso: string | null): string {
+    if (nap == null || !iso) return NINCS_ADAT;
+    if (nap <= 0) return "ma";
+    if (nap === 1) return "tegnap";
+    return `${nap} napja`;
 }
 
-// ─── Mutato (score) sav ──────────────────────────────────────────────────────
+function datumTeljes(iso: string | null): string | undefined {
+    if (!iso) return undefined;
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) return undefined;
+    return d.toLocaleString("hu-HU", { year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" });
+}
 
-function Mutato({ cimke, ertek, egyseg }: { cimke: string; ertek: number | null; egyseg?: string }) {
-    const vanAdat = ertek != null && Number.isFinite(ertek);
-    const szazalek = vanAdat ? Math.max(0, Math.min(100, ertek)) : 0;
+// ─── Építőelemek ─────────────────────────────────────────────────────────────
 
+/** Címke + érték pár a kártyán. */
+function Adat({ cimke, children, title, gyenge }: {
+    cimke: string;
+    children: React.ReactNode;
+    title?: string;
+    gyenge?: boolean;
+}) {
     return (
-        <div style={{ flex: 1, minWidth: 90 }}>
-            <div className="muted" style={{ fontSize: 11, marginBottom: 4 }}>{cimke}</div>
-            <div style={{ height: 6, borderRadius: 999, background: "rgba(255,255,255,0.10)", overflow: "hidden" }}>
-                {vanAdat && (
-                    <div style={{ width: `${szazalek}%`, height: "100%", background: "#d08a5b", borderRadius: 999 }} />
-                )}
-            </div>
-            <div style={{ fontSize: 12, marginTop: 4, opacity: vanAdat ? 0.9 : 0.5 }}>
-                {vanAdat ? `${ertek}${egyseg ?? ""}` : NINCS_ADAT}
-            </div>
+        <div className="min-w-0">
+            <dt className="text-xs text-muted-foreground">{cimke}</dt>
+            <dd className={cn("truncate text-sm font-semibold", gyenge && "font-normal text-muted-foreground")} title={title}>
+                {children}
+            </dd>
         </div>
     );
 }
 
-// ─── Kartya ──────────────────────────────────────────────────────────────────
+/** 0–100 közötti mutató sávval; ha nincs adat, halvány „nincs adat”. */
+function Mutato({ cimke, ertek, egyseg = "" }: { cimke: string; ertek: number | null; egyseg?: string }) {
+    const vanAdat = ertek != null && Number.isFinite(ertek);
+    const ertekSzoveg = vanAdat ? `${ertek}${egyseg}` : NINCS_ADAT;
+    return (
+        <div className="grid gap-1.5">
+            <div className="flex items-baseline justify-between gap-2 text-xs">
+                <span className="text-muted-foreground">{cimke}</span>
+                <span className={cn("font-medium tabular-nums", !vanAdat && "text-muted-foreground")}>{ertekSzoveg}</span>
+            </div>
+            <Progress
+                value={vanAdat ? Math.max(0, Math.min(100, ertek)) : 0}
+                aria-label={`${cimke}: ${ertekSzoveg}`}
+                className={cn("h-1.5", !vanAdat && "opacity-50")}
+            />
+        </div>
+    );
+}
+
+// ─── Vízegység kártya ────────────────────────────────────────────────────────
 
 function EgysegKartya({ e, hid }: { e: Egyseg; hid: string }) {
-    const szin = ALLAPOT_SZIN[e.allapot];
+    const stilus = ALLAPOT_STILUS[e.allapot];
+    const href = `/halaszatok/${hid}/toak/${e.azonosito}`;
+    const muszaki = [
+        e.teruletHa != null && `${e.teruletHa} ha`,
+        e.atlagMelysegMeter != null && `${e.atlagMelysegMeter} m mély`,
+        e.kapacitasKg != null && `${e.kapacitasKg.toLocaleString("hu-HU")} kg kapacitás`,
+    ].filter(Boolean);
 
     return (
-        <div className="glass card" style={{ borderLeft: `3px solid ${szin}`, display: "grid", gap: 12 }}>
-            {/* Fejlec */}
-            <div style={{ display: "flex", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
-                <div style={{ minWidth: 0 }}>
-                    <div style={{ fontWeight: 800, fontSize: 16 }}>{e.nev}</div>
-                    <div style={{ display: "flex", gap: 6, marginTop: 6, flexWrap: "wrap" }}>
-                        <span className="badge">{toTipusCimke(e.tipus)}</span>
-                        {!e.aktiv && <span className="badge" style={{ opacity: 0.7 }}>Inaktív</span>}
+        <Card
+            className={cn(
+                // Bal oldali állapot-színcsík + az egész kártya kattintható (a címben lévő link „kifeszítve”).
+                "relative gap-4 overflow-hidden transition-shadow before:absolute before:inset-y-0 before:left-0 before:w-1 hover:shadow-md has-[a:focus-visible]:ring-[3px] has-[a:focus-visible]:ring-ring/50",
+                stilus.csik,
+                !e.aktiv && "opacity-75"
+            )}
+        >
+            <CardHeader className="gap-2">
+                <div className="flex items-start justify-between gap-3">
+                    <CardTitle className="min-w-0 text-lg">
+                        <Link href={href} className="outline-none after:absolute after:inset-0 after:content-['']">
+                            <span className="line-clamp-1">{e.nev}</span>
+                        </Link>
+                    </CardTitle>
+                    <Badge variant={stilus.badge} className="shrink-0">{allapotCimke(e.allapot)}</Badge>
+                </div>
+                <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
+                    <Badge variant="outline">{toTipusCimke(e.tipus)}</Badge>
+                    {!e.aktiv && <Badge variant="secondary">Inaktív</Badge>}
+                    {muszaki.length > 0 ? <span>{muszaki.join(" · ")}</span> : <span>Műszaki adat: {NINCS_ADAT}</span>}
+                </div>
+            </CardHeader>
+
+            <CardContent className="grid gap-4">
+                <dl className="grid grid-cols-2 gap-x-4 gap-y-3">
+                    <Adat cimke="Halállomány">
+                        {e.allomanyKg != null ? `~${e.allomanyKg.toLocaleString("hu-HU")} kg` : NINCS_ADAT}
+                        <span className="font-normal text-muted-foreground"> · {e.allomanyDarab.toLocaleString("hu-HU")} db</span>
+                    </Adat>
+                    <Adat cimke="Fő faj" gyenge={!e.foFajok} title={e.foFajok ?? undefined}>
+                        {e.foFajok ?? NINCS_ADAT}
+                    </Adat>
+                    <Adat cimke="Utolsó etetés" gyenge={!e.utolsoEtetes} title={datumTeljes(e.utolsoEtetes)}>
+                        {hanyNapja(e.utolsoEtetesNapja, e.utolsoEtetes)}
+                    </Adat>
+                    <Adat cimke="Takarmány-fedezet" gyenge={e.fedezetNap == null}>
+                        {ertekVagyNincsAdat(e.fedezetNap, (x) => `~${Math.round(x).toLocaleString("hu-HU")} nap`)}
+                    </Adat>
+                </dl>
+                {e.allomanyBecsultReszleges && (
+                    <p className="-mt-2 text-xs text-muted-foreground">A súly részleges tömegadatból becsült.</p>
+                )}
+
+                <Separator />
+
+                <div className="grid gap-3">
+                    <Mutato cimke="Telítettség" ertek={e.telitettsegSzazalek} egyseg="%" />
+                    <div className="grid grid-cols-2 gap-4">
+                        <Mutato cimke="Vízminőség" ertek={e.vizminosegPont} />
+                        <Mutato cimke="Egészség" ertek={e.egeszsegPont} />
                     </div>
                 </div>
-                <span
-                    className="badge"
-                    style={{ background: `${szin}22`, color: szin, border: `1px solid ${szin}55`, height: "fit-content" }}
-                >
-                    {allapotCimke(e.allapot)}
+            </CardContent>
+
+            <CardFooter className="justify-end">
+                <span className="inline-flex items-center gap-1 text-sm font-semibold text-primary">
+                    Megnyitás
+                    <ChevronRight className="size-4" aria-hidden="true" />
                 </span>
-            </div>
+            </CardFooter>
+        </Card>
+    );
+}
 
-            {/* Muszaki adatok */}
-            <div style={{ display: "flex", gap: 16, flexWrap: "wrap", fontSize: 12 }}>
-                <span className="muted">
-                    Terület: <strong style={{ color: "rgba(255,255,255,0.85)" }}>
-                        {ertekVagyNincsAdat(e.teruletHa, (x) => `${x} ha`)}
-                    </strong>
-                </span>
-                <span className="muted">
-                    Átl. mélység: <strong style={{ color: "rgba(255,255,255,0.85)" }}>
-                        {ertekVagyNincsAdat(e.atlagMelysegMeter, (x) => `${x} m`)}
-                    </strong>
-                </span>
-            </div>
-
-            {/* Mutatok */}
-            <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
-                <Mutato cimke="Vízminőség" ertek={e.vizminosegPont} />
-                <Mutato cimke="Egészség" ertek={e.egeszsegPont} />
-                <Mutato cimke="Telítettség" ertek={e.telitettsegSzazalek} egyseg="%" />
-            </div>
-
-            {/* Allomany */}
-            <div style={{ display: "grid", gap: 4, fontSize: 13 }}>
-                <div>
-                    <span className="muted">Halállomány: </span>
-                    <strong>
-                        {e.allomanyKg != null ? `~${e.allomanyKg} kg` : NINCS_ADAT}
-                    </strong>
-                    <span className="muted" style={{ fontSize: 12 }}> ({e.allomanyDarab} db)</span>
-                    {e.allomanyBecsultReszleges && (
-                        <span className="muted" style={{ fontSize: 11 }}> &bull; részleges súlyadat</span>
-                    )}
-                </div>
-                <div>
-                    <span className="muted">Fő faj: </span>
-                    <strong>{e.foFajok ?? NINCS_ADAT}</strong>
-                </div>
-            </div>
-
-            {/* Etetes */}
-            <div style={{ display: "grid", gap: 4, fontSize: 12 }}>
-                <div className="muted">Utolsó etetés: <strong style={{ color: "rgba(255,255,255,0.85)" }}>{datumSzoveg(e.utolsoEtetes)}</strong></div>
-                <div className="muted">
-                    Takarmány-fedezet:{" "}
-                    <strong style={{ color: "rgba(255,255,255,0.85)" }}>
-                        {ertekVagyNincsAdat(e.fedezetNap, (x) => `~${x} nap`)}
-                    </strong>
-                </div>
-            </div>
-
-            <a className="btn" href={`/halaszatok/${hid}/toak/${e.azonosito}`} style={{ justifySelf: "start" }}>
-                Megnyitás &rarr;
-            </a>
+function KartyaVaz() {
+    return (
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3" role="status" aria-label="Vízegységek betöltése">
+            {Array.from({ length: 6 }).map((_, i) => <Skeleton key={i} className="h-[340px] rounded-2xl" />)}
         </div>
     );
 }
 
-// ─── Fo komponens ────────────────────────────────────────────────────────────
+// ─── Fő komponens ────────────────────────────────────────────────────────────
 
 export default function ToakAttekintesClient({ hid }: { hid: string }) {
     const [data, setData] = useState<Valasz | null>(null);
@@ -188,7 +219,7 @@ export default function ToakAttekintesClient({ hid }: { hid: string }) {
 
     const [q, setQ] = useState("");
     const [szuro, setSzuro] = useState<string>("OSSZES");
-    const [urlapNyitva, setUrlapNyitva] = useState(false);
+    const [modalNyitva, setModalNyitva] = useState(false);
 
     const betolt = useCallback(async () => {
         setLoading(true);
@@ -198,8 +229,8 @@ export default function ToakAttekintesClient({ hid }: { hid: string }) {
             const json = await res.json().catch(() => null);
             if (!res.ok) throw new Error(json?.error ?? "Betöltési hiba.");
             setData(json);
-        } catch (e: any) {
-            setHiba(e?.message ?? "Ismeretlen hiba.");
+        } catch (e) {
+            setHiba(e instanceof Error ? e.message : "Ismeretlen hiba.");
         } finally {
             setLoading(false);
         }
@@ -207,7 +238,7 @@ export default function ToakAttekintesClient({ hid }: { hid: string }) {
 
     useEffect(() => { void betolt(); }, [betolt]);
 
-    const egysegek = data?.egysegek ?? [];
+    const egysegek = useMemo(() => data?.egysegek ?? [], [data]);
     const canCreate = data?.viewerRole === "OWNER" || data?.viewerRole === "ADMIN";
 
     const szurtek = useMemo(() => {
@@ -223,194 +254,133 @@ export default function ToakAttekintesClient({ hid }: { hid: string }) {
         });
     }, [egysegek, q, szuro]);
 
-    if (loading) {
-        return (
-            <div className="glass card" style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                <div style={{
-                    width: 16, height: 16, borderRadius: "50%",
-                    border: "2px solid rgba(255,255,255,0.2)", borderTopColor: "#d08a5b",
-                    animation: "spin 0.8s linear infinite",
-                }} />
-                <span className="muted">Vízegységek betöltése…</span>
-            </div>
-        );
-    }
-
-    if (hiba) {
-        return (
-            <div className="glass card" style={{ borderColor: "rgba(255,120,120,0.3)", background: "rgba(100,20,20,0.2)" }}>
-                <div style={{ fontWeight: 700, marginBottom: 4 }}>Hiba</div>
-                <div className="muted">{hiba}</div>
-            </div>
-        );
-    }
+    const leiras = data ? (
+        <>
+            {data.osszesen} kezelt vízegység
+            {data.takarmany?.halaszatFedezetNap != null && (
+                <> · takarmány-fedezet a halászatban: ~{Math.round(data.takarmany.halaszatFedezetNap).toLocaleString("hu-HU")} nap</>
+            )}
+        </>
+    ) : "Vízegységek áttekintése";
 
     return (
-        <div style={{ display: "grid", gap: 18 }}>
+        // minmax(0,1fr): a vízszintesen görgethető chip-sor ne feszítse szét az oldalt mobilon
+        <div className="grid grid-cols-[minmax(0,1fr)] gap-6">
+            <PageHeader
+                className="mb-0"
+                title="Tavak és telelők"
+                description={leiras}
+                actions={
+                    canCreate && (
+                        <Button onClick={() => setModalNyitva(true)}>
+                            <Plus />
+                            Új vízegység
+                        </Button>
+                    )
+                }
+            />
 
-            {/* ── Fejlec ── */}
-            <div className="glass card" style={{ display: "grid", gap: 14 }}>
-                <div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
-                    <div>
-                        <h1 className="h1">Tavak és telelők</h1>
-                        <div className="muted" style={{ marginTop: 6 }}>
-                            {data?.osszesen ?? 0} kezelt vízegység
-                            {data?.takarmany?.halaszatFedezetNap != null && (
-                                <> &bull; halászat-szintű takarmány-fedezet: ~{data.takarmany.halaszatFedezetNap} nap</>
-                            )}
-                        </div>
-                    </div>
-                    {canCreate && (
-                        <button className="btn btn-primary" onClick={() => setUrlapNyitva((v) => !v)}>
-                            {urlapNyitva ? "Mégse" : "+ Új tó / telelő"}
-                        </button>
+            {/* Eszköztár: keresés + típusszűrő */}
+            {egysegek.length > 0 && (
+                <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+                    <InputGroup className="xl:w-80 xl:shrink-0">
+                        <InputGroupInput
+                            value={q}
+                            onChange={(e) => setQ(e.target.value)}
+                            placeholder="Keresés név, típus vagy faj szerint…"
+                            aria-label="Keresés a vízegységek között"
+                        />
+                        <InputGroupAddon>
+                            <Search />
+                        </InputGroupAddon>
+                    </InputGroup>
+
+                    {/* Mobilon vízszintesen görgethető chip-sor */}
+                    <ScrollArea className="-mx-4 min-w-0 px-4 sm:mx-0 sm:px-0">
+                        <ToggleGroup
+                            type="single"
+                            variant="outline"
+                            size="sm"
+                            spacing={2}
+                            value={szuro}
+                            onValueChange={(v) => v && setSzuro(v)}
+                            aria-label="Szűrés típus szerint"
+                            className="pb-2 xl:pb-0"
+                        >
+                            {SZUROK.map((s) => {
+                                const db = s.ertek === "OSSZES"
+                                    ? egysegek.length
+                                    : egysegek.filter((e) => e.tipus === s.ertek).length;
+                                return (
+                                    <ToggleGroupItem key={s.ertek} value={s.ertek} className="gap-1.5 px-3">
+                                        {s.cimke}
+                                        <span className="text-xs text-muted-foreground tabular-nums">{db}</span>
+                                    </ToggleGroupItem>
+                                );
+                            })}
+                        </ToggleGroup>
+                        <ScrollBar orientation="horizontal" />
+                    </ScrollArea>
+                </div>
+            )}
+
+            {loading && !data ? (
+                <KartyaVaz />
+            ) : hiba ? (
+                <ErrorState title="Nem sikerült betölteni a vízegységeket" message={hiba} onRetry={() => betolt()} />
+            ) : egysegek.length === 0 ? (
+                <EmptyState
+                    icon={<Waves />}
+                    title="Még nincs vízegység"
+                    description={
+                        canCreate
+                            ? "Hozd létre az első tavat, telelőt, ivadéknevelőt vagy keltető medencét."
+                            : "Új vízegységet tulajdonos vagy adminisztrátor hozhat létre."
+                    }
+                    action={canCreate && (
+                        <Button onClick={() => setModalNyitva(true)}>
+                            <Plus />
+                            Új vízegység
+                        </Button>
                     )}
-                </div>
-
-                {/* Kereses */}
-                <div className="search" style={{ maxWidth: 420 }}>
-                    <span style={{ opacity: 0.7 }}>⌕</span>
-                    <input
-                        value={q}
-                        onChange={(e) => setQ(e.target.value)}
-                        placeholder="Keresés név, típus vagy faj szerint…"
-                    />
-                </div>
-
-                {/* Szuro chipek */}
-                <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                    {SZUROK.map((s) => {
-                        const aktiv = szuro === s.ertek;
-                        const db = s.ertek === "OSSZES"
-                            ? egysegek.length
-                            : egysegek.filter((e) => e.tipus === s.ertek).length;
-                        return (
-                            <button
-                                key={s.ertek}
-                                className="btn"
-                                onClick={() => setSzuro(s.ertek)}
-                                style={{
-                                    fontSize: 13,
-                                    background: aktiv ? "rgba(208,138,91,0.25)" : undefined,
-                                    borderColor: aktiv ? "rgba(208,138,91,0.7)" : undefined,
-                                    color: aktiv ? "#d08a5b" : undefined,
-                                    fontWeight: aktiv ? 700 : undefined,
-                                }}
-                            >
-                                {s.cimke} ({db})
-                            </button>
-                        );
-                    })}
-                </div>
-
-                {urlapNyitva && canCreate && (
-                    <UjEgysegUrlap
-                        hid={hid}
-                        onKesz={() => { setUrlapNyitva(false); void betolt(); }}
-                    />
-                )}
-            </div>
-
-            {/* ── Ures allapotok / kartyak ── */}
-            {egysegek.length === 0 ? (
-                <div className="glass card" style={{ textAlign: "center", padding: "32px 16px" }}>
-                    <div style={{ fontWeight: 700, marginBottom: 6 }}>Még nincs vízegység</div>
-                    <div className="muted">
-                        {canCreate
-                            ? "Hozz létre egy tavat vagy telelőt a fenti gombbal."
-                            : "Új vízegység létrehozása ADMIN/OWNER jogot igényel."}
-                    </div>
-                </div>
+                />
             ) : szurtek.length === 0 ? (
-                <div className="glass card" style={{ textAlign: "center", padding: "32px 16px" }}>
-                    <div style={{ fontWeight: 700, marginBottom: 6 }}>Nincs találat</div>
-                    <div className="muted">Módosítsd a keresést vagy a szűrőt.</div>
-                </div>
+                <EmptyState
+                    icon={<SearchX />}
+                    title="Nincs találat"
+                    description="Módosítsd a keresést vagy a típusszűrőt."
+                    action={
+                        <Button variant="outline" onClick={() => { setQ(""); setSzuro("OSSZES"); }}>
+                            Szűrők törlése
+                        </Button>
+                    }
+                />
             ) : (
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))", gap: 14 }}>
+                <div className={cn("grid gap-4 sm:grid-cols-2 xl:grid-cols-3", loading && "opacity-60")} aria-busy={loading}>
                     {szurtek.map((e) => <EgysegKartya key={e.azonosito} e={e} hid={hid} />)}
                 </div>
             )}
 
-            {/* ── Adathiany magyarazat (atlathatosag) ── */}
-            <div className="glass card">
-                <div className="muted" style={{ fontSize: 12 }}>
-                    <strong>Megjegyzés az adatokhoz:</strong> a <em>Vízminőség</em> és az <em>Egészség</em>{" "}
-                    mutatóhoz jelenleg <strong>nincs adatforrás</strong> (külön modul, SZD2) — ezért „{NINCS_ADAT}".
-                    A halállomány kg-ban <strong>becsült</strong> érték (darabszám × a tömegtartomány középértéke).
-                    A <em>Telítettség</em> csak akkor számolható, ha a vízegységhez megadtak kapacitást (kg).
-                    A takarmánykészlet <strong>halászat-szintű</strong> (megosztott); a kártyán látható fedezet azt
-                    mutatja, hány napra elegendő, ha csak az adott vízegység fogyasztana a jelenlegi ütemével.
-                </div>
-            </div>
+            {egysegek.length > 0 && (
+                <Tudnivalok cim="Az adatokról">
+                    <p>
+                        A <strong>vízminőség</strong> és az <strong>egészség</strong> mutatóhoz jelenleg nincs
+                        adatforrás (külön modul), ezért „{NINCS_ADAT}”. A halállomány kg-ban <strong>becsült</strong>{" "}
+                        érték (darabszám × a tömegtartomány középértéke). A <strong>telítettség</strong> csak
+                        megadott kapacitás mellett számolható. A takarmánykészlet halászat-szintű; a kártyán a
+                        fedezet azt mutatja, hány napra elég, ha csak az adott vízegység fogyasztana.
+                    </p>
+                </Tudnivalok>
+            )}
+
+            {canCreate && (
+                <UjVizegysegModal
+                    hid={hid}
+                    open={modalNyitva}
+                    onOpenChange={setModalNyitva}
+                    onLetrehozva={() => void betolt()}
+                />
+            )}
         </div>
-    );
-}
-
-// ─── Uj egyseg urlap ─────────────────────────────────────────────────────────
-
-function UjEgysegUrlap({ hid, onKesz }: { hid: string; onKesz: () => void }) {
-    const [nev, setNev] = useState("");
-    const [tipus, setTipus] = useState("TO");
-    const [teruletHa, setTeruletHa] = useState("");
-    const [melyseg, setMelyseg] = useState("");
-    const [kapacitas, setKapacitas] = useState("");
-    const [saving, setSaving] = useState(false);
-    const [hiba, setHiba] = useState<string | null>(null);
-
-    async function kuldes(ev: React.FormEvent) {
-        ev.preventDefault();
-        if (nev.trim().length < 2) { setHiba("A név legalább 2 karakter legyen."); return; }
-        setSaving(true);
-        setHiba(null);
-        try {
-            const res = await fetch(`/api/halaszatok/${hid}/toak`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    nev: nev.trim(),
-                    tipus,
-                    teruletHa: teruletHa || null,
-                    atlagMelysegMeter: melyseg || null,
-                    kapacitasKg: kapacitas || null,
-                }),
-            });
-            const json = await res.json().catch(() => ({}));
-            if (!res.ok) { setHiba(json?.hiba ?? json?.error ?? "Nem sikerült létrehozni."); return; }
-            onKesz();
-        } catch {
-            setHiba("Hálózati hiba.");
-        } finally {
-            setSaving(false);
-        }
-    }
-
-    return (
-        <form onSubmit={kuldes} style={{ display: "grid", gap: 10, maxWidth: 560, paddingTop: 6 }}>
-            <div style={{ fontWeight: 800 }}>Új vízegység</div>
-            {hiba && <div style={{ color: "#ff9d9d", fontSize: 13 }}>{hiba}</div>}
-
-            <input style={mezoStilus} value={nev} onChange={(e) => setNev(e.target.value)} placeholder="Név (pl. Nagy-tó)" disabled={saving} />
-
-            <select style={mezoStilus} value={tipus} onChange={(e) => setTipus(e.target.value)} disabled={saving}>
-                <option value="TO">Tó</option>
-                <option value="TELELO">Telelő</option>
-                <option value="IVADEKNEVELO">Ivadéknevelő</option>
-                <option value="KELTETO_MEDENCE">Keltető medence</option>
-            </select>
-
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px,1fr))", gap: 10 }}>
-                <input style={mezoStilus} type="number" step="0.01" min="0" value={teruletHa}
-                       onChange={(e) => setTeruletHa(e.target.value)} placeholder="Terület (ha) — opcionális" disabled={saving} />
-                <input style={mezoStilus} type="number" step="0.01" min="0" value={melyseg}
-                       onChange={(e) => setMelyseg(e.target.value)} placeholder="Átl. mélység (m) — opcionális" disabled={saving} />
-                <input style={mezoStilus} type="number" step="0.01" min="0" value={kapacitas}
-                       onChange={(e) => setKapacitas(e.target.value)} placeholder="Kapacitás (kg) — opcionális" disabled={saving} />
-            </div>
-
-            <button type="submit" className="btn btn-primary" disabled={saving} style={{ justifySelf: "start" }}>
-                {saving ? "Mentés…" : "Létrehozás"}
-            </button>
-        </form>
     );
 }
