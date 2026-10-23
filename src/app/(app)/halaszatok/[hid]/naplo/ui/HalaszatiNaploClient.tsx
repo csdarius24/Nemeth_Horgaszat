@@ -16,7 +16,7 @@ import { Tudnivalok } from "@/components/app/Tudnivalok";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
-import { Input } from "@/components/ui/input";
+import { DatePicker } from "@/components/ui/date-picker";
 import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group";
 import { Label } from "@/components/ui/label";
 import { PageHeader } from "@/components/ui/page-header";
@@ -291,12 +291,12 @@ export default function HalaszatiNaploClient({ hid }: { hid: string }) {
                         </ToggleGroup>
 
                         {vanPeriodus && (
-                            <Input
-                                type="date"
+                            <DatePicker
                                 value={datum}
-                                onChange={(e) => setDatum(e.target.value || maUtc())}
+                                onChange={(d) => setDatum(d || maUtc())}
                                 aria-label="Az időszak dátuma"
-                                className="h-9 w-auto"
+                                size="sm"
+                                className="w-auto"
                             />
                         )}
 

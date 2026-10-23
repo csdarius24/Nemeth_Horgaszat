@@ -8,6 +8,7 @@ import { HibaAlert } from "@/components/app/urlap";
 import { Button } from "@/components/ui/button";
 import { Field, FieldGroup, FieldLabel, FieldLegend, FieldSet } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
+import { DatePicker } from "@/components/ui/date-picker";
 import { Modal } from "@/components/ui/modal";
 import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
 import { Textarea } from "@/components/ui/textarea";
@@ -128,7 +129,7 @@ export function UjFeladatModal({ hid, open, onOpenChange, tagok, toak, onLetreho
                         </Field>
                         <Field>
                             <FieldLabel htmlFor="feladat-hatarido">Határidő</FieldLabel>
-                            <Input id="feladat-hatarido" type="date" value={hatarido} onChange={(e) => setHatarido(e.target.value)} disabled={saving} />
+                            <DatePicker id="feladat-hatarido" value={hatarido} onChange={setHatarido} disabled={saving} placeholder="Nincs határidő" clearable />
                         </Field>
                     </div>
 

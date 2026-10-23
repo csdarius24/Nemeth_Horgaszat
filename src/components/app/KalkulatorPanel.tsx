@@ -1,10 +1,11 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Delete, GripHorizontal, X } from "lucide-react";
+import { Check, Copy, Delete, GripHorizontal, X } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import { IconButton } from "@/components/ui/icon-button";
+import { toast } from "@/components/ui/toast";
 
 // ─── Típusok ─────────────────────────────────────────────────────────────────
 
@@ -50,6 +51,23 @@ function formatKimenet(n: number): string {
     return s.length > 13 ? n.toExponential(6) : s;
 }
 
+/** Tartalék másolás olyan környezetre, ahol a Clipboard API nem engedélyezett. */
+function regiMasolas(szoveg: string): boolean {
+    const ta = document.createElement("textarea");
+    ta.value = szoveg;
+    ta.setAttribute("readonly", "");
+    ta.style.cssText = "position:fixed;opacity:0;pointer-events:none";
+    document.body.appendChild(ta);
+    ta.select();
+    try {
+        return document.execCommand("copy");
+    } catch {
+        return false;
+    } finally {
+        ta.remove();
+    }
+}
+
 /** A panelt a látható területen belül tartja. */
 function korlatoz(p: Pozicio, panel: HTMLElement): Pozicio {
     const maxX = window.innerWidth - panel.offsetWidth - SZEGELY;
@@ -76,6 +94,7 @@ export function KalkulatorPanel({ open, onClose }: Props) {
     const [pozicio, setPozicio] = useState<Pozicio | null>(null);
     const panelRef = useRef<HTMLDivElement>(null);
     const huzas = useRef<{ dx: number; dy: number } | null>(null);
+    const [masolva, setMasolva] = useState(false);
     const elozoFokusz = useRef<HTMLElement | null>(null);
 
     // Megnyitáskor a panelre kerül a fókusz (azonnal gépelhető), záráskor visszaadjuk.
@@ -148,10 +167,34 @@ export function KalkulatorPanel({ open, onClose }: Props) {
         beallitAllapot((prev) => ({ ...prev, kijelzes: formatKimenet(parseFloat(prev.kijelzes) / 100) }));
     }, []);
 
+    /** Az eredmény vágólapra másolása (gomb vagy Ctrl/⌘+C). */
+    async function masol() {
+        if (allapot.kijelzes === "Hiba") return;
+        let sikerult = false;
+        try {
+            await navigator.clipboard.writeText(allapot.kijelzes);
+            sikerult = true;
+        } catch {
+            sikerult = regiMasolas(allapot.kijelzes);
+            panelRef.current?.focus();
+        }
+        if (!sikerult) {
+            toast.error("Nem sikerült másolni", { description: "A böngésző nem engedi a vágólap használatát." });
+            return;
+        }
+        setMasolva(true);
+        window.setTimeout(() => setMasolva(false), 1500);
+    }
+
     /** Billentyűzetes kezelés — csak amíg a számológépen van a fókusz. */
     function onKeyDown(e: React.KeyboardEvent) {
         let kezelt = true;
-        if (e.key === "Escape") onClose();
+        if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "c") {
+            // Ha a felhasználó szöveget jelölt ki, hagyjuk a böngésző saját másolását.
+            if (window.getSelection()?.toString()) return;
+            void masol();
+        } else if (e.ctrlKey || e.metaKey || e.altKey) return;
+        else if (e.key === "Escape") onClose();
         else if (/^[0-9]$/.test(e.key)) digitNyomas(e.key);
         else if (e.key === "." || e.key === ",") pontNyomas();
         else if (OPERATOR_BILLENTYU[e.key]) operatorNyomas(OPERATOR_BILLENTYU[e.key]);
@@ -219,16 +262,28 @@ export function KalkulatorPanel({ open, onClose }: Props) {
                 </h2>
                 <IconButton label="Bezárás" icon={<X />} size="icon-xs" onClick={onClose} tooltipSide="top" />
                 <p id="kalkulator-sugo" className="sr-only">
-                    Billentyűzettel is használható: számok, + − * /, Enter, Backspace, Delete, Esc a bezáráshoz.
+                    Billentyűzettel is használható: számok, + − * /, Enter, Backspace, Delete, Ctrl+C a másoláshoz, Esc a bezáráshoz.
                     A fejlécénél fogva mozgatható.
                 </p>
             </div>
 
             {/* Kijelző */}
-            <div className="mx-3 mt-3 rounded-lg bg-muted px-3 py-2 text-right">
-                <div className="h-4 truncate text-xs font-medium text-muted-foreground tabular-nums">
-                    {operator && `${allapot.elozo} ${operator}`}
+            <div className="mx-3 mt-3 rounded-lg bg-muted py-2 pr-3 pl-1.5 text-right">
+                <div className="flex h-5 items-center gap-2">
+                    <IconButton
+                        label={masolva ? "Kimásolva" : "Eredmény másolása (Ctrl+C)"}
+                        icon={masolva ? <Check className="text-success" /> : <Copy />}
+                        size="icon-xs"
+                        onClick={() => void masol()}
+                        disabled={kijelzes === "Hiba"}
+                        tooltipSide="top"
+                        className="text-muted-foreground"
+                    />
+                    <span className="min-w-0 flex-1 truncate text-xs font-medium text-muted-foreground tabular-nums">
+                        {operator && `${allapot.elozo} ${operator}`}
+                    </span>
                 </div>
+                <span className="sr-only" aria-live="polite">{masolva ? "Eredmény kimásolva" : ""}</span>
                 <output
                     aria-live="polite"
                     className={cn(

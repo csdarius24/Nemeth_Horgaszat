@@ -66,6 +66,7 @@ export function MozgasNaploModal({ hid, takarmany, onOpenChange }: {
             open
             onOpenChange={onOpenChange}
             size="lg"
+            confirmDiscard={false}
             title={`Mozgásnapló — ${takarmany.nev}`}
             description={`Aktuális készlet: ${fmtMennyiseg(Number(takarmany.keszlet), takarmany.egyseg)}`}
         >

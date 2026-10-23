@@ -10,7 +10,7 @@ import type { Felhasznalo } from "@/components/app/FelhasznaloMenu";
 import type { HalaszatRovid } from "@/components/app/HalaszatValaszto";
 import { KalkulatorPanel } from "@/components/app/KalkulatorPanel";
 import { MobilAlsoNav } from "@/components/app/MobilAlsoNav";
-import { halaszatIdUtvonalbol, UTOLSO_HALASZAT_KULCS } from "@/components/app/navigacio";
+import { halaszatIdUtvonalbol, oldalCim, UTOLSO_HALASZAT_KULCS } from "@/components/app/navigacio";
 import { ValasztoKeret } from "@/components/app/ValasztoKeret";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 
@@ -94,6 +94,9 @@ export default function AppShell({
 
     const halaszatNev = halaszatok.find((h) => String(h.azonosito) === hid)?.nev ?? null;
 
+    // Böngészőfül címe: modul + halászat, hogy több nyitott fül és az előzmények is megkülönböztethetők legyenek.
+    const cim = <title>{oldalCim(pathname, hid, halaszatNev)}</title>;
+
     const hibaModal = (
         <HibabejelentesModal
             open={hibaModalNyitva}
@@ -112,6 +115,7 @@ export default function AppShell({
                 kilepesFolyamatban={loggingOut}
                 onHibabejelentes={() => setHibaModalNyitva(true)}
             >
+                {cim}
                 {children}
                 {hibaModal}
             </ValasztoKeret>
@@ -120,6 +124,7 @@ export default function AppShell({
 
     return (
         <SidebarProvider defaultOpen={sidebarAlapNyitva}>
+            {cim}
             <a
                 href="#fo-tartalom"
                 className="sr-only z-50 rounded-md bg-primary px-3 py-2 text-primary-foreground focus:not-sr-only focus:fixed focus:top-2 focus:left-2"

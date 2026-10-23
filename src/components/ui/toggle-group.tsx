@@ -5,6 +5,7 @@ import { type VariantProps } from "class-variance-authority"
 import { cn } from "@/lib/utils"
 import { ToggleGroup as ToggleGroupPrimitive } from "radix-ui"
 
+import { useModalModositas } from "@/components/ui/modal"
 import { toggleVariants } from "@/components/ui/toggle"
 
 const ToggleGroupContext = React.createContext<
@@ -23,11 +24,14 @@ function ToggleGroup({
   size,
   spacing = 0,
   children,
+  onClickCapture,
   ...props
 }: React.ComponentProps<typeof ToggleGroupPrimitive.Root> &
   VariantProps<typeof toggleVariants> & {
     spacing?: number
   }) {
+  // Modálban jelzi a „módosítva” állapotot (kattintás = egér és Space/Enter is).
+  const jelolModositas = useModalModositas()
   return (
     <ToggleGroupPrimitive.Root
       data-slot="toggle-group"
@@ -35,6 +39,10 @@ function ToggleGroup({
       data-size={size}
       data-spacing={spacing}
       style={{ "--gap": spacing } as React.CSSProperties}
+      onClickCapture={(e) => {
+        jelolModositas?.()
+        onClickCapture?.(e)
+      }}
       className={cn(
         "group/toggle-group flex w-fit items-center gap-[--spacing(var(--gap))] rounded-lg data-[spacing=default]:data-[variant=outline]:shadow-xs",
         className

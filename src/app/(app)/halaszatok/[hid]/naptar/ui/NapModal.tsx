@@ -118,6 +118,7 @@ export function NapModal({ hid, datum, kezdoBejegyzes, napiBejegyzesek, onClose,
                 title={nezet === "lista" ? "Napi bejegyzések" : nezet === "uj" ? "Új bejegyzés" : "Bejegyzés szerkesztése"}
                 description={datum ? napNev(datum, { year: "numeric", month: "long", day: "numeric", weekday: "long" }) : undefined}
                 preventClose={mentes}
+                formKey={`${nezet}-${aktualis?.azonosito ?? "uj"}`}
                 footer={urlapNezet ? (
                     <>
                         {napiBejegyzesek.length > 0 && (

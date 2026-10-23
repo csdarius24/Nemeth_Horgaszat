@@ -15,6 +15,7 @@ import { Button } from "@/components/ui/button";
 import { Field, FieldDescription, FieldGroup, FieldLabel, FieldLegend, FieldSet } from "@/components/ui/field";
 import { IconButton } from "@/components/ui/icon-button";
 import { Input } from "@/components/ui/input";
+import { DatePicker, DateTimePicker } from "@/components/ui/date-picker";
 import { Modal } from "@/components/ui/modal";
 import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
 import { Separator } from "@/components/ui/separator";
@@ -266,11 +267,11 @@ export function UjCiklusModal({ hid, open, onOpenChange, onLetrehozva }: {
                         </Field>
                         <Field>
                             <FieldLabel htmlFor="ciklus-datum">Dátum</FieldLabel>
-                            <Input id="ciklus-datum" type="date" value={datum} onChange={(e) => setDatum(e.target.value)} disabled={saving} required />
+                            <DatePicker id="ciklus-datum" value={datum} onChange={setDatum} disabled={saving} required />
                         </Field>
                         <Field>
                             <FieldLabel htmlFor="ciklus-oltas">Oltás időpontja</FieldLabel>
-                            <Input id="ciklus-oltas" type="datetime-local" value={oltas} onChange={(e) => setOltas(e.target.value)} disabled={saving} />
+                            <DateTimePicker id="ciklus-oltas" value={oltas} onChange={setOltas} disabled={saving} clearable />
                         </Field>
                         <Field>
                             <FieldLabel htmlFor="ciklus-homerseklet">Vízhőmérséklet</FieldLabel>

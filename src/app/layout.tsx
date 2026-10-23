@@ -17,8 +17,9 @@ const jakarta = Plus_Jakarta_Sans({
   display: "swap",
 });
 
+// A böngészőfül címét az oldalak maguk renderelik (`<title>`, React 19), mert a
+// modul és a halászat neve csak kliens oldalon ismert — ezért itt nincs `title`.
 export const metadata: Metadata = {
-  title: { default: "Fish App", template: "%s · Fish App" },
   description: "Halgazdálkodás, tavak, takarmányozás és halászati napló egy helyen.",
 };
 

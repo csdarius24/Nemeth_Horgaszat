@@ -48,55 +48,58 @@ export default function LoginPage() {
     }
 
     return (
-        <AuthCard
-            title="Üdv újra!"
-            description="Lépj be az email címeddel és a jelszavaddal."
-        >
-            <form onSubmit={onSubmit}>
-                <FieldGroup>
-                    <Field>
-                        <FieldLabel htmlFor="email">Email cím</FieldLabel>
-                        <Input
-                            id="email"
-                            type="email"
-                            value={email}
-                            onChange={(e) => setEmail(e.target.value)}
-                            autoComplete="email"
-                            placeholder="pelda@email.com"
-                            aria-invalid={!!hiba || undefined}
-                            required
-                        />
-                    </Field>
+        <>
+            <title>Belépés · Fish App</title>
+            <AuthCard
+                title="Üdv újra!"
+                description="Lépj be az email címeddel és a jelszavaddal."
+            >
+                <form onSubmit={onSubmit}>
+                    <FieldGroup>
+                        <Field>
+                            <FieldLabel htmlFor="email">Email cím</FieldLabel>
+                            <Input
+                                id="email"
+                                type="email"
+                                value={email}
+                                onChange={(e) => setEmail(e.target.value)}
+                                autoComplete="email"
+                                placeholder="pelda@email.com"
+                                aria-invalid={!!hiba || undefined}
+                                required
+                            />
+                        </Field>
 
-                    <Field>
-                        <FieldLabel htmlFor="password">Jelszó</FieldLabel>
-                        <PasswordInput
-                            id="password"
-                            value={password}
-                            onChange={(e) => setPassword(e.target.value)}
-                            autoComplete="current-password"
-                            aria-invalid={!!hiba || undefined}
-                            required
-                        />
-                    </Field>
+                        <Field>
+                            <FieldLabel htmlFor="password">Jelszó</FieldLabel>
+                            <PasswordInput
+                                id="password"
+                                value={password}
+                                onChange={(e) => setPassword(e.target.value)}
+                                autoComplete="current-password"
+                                aria-invalid={!!hiba || undefined}
+                                required
+                            />
+                        </Field>
 
-                    {hiba && (
-                        <Alert variant="destructive">
-                            <AlertCircle />
-                            <AlertDescription>{hiba}</AlertDescription>
-                        </Alert>
-                    )}
+                        {hiba && (
+                            <Alert variant="destructive">
+                                <AlertCircle />
+                                <AlertDescription>{hiba}</AlertDescription>
+                            </Alert>
+                        )}
 
-                    <Field>
-                        <Button type="submit" loading={loading}>
-                            {loading ? "Beléptetés…" : "Belépés"}
-                        </Button>
-                        <FieldDescription className="text-center">
-                            Nincs még fiókod? <Link href="/register">Regisztrálj</Link>
-                        </FieldDescription>
-                    </Field>
-                </FieldGroup>
-            </form>
-        </AuthCard>
+                        <Field>
+                            <Button type="submit" loading={loading}>
+                                {loading ? "Beléptetés…" : "Belépés"}
+                            </Button>
+                            <FieldDescription className="text-center">
+                                Nincs még fiókod? <Link href="/register">Regisztrálj</Link>
+                            </FieldDescription>
+                        </Field>
+                    </FieldGroup>
+                </form>
+            </AuthCard>
+        </>
     );
 }

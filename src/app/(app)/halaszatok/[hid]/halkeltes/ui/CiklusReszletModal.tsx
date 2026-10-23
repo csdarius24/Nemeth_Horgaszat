@@ -102,6 +102,8 @@ export function CiklusReszletModal({ hid, id, onClose, onValtozas }: {
             open={id != null}
             onOpenChange={(v) => !v && onClose()}
             size="xl"
+            // Csak megtekintés; a státuszváltás azonnal mentődik.
+            confirmDiscard={false}
             title={c ? c.nev || `Ciklus #${c.id}` : "Keltetési ciklus"}
             description={
                 c ? [

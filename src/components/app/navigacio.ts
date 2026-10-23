@@ -74,3 +74,16 @@ export function halaszatIdUtvonalbol(pathname: string | null) {
 
 /** localStorage-kulcs: a legutóbb megnyitott halászat azonosítója (csak kényelmi funkció). */
 export const UTOLSO_HALASZAT_KULCS = "fishapp:utolso-halaszat";
+
+/**
+ * A böngészőfül címe az aktuális oldalhoz, pl. „Tavak · UI Teszt Halászat”.
+ * Halászaton kívül: „Halászataim · Fish App”.
+ */
+export function oldalCim(pathname: string, hid: string | null, halaszatNev: string | null) {
+    if (!hid) return `${pathname.startsWith("/halaszatok/uj") ? "Új halászat" : "Halászataim"} · Fish App`;
+    const base = `/halaszatok/${hid}`;
+    const elem = aktualisNavElem(pathname, base);
+    const melyebb = elem && pathname !== base + elem.utvonal; // pl. egy tó részletező oldala
+    const resz = [melyebb && "Részletek", elem?.cimke, halaszatNev ?? "Fish App"].filter(Boolean);
+    return resz.join(" · ");
+}

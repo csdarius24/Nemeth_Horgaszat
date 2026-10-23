@@ -8,6 +8,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Field, FieldGroup, FieldLabel, FieldLegend, FieldSet } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
+import { DateTimePicker } from "@/components/ui/date-picker";
 import { Modal } from "@/components/ui/modal";
 import { toast } from "@/components/ui/toast";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
@@ -157,13 +158,7 @@ export function MozgasModal({ hid, takarmany, kezdoTipus = "BEVETEL", onOpenChan
                         </Field>
                         <Field>
                             <FieldLabel htmlFor="mozgas-datum">Időpont</FieldLabel>
-                            <Input
-                                id="mozgas-datum"
-                                type="datetime-local"
-                                value={datum}
-                                onChange={(e) => setDatum(e.target.value)}
-                                disabled={kuldFut}
-                            />
+                            <DateTimePicker id="mozgas-datum" value={datum} onChange={setDatum} disabled={kuldFut} />
                         </Field>
                     </div>
 
