@@ -1,6 +1,7 @@
 "use client";
 
-import { ChevronsUpDown, LogOut } from "lucide-react";
+import { ChevronsUpDown, LogOut, Monitor, Moon, Sun } from "lucide-react";
+import { useTheme } from "next-themes";
 
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -9,6 +10,8 @@ import {
     DropdownMenuContent,
     DropdownMenuItem,
     DropdownMenuLabel,
+    DropdownMenuRadioGroup,
+    DropdownMenuRadioItem,
     DropdownMenuSeparator,
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
@@ -35,6 +38,31 @@ function FelhasznaloFej({ felhasznalo }: { felhasznalo: Felhasznalo | null }) {
                 <span className="truncate font-semibold text-foreground">{felhasznalo?.nev || "Felhasználó"}</span>
                 <span className="truncate text-xs text-muted-foreground">{felhasznalo?.email ?? ""}</span>
             </div>
+        </>
+    );
+}
+
+const TEMAK = [
+    { ertek: "light", cimke: "Világos", ikon: Sun },
+    { ertek: "dark", cimke: "Sötét", ikon: Moon },
+    { ertek: "system", cimke: "Rendszer", ikon: Monitor },
+] as const;
+
+/** Témaválasztó a felhasználói menüben (világos / sötét / a rendszer beállítása szerint). */
+function TemaValaszto() {
+    const { theme = "system", setTheme } = useTheme();
+    return (
+        <>
+            <DropdownMenuLabel className="text-xs font-normal text-muted-foreground">Megjelenés</DropdownMenuLabel>
+            <DropdownMenuRadioGroup value={theme} onValueChange={setTheme}>
+                {TEMAK.map(({ ertek, cimke, ikon: Ikon }) => (
+                    // Kiválasztás után a menü nyitva marad, hogy az eredmény azonnal látszódjon.
+                    <DropdownMenuRadioItem key={ertek} value={ertek} onSelect={(e) => e.preventDefault()}>
+                        <Ikon />
+                        {cimke}
+                    </DropdownMenuRadioItem>
+                ))}
+            </DropdownMenuRadioGroup>
         </>
     );
 }
@@ -75,6 +103,8 @@ export function FelhasznaloMenu({
                         <DropdownMenuLabel className="p-0 font-normal">
                             <div className="flex items-center gap-2 px-1 py-1.5">{fej}</div>
                         </DropdownMenuLabel>
+                        <DropdownMenuSeparator />
+                        <TemaValaszto />
                         <DropdownMenuSeparator />
                         <DropdownMenuItem
                             variant="destructive"
@@ -121,6 +151,8 @@ export function FelhasznaloGomb({
                         <FelhasznaloFej felhasznalo={felhasznalo} />
                     </div>
                 </DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <TemaValaszto />
                 <DropdownMenuSeparator />
                 <DropdownMenuItem variant="destructive" disabled={kilepesFolyamatban} onSelect={onKilepes}>
                     <LogOut />

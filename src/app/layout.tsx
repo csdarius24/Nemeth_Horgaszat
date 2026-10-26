@@ -2,6 +2,7 @@ import "./globals.css";
 import type { Metadata, Viewport } from "next";
 import { Inter, Plus_Jakarta_Sans } from "next/font/google";
 
+import { TemaProvider } from "@/components/app/TemaProvider";
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 
@@ -24,7 +25,11 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "#0369a1",
+  // Mobil böngészősáv színe a világos / sötét rendszertémához igazodva.
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#f8fafc" },
+    { media: "(prefers-color-scheme: dark)", color: "#020617" },
+  ],
   width: "device-width",
   initialScale: 1,
 };
@@ -43,10 +48,13 @@ export const viewport: Viewport = {
  */
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="hu" className={`${inter.variable} ${jakarta.variable}`}>
+    // suppressHydrationWarning: a next-themes a hidratálás előtt teszi rá a `dark` osztályt.
+    <html lang="hu" className={`${inter.variable} ${jakarta.variable}`} suppressHydrationWarning>
       <body>
-        <TooltipProvider delayDuration={300}>{children}</TooltipProvider>
-        <Toaster />
+        <TemaProvider>
+          <TooltipProvider delayDuration={300}>{children}</TooltipProvider>
+          <Toaster />
+        </TemaProvider>
       </body>
     </html>
   );

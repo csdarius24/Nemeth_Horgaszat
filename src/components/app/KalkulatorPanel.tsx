@@ -243,7 +243,12 @@ export function KalkulatorPanel({ open, onClose }: Props) {
             onKeyDown={onKeyDown}
             style={pozicio ? { left: pozicio.x, top: pozicio.y } : undefined}
             className={cn(
-                "fixed z-50 w-[248px] rounded-2xl border bg-popover text-popover-foreground shadow-xl outline-none animate-in fade-in-0 zoom-in-95",
+                "fixed z-50 w-[248px] overflow-hidden rounded-2xl border bg-popover text-popover-foreground outline-none animate-in fade-in-0 zoom-in-95",
+                // Lebegő eszközablak: erős, rétegzett árnyék + jól látható keret, hogy ne olvadjon
+                // bele az oldalba. Sötét módban az árnyék kevésbé látszik: ott a világosabb keret és
+                // a kártyáknál egy árnyalattal világosabb felület emeli ki (sötét témás „magasság”).
+                "border-foreground/15 shadow-[0_24px_48px_-12px_rgb(15_23_42/0.35),0_8px_16px_-8px_rgb(15_23_42/0.2)]",
+                "dark:border-white/20 dark:bg-[color-mix(in_oklch,var(--popover),white_6%)] dark:shadow-[0_24px_48px_-8px_rgb(0_0_0/0.7),0_8px_16px_-8px_rgb(0_0_0/0.6)]",
                 "focus-visible:ring-[3px] focus-visible:ring-ring/50",
                 !pozicio && "right-4 bottom-24 md:right-6 md:bottom-6"
             )}
@@ -254,7 +259,7 @@ export function KalkulatorPanel({ open, onClose }: Props) {
                 onPointerMove={huzasMozgas}
                 onPointerUp={huzasVege}
                 onPointerCancel={huzasVege}
-                className="flex cursor-grab touch-none items-center gap-2 border-b py-1.5 pr-1.5 pl-3 select-none active:cursor-grabbing"
+                className="flex cursor-grab touch-none items-center gap-2 border-b bg-primary/10 py-1.5 pr-1.5 pl-3 select-none active:cursor-grabbing"
             >
                 <GripHorizontal className="size-4 text-muted-foreground" aria-hidden="true" />
                 <h2 id="kalkulator-cim" className="flex-1 font-heading text-sm font-semibold">

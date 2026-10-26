@@ -134,7 +134,7 @@ export default function NaptarClient({ hid }: { hid: string }) {
                 {/* Hét napjai */}
                 <div className="grid grid-cols-7 border-b bg-muted/40" aria-hidden="true">
                     {NAPOK.map((nap, i) => (
-                        <div key={nap} className={cn("py-2 text-center text-xs font-semibold text-muted-foreground uppercase", i >= 5 && "text-muted-foreground/70")}>
+                        <div key={nap} className={cn("py-2 text-center text-xs font-semibold text-muted-foreground uppercase", i >= 5 && "font-medium")}>
                             {nap}
                         </div>
                     ))}
@@ -160,7 +160,7 @@ export default function NaptarClient({ hid }: { hid: string }) {
                                     idx % 7 < 6 && "border-r",
                                     idx >= 35 && "border-b-0",
                                     hetvege && "bg-muted/30",
-                                    !aktualisHonap && "bg-muted/50 text-muted-foreground/60",
+                                    !aktualisHonap && "bg-muted/50 text-muted-foreground",
                                     "hover:bg-accent/60 focus-visible:z-10 focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:ring-inset"
                                 )}
                             >

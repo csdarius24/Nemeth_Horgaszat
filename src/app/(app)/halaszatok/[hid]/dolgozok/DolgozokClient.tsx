@@ -347,14 +347,14 @@ export default function DolgozokClient({ halaszatId }: { halaszatId: number }) {
 
             {loading ? (
                 <div className="grid gap-4" role="status" aria-label="Dolgozók betöltése">
-                    <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-3">
+                    <StatGrid oszlopok={{ lg: 3 }}>
                         {Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-[104px] rounded-2xl" />)}
-                    </div>
+                    </StatGrid>
                     <Skeleton className="h-64 rounded-2xl" />
                 </div>
             ) : (
                 <>
-                    <StatGrid className="lg:grid-cols-3">
+                    <StatGrid oszlopok={{ lg: 3 }}>
                         <StatCard cim="Aktív tag" ertek={stats.active} alcim={items.length > stats.active ? `${items.length - stats.active} inaktív` : "a halászatban"} ikon={Users} />
                         <StatCard cim="Vezetők" ertek={stats.admins} alcim="tulajdonos + admin" ikon={ShieldCheck} tonus="info" />
                         <StatCard cim="Dolgozók" ertek={stats.staff} alcim="aktív" ikon={Users} tonus="success" />

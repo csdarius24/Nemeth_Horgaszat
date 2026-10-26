@@ -14,7 +14,7 @@
  *  átírni — minden komponens automatikusan követi.
  *    - `bg-primary`, `text-muted-foreground`, `border-border`, `ring-ring` stb.
  *    - saját kiegészítések: `success`, `warning`, `info` (+ `-foreground`),
- *      `brand` (logó-gradiens), `font-heading` (címsor betűtípus).
+ *      `font-heading` (címsor betűtípus).
  *
  *  Paletta alapja: Tailwind `slate` (semleges) + `sky` (márka, „óceánkék”).
  * ════════════════════════════════════════════════════════════════════════════
@@ -34,25 +34,24 @@
   /* Márka — óceánkék */
   --primary: oklch(0.5 0.134 242.749);             /* sky-700 */
   --primary-foreground: oklch(1 0 0);
-  --brand-from: oklch(0.746 0.16 232.661);         /* sky-400 */
-  --brand-to: oklch(0.5 0.134 242.749);            /* sky-700 */
 
   /* Semleges */
   --secondary: oklch(0.968 0.007 247.896);         /* slate-100 */
   --secondary-foreground: oklch(0.208 0.042 265.755);
   --muted: oklch(0.968 0.007 247.896);
-  --muted-foreground: oklch(0.554 0.046 257.417);  /* slate-500 */
+  --muted-foreground: oklch(0.53 0.046 257.417);   /* slate-500-nál kicsit sötétebb: muted/accent háttéren is ≥ 4.5:1 kontraszt */
   --accent: oklch(0.951 0.026 236.824);            /* sky-100 — hover/kijelölés */
   --accent-foreground: oklch(0.443 0.11 240.79);   /* sky-800 */
 
-  /* Állapotszínek */
-  --destructive: oklch(0.577 0.245 27.325);        /* red-600 */
+  /* Állapotszínek: a szöveg a saját 10–15%-os árnyalatú hátterén (badge, ikon-
+     doboz) és a fehér felirat a teli gombon is ≥ 4.5:1 kontrasztú legyen. */
+  --destructive: oklch(0.54 0.225 27.4);           /* red-600/700 között */
   --destructive-foreground: oklch(1 0 0);
-  --success: oklch(0.596 0.145 163.225);           /* emerald-600 */
+  --success: oklch(0.5 0.115 165.6);               /* ~emerald-700 */
   --success-foreground: oklch(1 0 0);
-  --warning: oklch(0.666 0.179 58.318);            /* amber-600 */
+  --warning: oklch(0.53 0.155 50);                 /* ~amber-700 */
   --warning-foreground: oklch(1 0 0);
-  --info: oklch(0.609 0.126 221.723);              /* cyan-600 */
+  --info: oklch(0.5 0.105 223);                    /* ~cyan-700 */
   --info-foreground: oklch(1 0 0);
 
   /* Keretek, mezők, fókusz */
@@ -79,6 +78,9 @@
 }
 
 .dark {
+  /* Natív elemek (görgetősáv, időmező, autofill) is sötétek legyenek */
+  color-scheme: dark;
+
   --background: oklch(0.129 0.042 264.695);        /* slate-950 */
   --foreground: oklch(0.984 0.003 247.858);
   --card: oklch(0.208 0.042 265.755);
@@ -88,8 +90,6 @@
 
   --primary: oklch(0.685 0.169 237.323);           /* sky-500 */
   --primary-foreground: oklch(0.129 0.042 264.695);
-  --brand-from: oklch(0.746 0.16 232.661);
-  --brand-to: oklch(0.5 0.134 242.749);
 
   --secondary: oklch(0.279 0.041 260.031);
   --secondary-foreground: oklch(0.984 0.003 247.858);
@@ -110,6 +110,13 @@
   --border: oklch(1 0 0 / 10%);
   --input: oklch(1 0 0 / 15%);
   --ring: oklch(0.685 0.169 237.323);
+
+  /* Diagramok: sötét háttéren egy árnyalattal világosabbak */
+  --chart-1: oklch(0.685 0.169 237.323);           /* sky-500 */
+  --chart-2: oklch(0.765 0.177 163.223);           /* emerald-400 */
+  --chart-3: oklch(0.828 0.189 84.429);            /* amber-400 */
+  --chart-4: oklch(0.789 0.154 211.53);            /* cyan-400 */
+  --chart-5: oklch(0.704 0.191 22.216);            /* red-400 */
 
   --sidebar: oklch(0.208 0.042 265.755);
   --sidebar-foreground: oklch(0.869 0.022 252.894);
@@ -140,8 +147,6 @@
   --color-popover-foreground: var(--popover-foreground);
   --color-primary: var(--primary);
   --color-primary-foreground: var(--primary-foreground);
-  --color-brand-from: var(--brand-from);
-  --color-brand-to: var(--brand-to);
   --color-secondary: var(--secondary);
   --color-secondary-foreground: var(--secondary-foreground);
   --color-muted: var(--muted);
@@ -199,8 +204,4 @@
       scroll-behavior: auto !important;
     }
   }
-}
-
-@utility bg-brand-gradient {
-  background-image: linear-gradient(135deg, var(--brand-from), var(--brand-to));
 }

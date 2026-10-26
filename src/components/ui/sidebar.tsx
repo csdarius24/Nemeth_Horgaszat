@@ -304,9 +304,11 @@ function SidebarRail({ className, ...props }: React.ComponentProps<"button">) {
   )
 }
 
-function SidebarInset({ className, ...props }: React.ComponentProps<"main">) {
+// Szándékosan <div> (a shadcn alapból <main>): a fő tartalom saját <main>-t kap
+// az AppShell-ben, két egymásba ágyazott <main> pedig akadálymentességi hiba.
+function SidebarInset({ className, ...props }: React.ComponentProps<"div">) {
   return (
-    <main
+    <div
       data-slot="sidebar-inset"
       className={cn(
         "relative flex w-full flex-1 flex-col bg-background",

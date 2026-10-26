@@ -69,7 +69,8 @@ export function FeladatKartya({ f, hid, canManage, onValtozas }: {
             className={cn(
                 // Bal oldali színcsík a feladat saját színével.
                 "relative gap-3 overflow-hidden before:absolute before:inset-y-0 before:left-0 before:w-1 before:bg-(--csik)",
-                (kesz || torolve) && "opacity-70"
+                // Kész/törölt: halványabb háttér, de nem átlátszóság — az a szöveg kontrasztját is rontaná.
+                (kesz || torolve) && "bg-muted/40 shadow-none"
             )}
             style={{ "--csik": csik } as React.CSSProperties}
         >

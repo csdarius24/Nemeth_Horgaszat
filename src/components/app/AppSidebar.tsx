@@ -44,8 +44,9 @@ export function AppSidebar({
     };
 
     return (
-        <Sidebar collapsible="icon" variant="sidebar">
-            <SidebarHeader className="border-b border-sidebar-border">
+        <Sidebar collapsible="icon" variant="sidebar" role="navigation" aria-label="Fő navigáció">
+            {/* Fix 64px (keret is benne) = a felső sáv magassága, hogy a két alsó vonal egy vonalban legyen. */}
+            <SidebarHeader className="h-16 shrink-0 justify-center border-b border-sidebar-border py-0">
                 <HalaszatValaszto halaszatok={halaszatok} aktivId={hid ? Number(hid) : null} />
             </SidebarHeader>
 
@@ -53,7 +54,7 @@ export function AppSidebar({
                 {hid &&
                     HALASZAT_NAV.map((csoport) => (
                         <SidebarGroup key={csoport.cim}>
-                            <SidebarGroupLabel>{csoport.cim}</SidebarGroupLabel>
+                            <SidebarGroupLabel className="text-muted-foreground">{csoport.cim}</SidebarGroupLabel>
                             <SidebarGroupContent>
                                 <SidebarMenu>
                                     {csoport.elemek.map((elem) => {

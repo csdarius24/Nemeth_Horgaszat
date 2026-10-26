@@ -221,9 +221,9 @@ export default function TakarmanyokClient({ hid }: { hid: string }) {
         return (
             <div className="grid gap-6" role="status" aria-label="Takarmányok betöltése">
                 {fejlec}
-                <div className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
+                <StatGrid oszlopok={{ xl: 4 }}>
                     {Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-[104px] rounded-2xl" />)}
-                </div>
+                </StatGrid>
                 <Skeleton className="h-80 rounded-2xl" />
             </div>
         );
@@ -273,8 +273,8 @@ export default function TakarmanyokClient({ hid }: { hid: string }) {
             {hiba && <ErrorState title="Nem sikerült betölteni a takarmányokat" message={hiba} onRetry={() => betolt()} />}
 
             {/* KPI-k */}
-            <StatGrid className="xl:grid-cols-4">
-                <StatCard cim="Takarmányfajták" ertek={aktivak.length} alcim="aktív típus" ikon={Wheat} />
+            <StatGrid oszlopok={{ xl: 4 }}>
+                <StatCard cim={"Takarmány\u00ADfajták"} ertek={aktivak.length} alcim="aktív típus" ikon={Wheat} />
                 <StatCard
                     cim="Összkészlet"
                     ertek={fmtSzam(osszkeszlet)}

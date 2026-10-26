@@ -21,8 +21,9 @@ type HalaszatListaValasz = {
 /**
  * Az alkalmazás kerete (shadcn Sidebar):
  *  - asztali nézet: összecsukható oldalsáv (ikon-módra, `Ctrl/⌘+B`), az állapot sütiben marad,
- *  - mobil: az oldalsáv kihúzható panel (Sheet) + alsó navigációs sáv,
- *  - felül: morzsamenü és gyorsműveletek.
+ *  - mobil: felül „hol vagyok?” (halászat-váltó, vissza), alul a navigáció
+ *    („Továbbiak” lappal); az oldalsáv mobilon nem használt,
+ *  - asztali felső sáv: morzsamenü és gyorsműveletek.
  */
 export default function AppShell({
     children,
@@ -146,6 +147,10 @@ export default function AppShell({
                     pathname={pathname}
                     hid={hid}
                     halaszatNev={halaszatNev}
+                    halaszatok={halaszatok}
+                    felhasznalo={me}
+                    onKilepes={logout}
+                    kilepesFolyamatban={loggingOut}
                     onKalkulator={() => setKalkulatorNyitva((n) => !n)}
                     onHibabejelentes={() => setHibaModalNyitva(true)}
                 />
@@ -159,7 +164,7 @@ export default function AppShell({
                 </main>
             </SidebarInset>
 
-            <MobilAlsoNav pathname={pathname} hid={hid} />
+            <MobilAlsoNav pathname={pathname} hid={hid} onHibabejelentes={() => setHibaModalNyitva(true)} />
 
             <KalkulatorPanel open={kalkulatorNyitva} onClose={() => setKalkulatorNyitva(false)} />
             {hibaModal}

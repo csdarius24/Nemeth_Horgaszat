@@ -85,9 +85,9 @@ function OldalVaz() {
                 <Skeleton className="h-9 w-56" />
                 <Skeleton className="h-5 w-32" />
             </div>
-            <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-3">
+            <StatGrid oszlopok={{ lg: 3 }}>
                 {Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-[104px] rounded-2xl" />)}
-            </div>
+            </StatGrid>
             <div className="grid gap-4 lg:grid-cols-2">
                 <Skeleton className="h-64 rounded-2xl" />
                 <Skeleton className="h-64 rounded-2xl" />
@@ -311,7 +311,7 @@ export default function ToDashboardClient({
 
             <div className={cn("grid grid-cols-[minmax(0,1fr)] gap-6 transition-opacity", loading && "opacity-60")} aria-busy={loading}>
                 {/* ── KPI-k ── */}
-                <StatGrid className="lg:grid-cols-3">
+                <StatGrid oszlopok={{ lg: 3 }}>
                     <StatCard
                         cim="Halállomány"
                         ertek={`${data.summary.osszDarab.toLocaleString("hu-HU")} db`}

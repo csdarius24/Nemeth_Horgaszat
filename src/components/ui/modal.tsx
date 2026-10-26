@@ -93,6 +93,29 @@ function Modal({
 
   const jelol = React.useCallback(() => setModositva(true), []);
 
+  // Fókusz visszaadása a nyitó elemre. A Radix ezt magától is megtenné, de a
+  // tartalom `autoFocus` mezője még azelőtt elviszi a fókuszt, hogy a Radix
+  // megjegyezné a nyitót — zárás után így a fókusz a <body>-ra esne. Ezért
+  // zárt állapotban magunk jegyezzük meg az utolsó, modálon kívüli fókuszt.
+  const nyitoRef = React.useRef<HTMLElement | null>(null);
+  React.useEffect(() => {
+    if (open) return;
+    const figyel = (e: FocusEvent) => {
+      const t = e.target;
+      if (t instanceof HTMLElement && !t.closest("[role=dialog],[role=alertdialog]")) nyitoRef.current = t;
+    };
+    document.addEventListener("focusin", figyel);
+    return () => document.removeEventListener("focusin", figyel);
+  }, [open]);
+
+  function fokuszVissza(e: Event) {
+    const nyito = nyitoRef.current;
+    if (nyito?.isConnected) {
+      e.preventDefault();
+      nyito.focus();
+    }
+  }
+
   const block = (e: Event) => {
     if (preventClose) e.preventDefault();
   };
@@ -118,6 +141,7 @@ function Modal({
         onEscapeKeyDown={block}
         onPointerDownOutside={block}
         onInteractOutside={block}
+        onCloseAutoFocus={fokuszVissza}
         onInputCapture={nativModositas}
         onChangeCapture={nativModositas}
         {...(description ? {} : { "aria-describedby": undefined })}

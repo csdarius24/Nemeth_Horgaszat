@@ -243,11 +243,11 @@ function TavakAllomanyChart({ tavak, cim, szinek }: { tavak: ToAllomany[]; cim: 
 function StatVaz() {
     return (
         <div className="grid gap-4" role="status" aria-label="Statisztikák betöltése">
-            <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-3 xl:grid-cols-5">
+            <StatGrid oszlopok={{ lg: 3, xl: 5 }}>
                 {Array.from({ length: 5 }).map((_, i) => (
                     <Skeleton key={i} className="h-[104px] rounded-2xl" />
                 ))}
-            </div>
+            </StatGrid>
             <Skeleton className="h-28 rounded-2xl" />
             <div className="grid gap-4 lg:grid-cols-2">
                 <Skeleton className="h-64 rounded-2xl" />
@@ -395,7 +395,7 @@ export default function HalaszatStatClient({
             {fejlec}
 
             {/* KPI kártyák */}
-            <StatGrid className="lg:grid-cols-3 xl:grid-cols-5">
+            <StatGrid oszlopok={{ lg: 3, xl: 5 }}>
                 <StatCard cim="Tavak" ertek={data.toak.ossz} alcim={`${data.toak.aktiv} aktív`} ikon={Waves} />
                 <StatCard
                     cim="Halállomány"
@@ -413,7 +413,7 @@ export default function HalaszatStatClient({
                 />
                 {data.takarmany && (
                     <StatCard
-                        cim="Takarmánykészlet"
+                        cim={"Takarmány\u00ADkészlet"} // feltételes elválasztás: keskeny kártyán „Takarmány-/készlet”
                         ertek={fmtSzam(data.takarmany.osszKeszlet)}
                         alcim={`${data.takarmany.aktiv} aktív takarmány`}
                         ikon={Wheat}
