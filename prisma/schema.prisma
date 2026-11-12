@@ -152,7 +152,12 @@ model To {
   // Mind nullable: a meglévő tavak érvényesek maradnak, a hiányzó érték "nincs adat".
   teruletHa          Decimal? @db.Decimal(8, 2)
   atlagMelysegMeter  Decimal? @db.Decimal(5, 2)
+  // Eltartóképesség: a tó maximális TERVEZETT halállománya (kg) — külön a
+  // tényleges állománytól. A UI kg-ban és tonnában is bekéri.
   kapacitasKg        Decimal? @db.Decimal(10, 2)
+  // Vízkapacitás (m³). Új tóegységnél kötelező (API-szinten), a régi sorok
+  // miatt az oszlop nullable.
+  vizkapacitasM3     Decimal? @db.Decimal(12, 2)
 
   // relációk
   tagsagok ToTagsag[]

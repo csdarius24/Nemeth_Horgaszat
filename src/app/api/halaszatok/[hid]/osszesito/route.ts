@@ -6,10 +6,13 @@ import { rogzitoMegjelenites } from "@/lib/audit/rogzito";
 import {
     takarmanyRiasztasok,
     toRiasztasok,
+    kapacitasRiasztasok,
     rendezRiasztasok,
     ALACSONY_KESZLET_KUSZOB,
     INAKTIV_TO_NAPOK,
 } from "@/lib/dashboard/riasztasok";
+import { becsultAllomanyKg } from "@/lib/toak/attekintes";
+import { osszVizkapacitas, szamitKapacitasKihasznaltsag } from "@/lib/toak/kapacitas";
 
 function jsonError(msg: string, status = 400) {
     return NextResponse.json({ error: msg }, { status });
@@ -40,15 +43,41 @@ export async function GET(
             nev: true,
             tipus: true,
             aktiv: true,
+            kapacitasKg: true,
+            vizkapacitasM3: true,
             halAllomanyok: {
                 where: { darab: { gt: 0 } },
                 select: {
                     darab: true,
+                    minTomegKg: true,
+                    maxTomegKg: true,
                     halfaj: { select: { nev: true } },
                 },
             },
         },
         orderBy: { nev: "asc" },
+    });
+
+    // ── 1b. Vízkapacitás + eltartóképesség-kihasználtság ─────────────────────
+    const vizkapacitas = osszVizkapacitas(
+        toak.filter((t) => t.aktiv).map((t) => (t.vizkapacitasM3 == null ? null : Number(t.vizkapacitasM3)))
+    );
+    const toKapacitasok = toak.map((t) => {
+        const becsult = becsultAllomanyKg(t.halAllomanyok.map((a) => ({
+            halfajNev: a.halfaj.nev,
+            darab: a.darab,
+            minTomegKg: Number(a.minTomegKg),
+            maxTomegKg: Number(a.maxTomegKg),
+        })));
+        return {
+            azonosito: t.azonosito,
+            nev: t.nev,
+            aktiv: t.aktiv,
+            kihasznaltsag: szamitKapacitasKihasznaltsag(
+                becsult.darab === 0 ? 0 : becsult.kg,
+                t.kapacitasKg == null ? null : Number(t.kapacitasKg)
+            ),
+        };
     });
 
     const toIds = toak.map((t) => t.azonosito);
@@ -149,6 +178,7 @@ export async function GET(
     const most = new Date();
     const riasztasok = rendezRiasztasok([
         ...takarmanyRiasztasok(takarmanyAllapot),
+        ...kapacitasRiasztasok(toKapacitasok),
         ...toRiasztasok(
             toak.map((t) => ({
                 azonosito: t.azonosito,
@@ -187,6 +217,8 @@ export async function GET(
             ossz: toak.length,
             aktiv: toak.filter((t) => t.aktiv).length,
         },
+        // Halgazdaság teljes vízkapacitása (aktív tóegységek, m³)
+        vizkapacitas,
         halallomany: {
             osszDarab,
             fajokSzama: fajonkent.length,

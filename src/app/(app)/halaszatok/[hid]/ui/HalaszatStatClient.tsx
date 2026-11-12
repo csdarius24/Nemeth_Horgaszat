@@ -65,6 +65,7 @@ export type LegutobbiEsemeny = {
 
 interface OsszesitoValasz {
     toak: { ossz: number; aktiv: number };
+    vizkapacitas?: { osszM3: number; megadva: number; hianyzik: number };
     halallomany: {
         osszDarab: number;
         fajokSzama: number;
@@ -396,7 +397,16 @@ export default function HalaszatStatClient({
 
             {/* KPI kártyák */}
             <StatGrid oszlopok={{ lg: 3, xl: 5 }}>
-                <StatCard cim="Tavak" ertek={data.toak.ossz} alcim={`${data.toak.aktiv} aktív`} ikon={Waves} />
+                <StatCard
+                    cim="Tavak"
+                    ertek={data.toak.ossz}
+                    alcim={
+                        data.vizkapacitas && data.vizkapacitas.megadva > 0
+                            ? `${data.toak.aktiv} aktív · ${data.vizkapacitas.osszM3.toLocaleString("hu-HU")} m³ víz`
+                            : `${data.toak.aktiv} aktív`
+                    }
+                    ikon={Waves}
+                />
                 <StatCard
                     cim="Halállomány"
                     ertek={`${data.halallomany.osszDarab.toLocaleString("hu-HU")} db`}

@@ -58,6 +58,7 @@ export async function GET(
             teruletHa: true,
             atlagMelysegMeter: true,
             kapacitasKg: true,
+            vizkapacitasM3: true,
             halAllomanyok: {
                 where: { darab: { gt: 0 } },
                 select: {
@@ -147,6 +148,7 @@ export async function GET(
             teruletHa: t.teruletHa == null ? null : Number(t.teruletHa),
             atlagMelysegMeter: t.atlagMelysegMeter == null ? null : Number(t.atlagMelysegMeter),
             kapacitasKg,
+            vizkapacitasM3: t.vizkapacitasM3 == null ? null : Number(t.vizkapacitasM3),
 
             // Állomány
             allomanyDarab: becsult.darab,

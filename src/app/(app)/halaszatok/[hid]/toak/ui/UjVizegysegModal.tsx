@@ -5,12 +5,14 @@ import { AlertCircle } from "lucide-react";
 
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
-import { Field, FieldDescription, FieldGroup, FieldLabel } from "@/components/ui/field";
+import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
-import { InputGroup, InputGroupAddon, InputGroupInput, InputGroupText } from "@/components/ui/input-group";
 import { Modal } from "@/components/ui/modal";
 import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
 import { toast } from "@/components/ui/toast";
+import { bevitelKgBan, type TomegEgyseg } from "@/lib/toak/kapacitas";
+
+import { EltartokepessegMezo, SzamMezo } from "./MuszakiMezok";
 
 export const VIZEGYSEG_TIPUSOK = [
     { ertek: "TO", cimke: "Tó" },
@@ -18,38 +20,6 @@ export const VIZEGYSEG_TIPUSOK = [
     { ertek: "IVADEKNEVELO", cimke: "Ivadéknevelő" },
     { ertek: "KELTETO_MEDENCE", cimke: "Keltető medence" },
 ] as const;
-
-/** Opcionális szám mező mértékegységgel (ha, m, kg). */
-function SzamMezo({ id, cimke, egyseg, ertek, onChange, disabled }: {
-    id: string;
-    cimke: string;
-    egyseg: string;
-    ertek: string;
-    onChange: (v: string) => void;
-    disabled: boolean;
-}) {
-    return (
-        <Field>
-            <FieldLabel htmlFor={id}>{cimke}</FieldLabel>
-            <InputGroup>
-                <InputGroupInput
-                    id={id}
-                    type="number"
-                    inputMode="decimal"
-                    step="0.01"
-                    min="0"
-                    value={ertek}
-                    onChange={(e) => onChange(e.target.value)}
-                    disabled={disabled}
-                    placeholder="–"
-                />
-                <InputGroupAddon align="inline-end">
-                    <InputGroupText>{egyseg}</InputGroupText>
-                </InputGroupAddon>
-            </InputGroup>
-        </Field>
-    );
-}
 
 /**
  * Új vízegység (tó, telelő, ivadéknevelő, keltető medence) létrehozása.
@@ -71,6 +41,8 @@ export function UjVizegysegModal({
     const [teruletHa, setTeruletHa] = useState("");
     const [melyseg, setMelyseg] = useState("");
     const [kapacitas, setKapacitas] = useState("");
+    const [kapacitasEgyseg, setKapacitasEgyseg] = useState<TomegEgyseg>("kg");
+    const [vizkapacitas, setVizkapacitas] = useState("");
     const [saving, setSaving] = useState(false);
     const [hiba, setHiba] = useState<string | null>(null);
 
@@ -80,12 +52,15 @@ export function UjVizegysegModal({
         setTeruletHa("");
         setMelyseg("");
         setKapacitas("");
+        setKapacitasEgyseg("kg");
+        setVizkapacitas("");
         setHiba(null);
     }
 
     async function kuldes(ev: React.FormEvent) {
         ev.preventDefault();
         if (nev.trim().length < 2) { setHiba("A név legalább 2 karakter legyen."); return; }
+        if (!(Number(vizkapacitas) > 0)) { setHiba("A vízkapacitás (m³) megadása kötelező."); return; }
         setSaving(true);
         setHiba(null);
         try {
@@ -97,7 +72,8 @@ export function UjVizegysegModal({
                     tipus,
                     teruletHa: teruletHa || null,
                     atlagMelysegMeter: melyseg || null,
-                    kapacitasKg: kapacitas || null,
+                    kapacitasKg: bevitelKgBan(kapacitas, kapacitasEgyseg),
+                    vizkapacitasM3: vizkapacitas,
                 }),
             });
             const json = await res.json().catch(() => ({}));
@@ -163,13 +139,25 @@ export function UjVizegysegModal({
                     </div>
 
                     <div className="grid gap-4 sm:grid-cols-3">
+                        <SzamMezo
+                            id="vizegyseg-vizkapacitas"
+                            cimke="Vízkapacitás"
+                            egyseg="m³"
+                            ertek={vizkapacitas}
+                            onChange={setVizkapacitas}
+                            disabled={saving}
+                            required
+                        />
                         <SzamMezo id="vizegyseg-terulet" cimke="Terület" egyseg="ha" ertek={teruletHa} onChange={setTeruletHa} disabled={saving} />
                         <SzamMezo id="vizegyseg-melyseg" cimke="Átl. mélység" egyseg="m" ertek={melyseg} onChange={setMelyseg} disabled={saving} />
-                        <SzamMezo id="vizegyseg-kapacitas" cimke="Kapacitás" egyseg="kg" ertek={kapacitas} onChange={setKapacitas} disabled={saving} />
                     </div>
-                    <FieldDescription>
-                        A műszaki adatok opcionálisak. A kapacitásból számoljuk a telítettséget.
-                    </FieldDescription>
+
+                    <EltartokepessegMezo
+                        ertek={kapacitas}
+                        egyseg={kapacitasEgyseg}
+                        onChange={(e, egy) => { setKapacitas(e); setKapacitasEgyseg(egy); }}
+                        disabled={saving}
+                    />
 
                     {hiba && (
                         <Alert variant="destructive">

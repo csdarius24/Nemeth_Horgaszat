@@ -3,6 +3,8 @@ import { prisma } from "@/lib/prisma";
 import { requireHalaszatRole } from "@/lib/guards";
 import { szam } from "@/lib/utils/szam";
 import { assertToBelongsToTenant } from "@/lib/tenant/assertToBelongsToTenant";
+import { becsultAllomanyKg } from "@/lib/toak/attekintes";
+import { szamitKapacitasKihasznaltsag } from "@/lib/toak/kapacitas";
 
 function jsonError(message: string, status = 400) {
     return NextResponse.json({ error: message }, { status });
@@ -70,8 +72,36 @@ export async function GET(
             },
         });
 
+        // 4) műszaki adatok + eltartóképesség-kihasználtság
+        const muszaki = await prisma.to.findUnique({
+            where: { azonosito: to.azonosito },
+            select: { teruletHa: true, atlagMelysegMeter: true, kapacitasKg: true, vizkapacitasM3: true },
+        });
+        const nullSzam = (x: unknown) => (x == null ? null : Number(x));
+        const becsult = becsultAllomanyKg(allomany.map((a) => ({
+            halfajNev: a.halfaj.nev,
+            darab: a.darab,
+            minTomegKg: Number(a.minTomegKg),
+            maxTomegKg: Number(a.maxTomegKg),
+        })));
+        const kapacitasKg = nullSzam(muszaki?.kapacitasKg);
+
         return NextResponse.json({
-            to: { azonosito: to.azonosito, nev: to.nev, tipus: to.tipus },
+            to: {
+                azonosito: to.azonosito,
+                nev: to.nev,
+                tipus: to.tipus,
+                teruletHa: nullSzam(muszaki?.teruletHa),
+                atlagMelysegMeter: nullSzam(muszaki?.atlagMelysegMeter),
+                kapacitasKg,
+                vizkapacitasM3: nullSzam(muszaki?.vizkapacitasM3),
+            },
+            kapacitas: {
+                becsultAllomanyKg: becsult.kg,
+                becsultReszleges: becsult.reszleges,
+                // Üres tó: 0 kg (nem "nincs adat").
+                kihasznaltsag: szamitKapacitasKihasznaltsag(becsult.darab === 0 ? 0 : becsult.kg, kapacitasKg),
+            },
             summary: {
                 osszDarab,
                 etetes: {

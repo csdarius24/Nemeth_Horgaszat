@@ -37,6 +37,7 @@ type Egyseg = {
     teruletHa: number | null;
     atlagMelysegMeter: number | null;
     kapacitasKg: number | null;
+    vizkapacitasM3: number | null;
     allomanyDarab: number;
     allomanyKg: number | null;
     allomanyBecsultReszleges: boolean;
@@ -131,9 +132,10 @@ function EgysegKartya({ e, hid }: { e: Egyseg; hid: string }) {
     const stilus = ALLAPOT_STILUS[e.allapot];
     const href = `/halaszatok/${hid}/toak/${e.azonosito}`;
     const muszaki = [
+        e.vizkapacitasM3 != null && `${e.vizkapacitasM3.toLocaleString("hu-HU")} m³`,
         e.teruletHa != null && `${e.teruletHa} ha`,
         e.atlagMelysegMeter != null && `${e.atlagMelysegMeter} m mély`,
-        e.kapacitasKg != null && `${e.kapacitasKg.toLocaleString("hu-HU")} kg kapacitás`,
+        e.kapacitasKg != null && `max. ${e.kapacitasKg.toLocaleString("hu-HU")} kg`,
     ].filter(Boolean);
 
     return (

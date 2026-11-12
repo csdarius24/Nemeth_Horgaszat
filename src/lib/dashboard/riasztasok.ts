@@ -5,13 +5,17 @@
 // származnak (takarmánykészlet, halállomány, naplóesemény-időbélyeg). Vízminőség-
 // vagy halegészség-alapú riasztás NINCS — ahhoz külön modul kell (SZD2, P2).
 
-export type RiasztasSulyossag = "magas" | "kozepes" | "alacsony";
+import type { KapacitasKihasznaltsag } from "@/lib/toak/kapacitas";
+
+export type RiasztasSulyossag ="magas" | "kozepes" | "alacsony";
 
 export type RiasztasKod =
     | "TAKARMANY_ELFOGYOTT"
     | "TAKARMANY_ALACSONY"
     | "TO_URES_ALLOMANY"
-    | "TO_INAKTIV";
+    | "TO_INAKTIV"
+    | "KAPACITAS_KOZEL"
+    | "KAPACITAS_TULLEPVE";
 
 export type Riasztas = {
     kod: RiasztasKod;
@@ -131,6 +135,43 @@ export function toRiasztasok(
                 sulyossag: "alacsony",
                 cim: `Régóta nincs művelet: ${t.nev}`,
                 reszlet: `${eltelt} napja nem történt rögzített művelet ebben a tóban (küszöb: ${inaktivNapok} nap).`,
+                eroforrasId: t.azonosito,
+            });
+        }
+    }
+    return ki;
+}
+
+export type ToKapacitasAllapot = {
+    azonosito: number;
+    nev: string;
+    aktiv: boolean;
+    kihasznaltsag: KapacitasKihasznaltsag | null;
+};
+
+/**
+ * Eltartóképesség-riasztások: túllépés (magas), illetve ≥ 90% (közepes).
+ * Csak aktív tavakra, és csak ha számolható a kihasználtság.
+ */
+export function kapacitasRiasztasok(toak: ToKapacitasAllapot[]): Riasztas[] {
+    const ki: Riasztas[] = [];
+    for (const t of toak) {
+        if (!t.aktiv || !t.kihasznaltsag) continue;
+        const { szazalek, szabadKg, szint } = t.kihasznaltsag;
+        if (szint === "tullepve") {
+            ki.push({
+                kod: "KAPACITAS_TULLEPVE",
+                sulyossag: "magas",
+                cim: `Túltelepítés: ${t.nev}`,
+                reszlet: `A becsült állomány az eltartóképesség ${szazalek}%-a (${Math.abs(szabadKg).toLocaleString("hu-HU")} kg túllépés).`,
+                eroforrasId: t.azonosito,
+            });
+        } else if (szint === "kozel") {
+            ki.push({
+                kod: "KAPACITAS_KOZEL",
+                sulyossag: "kozepes",
+                cim: `Közel a kapacitáshoz: ${t.nev}`,
+                reszlet: `A becsült állomány az eltartóképesség ${szazalek}%-a (szabad: ${szabadKg.toLocaleString("hu-HU")} kg).`,
                 eroforrasId: t.azonosito,
             });
         }

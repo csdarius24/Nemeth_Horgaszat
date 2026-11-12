@@ -67,6 +67,12 @@ export async function POST(
         return Number.isFinite(n) && n > 0 ? n : null;
     }
 
+    // Vízkapacitás (m³): új tóegységnél KÖTELEZŐ.
+    const vizkapacitasM3 = opcionalisPozitiv(body?.vizkapacitasM3);
+    if (vizkapacitasM3 == null) {
+        return NextResponse.json({ hiba: "A vízkapacitás (m³) megadása kötelező, és pozitív szám kell legyen." }, { status: 400 });
+    }
+
     const ujTo = await prisma.to.create({
         data: {
             nev,
@@ -75,10 +81,11 @@ export async function POST(
             teruletHa: opcionalisPozitiv(body?.teruletHa),
             atlagMelysegMeter: opcionalisPozitiv(body?.atlagMelysegMeter),
             kapacitasKg: opcionalisPozitiv(body?.kapacitasKg),
+            vizkapacitasM3,
         },
         select: {
             azonosito: true, nev: true, tipus: true, aktiv: true, letrehozva: true,
-            teruletHa: true, atlagMelysegMeter: true, kapacitasKg: true,
+            teruletHa: true, atlagMelysegMeter: true, kapacitasKg: true, vizkapacitasM3: true,
         },
     });
 

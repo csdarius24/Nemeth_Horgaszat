@@ -4,11 +4,13 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import {
     Activity,
+    AlertTriangle,
     ArrowDownToLine,
     ArrowLeftRight,
     ArrowUpFromLine,
     Fish,
     History,
+    Pencil,
     RefreshCw,
     Utensils,
 } from "lucide-react";
@@ -16,6 +18,9 @@ import { Bar, BarChart, CartesianGrid, Cell, Label, Pie, PieChart, XAxis, YAxis 
 
 import { cn } from "@/lib/utils";
 import { toTipusCimke } from "@/lib/toak/attekintes";
+import { tomegKgEsTonna, type KapacitasKihasznaltsag } from "@/lib/toak/kapacitas";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Progress } from "@/components/ui/progress";
 import { EsemenyElem } from "@/components/app/EsemenyElem";
 import { ESEMENY_CHART_CONFIG } from "@/components/app/esemenyek";
 import { fajChartConfig, useFajSzinek } from "@/components/app/fajSzinek";
@@ -40,6 +45,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 
 // Relatív importok: a modálok ugyanabban a mappafában élnek, így a route-group
 // átrendezés (app/(app)/...) nem töri el őket.
+import ToAdatokModal from "./ToAdatokModal";
 import AttelepitesModal from "./actions/AttelepitesModal";
 import EtetesModal from "./actions/EtetesModal";
 import KivetelModal from "./actions/KivetelModal";
@@ -49,7 +55,20 @@ import type { AllomanyTetel } from "./actions/kozos";
 // ─── Típusok ────────────────────────────────────────────────────────────────
 
 type SummaryResponse = {
-    to: { azonosito: number; nev: string; tipus: string };
+    to: {
+        azonosito: number;
+        nev: string;
+        tipus: string;
+        teruletHa: number | null;
+        atlagMelysegMeter: number | null;
+        kapacitasKg: number | null;
+        vizkapacitasM3: number | null;
+    };
+    kapacitas: {
+        becsultAllomanyKg: number | null;
+        becsultReszleges: boolean;
+        kihasznaltsag: KapacitasKihasznaltsag | null;
+    };
     summary: {
         osszDarab: number;
         etetes: { napok: number; osszegKg: unknown; darab: number };
@@ -127,6 +146,107 @@ function EsemenyFank({ adat }: { adat: Array<{ tipus: string; db: number }> }) {
     );
 }
 
+function AdatSor({ cimke, ertek }: { cimke: string; ertek: React.ReactNode }) {
+    return (
+        <div className="flex items-baseline justify-between gap-3 py-1.5 text-sm">
+            <dt className="text-muted-foreground">{cimke}</dt>
+            <dd className="whitespace-nowrap text-right font-medium tabular-nums">{ertek ?? <span className="text-muted-foreground">nincs adat</span>}</dd>
+        </div>
+    );
+}
+
+/** Műszaki adatok + eltartóképesség-kihasználtság (figyelmeztetéssel). */
+function KapacitasKartya({ to, kapacitas, kezelo, onSzerkeszt }: {
+    to: SummaryResponse["to"];
+    kapacitas: SummaryResponse["kapacitas"];
+    kezelo: boolean;
+    onSzerkeszt: () => void;
+}) {
+    const k = kapacitas.kihasznaltsag;
+    const hu = (n: number) => n.toLocaleString("hu-HU", { maximumFractionDigits: 2 });
+
+    return (
+        <Card>
+            <CardHeader className="flex flex-row items-start justify-between gap-3">
+                <div className="space-y-1.5">
+                    <CardTitle>Kapacitás és műszaki adatok</CardTitle>
+                    <CardDescription>Vízkapacitás, eltartóképesség és a jelenlegi kihasználtság.</CardDescription>
+                </div>
+                {kezelo && (
+                    <Button variant="outline" size="sm" onClick={onSzerkeszt}>
+                        <Pencil />
+                        Szerkesztés
+                    </Button>
+                )}
+            </CardHeader>
+            <CardContent className="grid gap-6 md:grid-cols-2">
+                <dl className="divide-y">
+                    <AdatSor cimke="Vízkapacitás" ertek={to.vizkapacitasM3 != null ? `${hu(to.vizkapacitasM3)} m³` : null} />
+                    <AdatSor cimke="Terület" ertek={to.teruletHa != null ? `${hu(to.teruletHa)} ha` : null} />
+                    <AdatSor cimke="Átlagmélység" ertek={to.atlagMelysegMeter != null ? `${hu(to.atlagMelysegMeter)} m` : null} />
+                    <AdatSor cimke="Eltartóképesség" ertek={to.kapacitasKg != null ? tomegKgEsTonna(to.kapacitasKg) : null} />
+                    <AdatSor
+                        cimke="Jelenlegi állomány (becsült)"
+                        ertek={kapacitas.becsultAllomanyKg != null ? tomegKgEsTonna(kapacitas.becsultAllomanyKg) : null}
+                    />
+                </dl>
+
+                <div className="grid content-start gap-3">
+                    {k ? (
+                        <>
+                            <div className="flex items-baseline justify-between">
+                                <span className="text-sm text-muted-foreground">Kapacitás-kihasználtság</span>
+                                <span className={cn(
+                                    "font-heading text-2xl font-bold tabular-nums",
+                                    k.szint === "tullepve" && "text-destructive",
+                                    k.szint === "kozel" && "text-amber-600 dark:text-amber-400",
+                                )}>
+                                    {k.szazalek.toLocaleString("hu-HU")}%
+                                </span>
+                            </div>
+                            <Progress
+                                value={Math.min(k.szazalek, 100)}
+                                aria-label="Kapacitás-kihasználtság"
+                                className={cn(
+                                    k.szint === "tullepve" && "[&>[data-slot=progress-indicator]]:bg-destructive",
+                                    k.szint === "kozel" && "[&>[data-slot=progress-indicator]]:bg-amber-500",
+                                )}
+                            />
+                            <p className="text-sm text-muted-foreground">
+                                {k.szabadKg >= 0
+                                    ? <>Szabad kapacitás: <span className="font-medium text-foreground">{tomegKgEsTonna(k.szabadKg)}</span></>
+                                    : <>Túllépés: <span className="font-medium text-destructive">{tomegKgEsTonna(-k.szabadKg)}</span></>}
+                            </p>
+                            {k.szint !== "rendben" && (
+                                <Alert variant={k.szint === "tullepve" ? "destructive" : "default"}>
+                                    <AlertTriangle />
+                                    <AlertTitle>{k.szint === "tullepve" ? "Túltelepítés!" : "Közel a maximális kapacitáshoz"}</AlertTitle>
+                                    <AlertDescription>
+                                        {k.szint === "tullepve"
+                                            ? "A becsült állomány meghaladja a megadott eltartóképességet."
+                                            : "A becsült állomány elérte az eltartóképesség 90%-át."}
+                                    </AlertDescription>
+                                </Alert>
+                            )}
+                            {kapacitas.becsultReszleges && (
+                                <p className="text-xs text-muted-foreground">
+                                    Egyes halfajoknál nincs tömegadat, ezért a becslés alulbecsülheti az állományt.
+                                </p>
+                            )}
+                        </>
+                    ) : (
+                        <p className="text-sm text-muted-foreground">
+                            {to.kapacitasKg == null
+                                ? "Adj meg eltartóképességet, és itt látod a kihasználtságot."
+                                : "A kihasználtsághoz tömegadat kell az állományhoz (telepítéskor)."}
+                        </p>
+                    )}
+                </div>
+            </CardContent>
+        </Card>
+    );
+}
+
 // ─── Fő komponens ────────────────────────────────────────────────────────────
 
 export default function ToDashboardClient({
@@ -146,6 +266,7 @@ export default function ToDashboardClient({
     const [hiba, setHiba] = useState<string | null>(null);
 
     const [nyitott, setNyitott] = useState<Muvelet | null>(null);
+    const [adatokNyitva, setAdatokNyitva] = useState(false);
     const modalProps = (m: Muvelet) => ({
         open: nyitott === m,
         onOpenChange: (open: boolean) => setNyitott(open ? m : null),
@@ -334,6 +455,8 @@ export default function ToDashboardClient({
                     />
                 </StatGrid>
 
+                <KapacitasKartya to={data.to} kapacitas={data.kapacitas} kezelo={kezelo} onSzerkeszt={() => setAdatokNyitva(true)} />
+
                 {/* ── Grafikonok ── */}
                 {nincsAllomany && data.timeline.length === 0 ? (
                     <EmptyState
@@ -476,6 +599,14 @@ export default function ToDashboardClient({
             <EtetesModal {...modalProps("etetes")} />
             {kezelo && (
                 <>
+                    <ToAdatokModal
+                        hid={hid}
+                        toId={toId}
+                        open={adatokNyitva}
+                        onOpenChange={setAdatokNyitva}
+                        adatok={data.to}
+                        onMentve={load}
+                    />
                     <TelepitesModal {...modalProps("telepites")} />
                     <KivetelModal {...modalProps("kivetel")} allomany={allomanyTetelek} />
                     <AttelepitesModal {...modalProps("attelepites")} allomany={allomanyTetelek} forrasNev={data.to.nev} />
