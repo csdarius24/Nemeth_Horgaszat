@@ -119,7 +119,7 @@ export default function EtetesModal({ open, onOpenChange, hid, toId, onMentve }:
                             <MertekegysegesInput
                                 id="etetes-mennyiseg"
                                 egyseg={valasztott?.egyseg ?? "kg"}
-                                step="0.1"
+                                step="any"
                                 min={0}
                                 value={mennyiseg}
                                 onChange={(e) => setMennyiseg(e.target.value)}

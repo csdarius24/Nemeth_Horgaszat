@@ -19,6 +19,7 @@ import { Bar, BarChart, CartesianGrid, Cell, Label, Pie, PieChart, XAxis, YAxis 
 import { cn } from "@/lib/utils";
 import { toTipusCimke } from "@/lib/toak/attekintes";
 import { tomegKgEsTonna, type KapacitasKihasznaltsag } from "@/lib/toak/kapacitas";
+import { teruletSzoveg } from "@/lib/toak/terulet";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Progress } from "@/components/ui/progress";
 import { EsemenyElem } from "@/components/app/EsemenyElem";
@@ -182,7 +183,7 @@ function KapacitasKartya({ to, kapacitas, kezelo, onSzerkeszt }: {
             <CardContent className="grid gap-6 md:grid-cols-2">
                 <dl className="divide-y">
                     <AdatSor cimke="Vízkapacitás" ertek={to.vizkapacitasM3 != null ? `${hu(to.vizkapacitasM3)} m³` : null} />
-                    <AdatSor cimke="Terület" ertek={to.teruletHa != null ? `${hu(to.teruletHa)} ha` : null} />
+                    <AdatSor cimke="Terület" ertek={to.teruletHa != null ? teruletSzoveg(to.teruletHa) : null} />
                     <AdatSor cimke="Átlagmélység" ertek={to.atlagMelysegMeter != null ? `${hu(to.atlagMelysegMeter)} m` : null} />
                     <AdatSor cimke="Eltartóképesség" ertek={to.kapacitasKg != null ? tomegKgEsTonna(to.kapacitasKg) : null} />
                     <AdatSor
@@ -549,7 +550,7 @@ export default function ToDashboardClient({
                                                 <TableCell className="text-right tabular-nums">{a.darab.toLocaleString("hu-HU")}</TableCell>
                                                 <TableCell className="text-right text-muted-foreground tabular-nums">
                                                     {Number(a.minTomegKg) > 0 || Number(a.maxTomegKg) > 0
-                                                        ? `${fmtSzam(a.minTomegKg)} – ${fmtSzam(a.maxTomegKg)}`
+                                                        ? `${fmtSzam(a.minTomegKg, 5)} – ${fmtSzam(a.maxTomegKg, 5)}`
                                                         : "–"}
                                                 </TableCell>
                                             </TableRow>

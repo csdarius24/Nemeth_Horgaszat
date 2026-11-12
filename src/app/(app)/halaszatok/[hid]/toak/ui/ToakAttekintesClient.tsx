@@ -133,7 +133,7 @@ function EgysegKartya({ e, hid }: { e: Egyseg; hid: string }) {
     const href = `/halaszatok/${hid}/toak/${e.azonosito}`;
     const muszaki = [
         e.vizkapacitasM3 != null && `${e.vizkapacitasM3.toLocaleString("hu-HU")} m³`,
-        e.teruletHa != null && `${e.teruletHa} ha`,
+        e.teruletHa != null && `${e.teruletHa.toLocaleString("hu-HU", { maximumFractionDigits: 4 })} ha`,
         e.atlagMelysegMeter != null && `${e.atlagMelysegMeter} m mély`,
         e.kapacitasKg != null && `max. ${e.kapacitasKg.toLocaleString("hu-HU")} kg`,
     ].filter(Boolean);

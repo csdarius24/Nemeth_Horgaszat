@@ -146,7 +146,7 @@ export function MozgasModal({ hid, takarmany, kezdoTipus = "BEVETEL", onOpenChan
                                 id="mozgas-mennyiseg"
                                 egyseg={takarmany.egyseg}
                                 min="0.01"
-                                step="0.01"
+                                step="any"
                                 placeholder="0"
                                 value={mennyiseg}
                                 onChange={(e) => setMennyiseg(e.target.value)}

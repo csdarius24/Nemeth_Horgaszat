@@ -88,7 +88,7 @@ function SorSzerkeszto<T extends Record<string, string>>({ cim, leiras, idPrefix
                                                 id={id}
                                                 egyseg={o.egyseg}
                                                 min={0}
-                                                step="0.01"
+                                                step="any"
                                                 value={s[o.kulcs]}
                                                 onChange={(e) => onMod(i, { [o.kulcs]: e.target.value } as Partial<T>)}
                                             />
@@ -231,7 +231,7 @@ export function UjCiklusModal({ hid, open, onOpenChange, onLetrehozva }: {
     const protokollMezo = (id: string, cimke: string, egyseg: string, ertek: string, set: (v: string) => void) => (
         <Field>
             <FieldLabel htmlFor={id} className="text-xs">{cimke}</FieldLabel>
-            <MertekegysegesInput id={id} egyseg={egyseg} min={0} step="0.01" value={ertek} onChange={(e) => set(e.target.value)} disabled={saving} />
+            <MertekegysegesInput id={id} egyseg={egyseg} min={0} step="any" value={ertek} onChange={(e) => set(e.target.value)} disabled={saving} />
         </Field>
     );
 
@@ -275,7 +275,7 @@ export function UjCiklusModal({ hid, open, onOpenChange, onLetrehozva }: {
                         </Field>
                         <Field>
                             <FieldLabel htmlFor="ciklus-homerseklet">Vízhőmérséklet</FieldLabel>
-                            <MertekegysegesInput id="ciklus-homerseklet" egyseg="°C" step="0.1" value={homerseklet} onChange={(e) => setHomerseklet(e.target.value)} disabled={saving} placeholder="pl. 20,5" />
+                            <MertekegysegesInput id="ciklus-homerseklet" egyseg="°C" step="any" value={homerseklet} onChange={(e) => setHomerseklet(e.target.value)} disabled={saving} placeholder="pl. 20,5" />
                         </Field>
                     </div>
 

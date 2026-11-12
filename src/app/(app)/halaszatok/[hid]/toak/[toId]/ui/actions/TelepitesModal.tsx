@@ -141,7 +141,7 @@ export default function TelepitesModal({ open, onOpenChange, hid, toId, onMentve
                             <MertekegysegesInput
                                 aria-label="Minimum tömeg"
                                 egyseg="kg"
-                                step="0.01"
+                                step="any"
                                 min={0}
                                 placeholder="min"
                                 value={minKg}
@@ -151,7 +151,7 @@ export default function TelepitesModal({ open, onOpenChange, hid, toId, onMentve
                             <MertekegysegesInput
                                 aria-label="Maximum tömeg"
                                 egyseg="kg"
-                                step="0.01"
+                                step="any"
                                 min={0}
                                 placeholder="max"
                                 value={maxKg}
@@ -159,7 +159,9 @@ export default function TelepitesModal({ open, onOpenChange, hid, toId, onMentve
                                 disabled={saving}
                             />
                         </div>
-                        <FieldDescription>Ebből becsüljük a tó halállományát kilogrammban.</FieldDescription>
+                        <FieldDescription>
+                            Ebből becsüljük a tó halállományát kilogrammban. Ivadéknál grammot kg-ban add meg (pl. 5 g = 0,005 kg).
+                        </FieldDescription>
                     </Field>
 
                     <div className="grid gap-4 sm:grid-cols-2">

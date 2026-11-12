@@ -150,7 +150,8 @@ model To {
 
   // Opcionális műszaki adatok a vízegység-áttekintéshez.
   // Mind nullable: a meglévő tavak érvényesek maradnak, a hiányzó érték "nincs adat".
-  teruletHa          Decimal? @db.Decimal(8, 2)
+  // Hektár, 4 tizedes = 1 m² pontosság (kis telelőknél pl. 0,175 ha).
+  teruletHa          Decimal? @db.Decimal(10, 4)
   atlagMelysegMeter  Decimal? @db.Decimal(5, 2)
   // Eltartóképesség: a tó maximális TERVEZETT halállománya (kg) — külön a
   // tényleges állománytól. A UI kg-ban és tonnában is bekéri.
@@ -222,8 +223,9 @@ model HalAllomany {
   toId       Int
   halfajId   Int
   darab      Int      @default(0)
-  minTomegKg Decimal  @default(0.00) @db.Decimal(6, 2)
-  maxTomegKg Decimal  @default(0.00) @db.Decimal(6, 2)
+  // Egyedi tömeg (kg), 5 tizedes = 0,01 g pontosság (ivadéknál is).
+  minTomegKg Decimal  @default(0.00) @db.Decimal(10, 5)
+  maxTomegKg Decimal  @default(0.00) @db.Decimal(10, 5)
   frissitve  DateTime @updatedAt
 
   // relációk
@@ -241,8 +243,9 @@ model Telepites {
   toId       Int
   halfajId   Int
   darab      Int
-  minTomegKg Decimal  @default(0.00) @db.Decimal(6, 2)
-  maxTomegKg Decimal  @default(0.00) @db.Decimal(6, 2)
+  // Egyedi tömeg (kg), 5 tizedes = 0,01 g pontosság (ivadéknál is).
+  minTomegKg Decimal  @default(0.00) @db.Decimal(10, 5)
+  maxTomegKg Decimal  @default(0.00) @db.Decimal(10, 5)
   forras     String?  @db.VarChar(255)
   datum      DateTime @default(now())
   megjegyzes String?  @db.Text

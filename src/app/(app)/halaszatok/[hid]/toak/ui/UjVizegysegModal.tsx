@@ -11,8 +11,9 @@ import { Modal } from "@/components/ui/modal";
 import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
 import { toast } from "@/components/ui/toast";
 import { bevitelKgBan, type TomegEgyseg } from "@/lib/toak/kapacitas";
+import { bevitelHaBan, type TeruletEgyseg } from "@/lib/toak/terulet";
 
-import { EltartokepessegMezo, SzamMezo } from "./MuszakiMezok";
+import { EltartokepessegMezo, SzamMezo, TeruletMezo } from "./MuszakiMezok";
 
 export const VIZEGYSEG_TIPUSOK = [
     { ertek: "TO", cimke: "Tó" },
@@ -38,7 +39,8 @@ export function UjVizegysegModal({
 }) {
     const [nev, setNev] = useState("");
     const [tipus, setTipus] = useState("TO");
-    const [teruletHa, setTeruletHa] = useState("");
+    const [terulet, setTerulet] = useState("");
+    const [teruletEgyseg, setTeruletEgyseg] = useState<TeruletEgyseg>("ha");
     const [melyseg, setMelyseg] = useState("");
     const [kapacitas, setKapacitas] = useState("");
     const [kapacitasEgyseg, setKapacitasEgyseg] = useState<TomegEgyseg>("kg");
@@ -49,7 +51,8 @@ export function UjVizegysegModal({
     function alaphelyzet() {
         setNev("");
         setTipus("TO");
-        setTeruletHa("");
+        setTerulet("");
+        setTeruletEgyseg("ha");
         setMelyseg("");
         setKapacitas("");
         setKapacitasEgyseg("kg");
@@ -70,7 +73,7 @@ export function UjVizegysegModal({
                 body: JSON.stringify({
                     nev: nev.trim(),
                     tipus,
-                    teruletHa: teruletHa || null,
+                    teruletHa: bevitelHaBan(terulet, teruletEgyseg),
                     atlagMelysegMeter: melyseg || null,
                     kapacitasKg: bevitelKgBan(kapacitas, kapacitasEgyseg),
                     vizkapacitasM3: vizkapacitas,
@@ -138,7 +141,7 @@ export function UjVizegysegModal({
                         </Field>
                     </div>
 
-                    <div className="grid gap-4 sm:grid-cols-3">
+                    <div className="grid gap-4 sm:grid-cols-2">
                         <SzamMezo
                             id="vizegyseg-vizkapacitas"
                             cimke="Vízkapacitás"
@@ -148,9 +151,16 @@ export function UjVizegysegModal({
                             disabled={saving}
                             required
                         />
-                        <SzamMezo id="vizegyseg-terulet" cimke="Terület" egyseg="ha" ertek={teruletHa} onChange={setTeruletHa} disabled={saving} />
                         <SzamMezo id="vizegyseg-melyseg" cimke="Átl. mélység" egyseg="m" ertek={melyseg} onChange={setMelyseg} disabled={saving} />
                     </div>
+
+                    <TeruletMezo
+                        id="vizegyseg-terulet"
+                        ertek={terulet}
+                        egyseg={teruletEgyseg}
+                        onChange={(e, egy) => { setTerulet(e); setTeruletEgyseg(egy); }}
+                        disabled={saving}
+                    />
 
                     <EltartokepessegMezo
                         ertek={kapacitas}

@@ -92,3 +92,13 @@ describe("kapacitasRiasztasok", () => {
         expect(kapacitasRiasztasok([to(1, 16000, 15000, false), to(2, 16000, null)])).toEqual([]);
     });
 });
+
+import { becsultAllomanyKg } from "@/lib/toak/attekintes";
+
+describe("ivadék tömeg (kis tizedesek)", () => {
+    it("10 000 db × 4–6 g ivadék ≈ 50 kg, nem kerekedik 0-ra", () => {
+        const b = becsultAllomanyKg([{ halfajNev: "Ponty", darab: 10000, minTomegKg: 0.004, maxTomegKg: 0.006 }]);
+        expect(b.kg).toBe(50);
+        expect(szamitKapacitasKihasznaltsag(b.kg, 1000)?.szazalek).toBe(5);
+    });
+});

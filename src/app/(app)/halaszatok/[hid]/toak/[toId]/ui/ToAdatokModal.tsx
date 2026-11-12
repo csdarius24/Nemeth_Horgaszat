@@ -10,8 +10,9 @@ import { Input } from "@/components/ui/input";
 import { Modal } from "@/components/ui/modal";
 import { toast } from "@/components/ui/toast";
 import { bevitelKgBan, type TomegEgyseg } from "@/lib/toak/kapacitas";
+import { bevitelHaBan, type TeruletEgyseg } from "@/lib/toak/terulet";
 
-import { EltartokepessegMezo, SzamMezo } from "../../ui/MuszakiMezok";
+import { EltartokepessegMezo, SzamMezo, TeruletMezo } from "../../ui/MuszakiMezok";
 
 export type ToAdatok = {
     nev: string;
@@ -33,7 +34,8 @@ export default function ToAdatokModal({ hid, toId, open, onOpenChange, adatok, o
     onMentve: () => void;
 }) {
     const [nev, setNev] = useState("");
-    const [teruletHa, setTeruletHa] = useState("");
+    const [terulet, setTerulet] = useState("");
+    const [teruletEgyseg, setTeruletEgyseg] = useState<TeruletEgyseg>("ha");
     const [melyseg, setMelyseg] = useState("");
     const [vizkapacitas, setVizkapacitas] = useState("");
     const [kapacitas, setKapacitas] = useState("");
@@ -45,7 +47,8 @@ export default function ToAdatokModal({ hid, toId, open, onOpenChange, adatok, o
     useEffect(() => {
         if (!open) return;
         setNev(adatok.nev);
-        setTeruletHa(str(adatok.teruletHa));
+        setTerulet(str(adatok.teruletHa));
+        setTeruletEgyseg("ha");
         setMelyseg(str(adatok.atlagMelysegMeter));
         setVizkapacitas(str(adatok.vizkapacitasM3));
         setKapacitas(str(adatok.kapacitasKg));
@@ -65,7 +68,7 @@ export default function ToAdatokModal({ hid, toId, open, onOpenChange, adatok, o
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
                     nev: nev.trim(),
-                    teruletHa: teruletHa || null,
+                    teruletHa: bevitelHaBan(terulet, teruletEgyseg),
                     atlagMelysegMeter: melyseg || null,
                     vizkapacitasM3: vizkapacitas,
                     kapacitasKg: bevitelKgBan(kapacitas, egyseg),
@@ -103,11 +106,17 @@ export default function ToAdatokModal({ hid, toId, open, onOpenChange, adatok, o
                         <FieldLabel htmlFor="to-adatok-nev">Név</FieldLabel>
                         <Input id="to-adatok-nev" value={nev} onChange={(e) => setNev(e.target.value)} disabled={saving} required minLength={2} />
                     </Field>
-                    <div className="grid gap-4 sm:grid-cols-3">
+                    <div className="grid gap-4 sm:grid-cols-2">
                         <SzamMezo id="to-adatok-viz" cimke="Vízkapacitás" egyseg="m³" ertek={vizkapacitas} onChange={setVizkapacitas} disabled={saving} required />
-                        <SzamMezo id="to-adatok-terulet" cimke="Terület" egyseg="ha" ertek={teruletHa} onChange={setTeruletHa} disabled={saving} />
                         <SzamMezo id="to-adatok-melyseg" cimke="Átl. mélység" egyseg="m" ertek={melyseg} onChange={setMelyseg} disabled={saving} />
                     </div>
+                    <TeruletMezo
+                        id="to-adatok-terulet"
+                        ertek={terulet}
+                        egyseg={teruletEgyseg}
+                        onChange={(e, egy) => { setTerulet(e); setTeruletEgyseg(egy); }}
+                        disabled={saving}
+                    />
                     <EltartokepessegMezo
                         ertek={kapacitas}
                         egyseg={egyseg}

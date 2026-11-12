@@ -7,9 +7,10 @@ import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle }
 import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } from "@/components/ui/chart";
 
 /** Szám magyar formátumban (Decimal/string bemenetet is elfogad). */
-export function fmtSzam(x: unknown) {
+/** Magyar számformátum; alapból max. 2 tizedes (kis tömegekhez, pl. ivadék, több kell). */
+export function fmtSzam(x: unknown, maxTizedes = 2) {
     const n = typeof x === "number" ? x : Number(String(x ?? 0).replace(",", "."));
-    return Number.isFinite(n) ? n.toLocaleString("hu-HU", { maximumFractionDigits: 2 }) : "–";
+    return Number.isFinite(n) ? n.toLocaleString("hu-HU", { maximumFractionDigits: maxTizedes }) : "–";
 }
 
 // ─── Grafikon kártya ─────────────────────────────────────────────────────────
