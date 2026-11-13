@@ -3,6 +3,7 @@
 import { useState } from "react";
 
 import HalaszatStatClient, { type LegutobbiEsemeny } from "./HalaszatStatClient";
+import IdojarasKartya from "./IdojarasKartya";
 import { LegutobbiTevekenysegek } from "./LegutobbiTevekenysegek";
 import ToListaClient from "./ToListaClient";
 
@@ -18,6 +19,8 @@ export default function DashboardClient({ hid, viewerRole }: { hid: string; view
 
     return (
         <div className="grid gap-6">
+            <IdojarasKartya hid={hid} viewerRole={viewerRole} />
+
             <HalaszatStatClient hid={hid} frissites={frissites} onLegutobbiEsemenyek={setLegutobbi} />
 
             <div className="grid gap-4 lg:grid-cols-2">
