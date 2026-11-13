@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireHalaszatRole } from "@/lib/guards";
+import { korvonalMezok } from "@/lib/terkep/geo";
 
 function szam(x: unknown, alap = 0) {
     const n = typeof x === "number" ? x : Number(x);
@@ -73,6 +74,15 @@ export async function POST(
         return NextResponse.json({ hiba: "A vízkapacitás (m³) megadása kötelező, és pozitív szám kell legyen." }, { status: 400 });
     }
 
+    // Térképes körvonal: új tóegységnél KÖTELEZŐ. Középpont + terület a szerveren számolódik.
+    if (body?.korvonal == null) {
+        return NextResponse.json({ hiba: "Rajzold be a tóegység körvonalát a térképen." }, { status: 400 });
+    }
+    const korvonal = korvonalMezok(body.korvonal);
+    if (!korvonal.ok) {
+        return NextResponse.json({ hiba: korvonal.hiba }, { status: 400 });
+    }
+
     const ujTo = await prisma.to.create({
         data: {
             nev,
@@ -82,10 +92,12 @@ export async function POST(
             atlagMelysegMeter: opcionalisPozitiv(body?.atlagMelysegMeter),
             kapacitasKg: opcionalisPozitiv(body?.kapacitasKg),
             vizkapacitasM3,
+            ...korvonal.mezok,
         },
         select: {
             azonosito: true, nev: true, tipus: true, aktiv: true, letrehozva: true,
             teruletHa: true, atlagMelysegMeter: true, kapacitasKg: true, vizkapacitasM3: true,
+            kozeppontLat: true, kozeppontLng: true, rajzoltTeruletM2: true,
         },
     });
 

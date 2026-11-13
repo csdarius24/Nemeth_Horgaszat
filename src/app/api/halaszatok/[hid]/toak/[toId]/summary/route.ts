@@ -75,7 +75,10 @@ export async function GET(
         // 4) műszaki adatok + eltartóképesség-kihasználtság
         const muszaki = await prisma.to.findUnique({
             where: { azonosito: to.azonosito },
-            select: { teruletHa: true, atlagMelysegMeter: true, kapacitasKg: true, vizkapacitasM3: true },
+            select: {
+                teruletHa: true, atlagMelysegMeter: true, kapacitasKg: true, vizkapacitasM3: true,
+                korvonal: true, kozeppontLat: true, kozeppontLng: true, rajzoltTeruletM2: true,
+            },
         });
         const nullSzam = (x: unknown) => (x == null ? null : Number(x));
         const becsult = becsultAllomanyKg(allomany.map((a) => ({
@@ -95,6 +98,10 @@ export async function GET(
                 atlagMelysegMeter: nullSzam(muszaki?.atlagMelysegMeter),
                 kapacitasKg,
                 vizkapacitasM3: nullSzam(muszaki?.vizkapacitasM3),
+                korvonal: muszaki?.korvonal ?? null,
+                kozeppontLat: nullSzam(muszaki?.kozeppontLat),
+                kozeppontLng: nullSzam(muszaki?.kozeppontLng),
+                rajzoltTeruletM2: nullSzam(muszaki?.rajzoltTeruletM2),
             },
             kapacitas: {
                 becsultAllomanyKg: becsult.kg,

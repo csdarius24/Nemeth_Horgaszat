@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { requireHalaszatRole } from "@/lib/guards";
 import { szam } from "@/lib/utils/szam";
 import { assertToBelongsToTenant } from "@/lib/tenant/assertToBelongsToTenant";
+import { korvonalMezok } from "@/lib/terkep/geo";
 
 function jsonError(message: string, status = 400) {
     return NextResponse.json({ error: message }, { status });
@@ -99,6 +100,14 @@ export async function PATCH(
         if (ertek === undefined) return jsonError(`Érvénytelen ${cimke}: pozitív szám kell.`);
         if (mezo === "vizkapacitasM3" && ertek === null) return jsonError("A vízkapacitás nem törölhető, csak módosítható.");
         data[mezo] = ertek;
+    }
+
+    // Körvonal: módosítható, de nem törölhető (térkép + műholdas elemzés alapja).
+    if ("korvonal" in body) {
+        if (body.korvonal == null) return jsonError("A körvonal nem törölhető, csak újrarajzolható.");
+        const k = korvonalMezok(body.korvonal);
+        if (!k.ok) return jsonError(k.hiba);
+        Object.assign(data, k.mezok);
     }
 
     if (Object.keys(data).length === 0) return jsonError("Nincs módosítandó adat.");

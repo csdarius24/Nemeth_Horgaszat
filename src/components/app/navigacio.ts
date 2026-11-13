@@ -6,6 +6,7 @@ import {
     Droplets,
     Fish,
     LayoutDashboard,
+    Map as MapIcon,
     Users,
     Waves,
     Wheat,
@@ -33,6 +34,7 @@ export const HALASZAT_NAV: NavCsoport[] = [
         elemek: [
             { utvonal: "", cimke: "Áttekintés", rovidCimke: "Áttekintés", ikon: LayoutDashboard },
             { utvonal: "/toak", cimke: "Tavak és telelők", rovidCimke: "Tavak", ikon: Waves },
+            { utvonal: "/terkep", cimke: "Térkép", ikon: MapIcon },
             { utvonal: "/takarmanyok", cimke: "Takarmányok", ikon: Wheat },
             { utvonal: "/halfajok", cimke: "Halfajok", ikon: Fish },
             { utvonal: "/halkeltes", cimke: "Halkeltetés", ikon: Droplets },

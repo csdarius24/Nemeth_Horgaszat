@@ -11,10 +11,13 @@ import { Card, CardContent, CardFooter } from "@/components/ui/card";
 import { Field, FieldDescription, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { toast } from "@/components/ui/toast";
+import { PontValaszto } from "@/components/terkep";
+import type { LatLng } from "@/lib/terkep/geo";
 
 export default function UjHalaszatPage() {
     const router = useRouter();
     const [nev, setNev] = useState("");
+    const [hely, setHely] = useState<LatLng | null>(null);
     const [loading, setLoading] = useState(false);
     const [hiba, setHiba] = useState<string | null>(null);
 
@@ -27,13 +30,17 @@ export default function UjHalaszatPage() {
             setHiba("Adj meg legalább 3 karaktert.");
             return;
         }
+        if (!hely) {
+            setHiba("Jelöld meg a halászat helyét a térképen.");
+            return;
+        }
 
         setLoading(true);
         try {
             const res = await fetch("/api/halaszatok", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ nev: trimmed }),
+                body: JSON.stringify({ nev: trimmed, helyLat: hely.lat, helyLng: hely.lng }),
             });
 
             if (res.status === 401) {
@@ -94,6 +101,17 @@ export default function UjHalaszatPage() {
                                     autoFocus
                                 />
                                 <FieldDescription>Legalább 3 karakter. Később is látszik a halászat-váltóban.</FieldDescription>
+                            </Field>
+                            <Field>
+                                <FieldLabel>
+                                    Elhelyezkedés
+                                    <span className="text-destructive" aria-hidden="true">*</span>
+                                </FieldLabel>
+                                <PontValaszto ertek={hely} onChange={setHely} disabled={loading} />
+                                <FieldDescription>
+                                    Keress címre vagy településre, vagy kattints a halgazdaság helyére (a gombostű
+                                    húzható). Ez alapján jelenik meg az időjárás és a térkép-nézet.
+                                </FieldDescription>
                             </Field>
                             <HibaAlert uzenet={hiba} />
                         </FieldGroup>

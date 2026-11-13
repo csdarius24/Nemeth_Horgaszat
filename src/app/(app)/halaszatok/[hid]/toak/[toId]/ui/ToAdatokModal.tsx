@@ -12,6 +12,9 @@ import { toast } from "@/components/ui/toast";
 import { bevitelKgBan, type TomegEgyseg } from "@/lib/toak/kapacitas";
 import { bevitelHaBan, type TeruletEgyseg } from "@/lib/toak/terulet";
 
+import type { PoligonGeometria } from "@/lib/terkep/geo";
+
+import { KorvonalMezo } from "../../ui/KorvonalMezo";
 import { EltartokepessegMezo, SzamMezo, TeruletMezo } from "../../ui/MuszakiMezok";
 
 export type ToAdatok = {
@@ -20,6 +23,8 @@ export type ToAdatok = {
     atlagMelysegMeter: number | null;
     kapacitasKg: number | null;
     vizkapacitasM3: number | null;
+    tipus: string;
+    korvonal: PoligonGeometria | null;
 };
 
 const str = (x: number | null) => (x == null ? "" : String(x));
@@ -40,6 +45,7 @@ export default function ToAdatokModal({ hid, toId, open, onOpenChange, adatok, o
     const [vizkapacitas, setVizkapacitas] = useState("");
     const [kapacitas, setKapacitas] = useState("");
     const [egyseg, setEgyseg] = useState<TomegEgyseg>("kg");
+    const [korvonal, setKorvonal] = useState<PoligonGeometria | null>(null);
     const [saving, setSaving] = useState(false);
     const [hiba, setHiba] = useState<string | null>(null);
 
@@ -53,6 +59,7 @@ export default function ToAdatokModal({ hid, toId, open, onOpenChange, adatok, o
         setVizkapacitas(str(adatok.vizkapacitasM3));
         setKapacitas(str(adatok.kapacitasKg));
         setEgyseg("kg");
+        setKorvonal(adatok.korvonal);
         setHiba(null);
     }, [open, adatok]);
 
@@ -72,6 +79,8 @@ export default function ToAdatokModal({ hid, toId, open, onOpenChange, adatok, o
                     atlagMelysegMeter: melyseg || null,
                     vizkapacitasM3: vizkapacitas,
                     kapacitasKg: bevitelKgBan(kapacitas, egyseg),
+                    // Régi tónál a körvonal még hiányozhat — csak akkor küldjük, ha van.
+                    ...(korvonal ? { korvonal } : {}),
                 }),
             });
             const json = await res.json().catch(() => ({}));
@@ -91,7 +100,8 @@ export default function ToAdatokModal({ hid, toId, open, onOpenChange, adatok, o
             open={open}
             onOpenChange={onOpenChange}
             title="Tóegység adatai"
-            description="Név, vízkapacitás, eltartóképesség és egyéb műszaki adatok."
+            description="Név, körvonal, vízkapacitás, eltartóképesség és egyéb műszaki adatok."
+            size="xl"
             preventClose={saving}
             footer={
                 <>
@@ -122,6 +132,15 @@ export default function ToAdatokModal({ hid, toId, open, onOpenChange, adatok, o
                         egyseg={egyseg}
                         onChange={(e, egy) => { setKapacitas(e); setEgyseg(egy); }}
                         disabled={saving}
+                    />
+                    <KorvonalMezo
+                        hid={hid}
+                        ertek={korvonal}
+                        onChange={(g) => setKorvonal(g ?? adatok.korvonal)}
+                        tipus={adatok.tipus}
+                        kizartToId={Number(toId)}
+                        nyitva={open}
+                        onTeruletAtvetel={(ha) => { setTerulet(String(ha)); setTeruletEgyseg("ha"); }}
                     />
                     {hiba && (
                         <Alert variant="destructive">

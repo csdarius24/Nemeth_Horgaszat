@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/guards";
 import { slugify } from "@/lib/utils/slug";
+import { pontBemenetbol } from "@/lib/terkep/geo";
 
 export async function GET() {
     const user = await requireUser();
@@ -30,6 +31,12 @@ export async function POST(req: Request) {
         return NextResponse.json({ hiba: "A halászat neve kötelező (min. 3 karakter)." }, { status: 400 });
     }
 
+    // Földrajzi hely: új halászatnál kötelező (időjárás, térkép alapja).
+    const hely = pontBemenetbol(body?.helyLat, body?.helyLng);
+    if (!hely) {
+        return NextResponse.json({ hiba: "Jelöld meg a halászat helyét a térképen." }, { status: 400 });
+    }
+
     // TODO: előfizetés check (később ide)
     // pl: if (!user.elofizetesAktiv) return 402/403
 
@@ -45,7 +52,7 @@ export async function POST(req: Request) {
 
     const created = await prisma.$transaction(async (tx) => {
         const halaszat = await tx.halaszat.create({
-            data: { nev, slug: uniqueSlug },
+            data: { nev, slug: uniqueSlug, helyLat: hely.lat, helyLng: hely.lng },
         });
 
         await tx.halaszatTagsag.create({

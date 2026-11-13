@@ -13,6 +13,9 @@ import { toast } from "@/components/ui/toast";
 import { bevitelKgBan, type TomegEgyseg } from "@/lib/toak/kapacitas";
 import { bevitelHaBan, type TeruletEgyseg } from "@/lib/toak/terulet";
 
+import type { PoligonGeometria } from "@/lib/terkep/geo";
+
+import { KorvonalMezo } from "./KorvonalMezo";
 import { EltartokepessegMezo, SzamMezo, TeruletMezo } from "./MuszakiMezok";
 
 export const VIZEGYSEG_TIPUSOK = [
@@ -45,10 +48,12 @@ export function UjVizegysegModal({
     const [kapacitas, setKapacitas] = useState("");
     const [kapacitasEgyseg, setKapacitasEgyseg] = useState<TomegEgyseg>("kg");
     const [vizkapacitas, setVizkapacitas] = useState("");
+    const [korvonal, setKorvonal] = useState<PoligonGeometria | null>(null);
     const [saving, setSaving] = useState(false);
     const [hiba, setHiba] = useState<string | null>(null);
 
     function alaphelyzet() {
+        setKorvonal(null);
         setNev("");
         setTipus("TO");
         setTerulet("");
@@ -64,6 +69,7 @@ export function UjVizegysegModal({
         ev.preventDefault();
         if (nev.trim().length < 2) { setHiba("A név legalább 2 karakter legyen."); return; }
         if (!(Number(vizkapacitas) > 0)) { setHiba("A vízkapacitás (m³) megadása kötelező."); return; }
+        if (!korvonal) { setHiba("Rajzold be a vízegység körvonalát a térképen."); return; }
         setSaving(true);
         setHiba(null);
         try {
@@ -77,6 +83,7 @@ export function UjVizegysegModal({
                     atlagMelysegMeter: melyseg || null,
                     kapacitasKg: bevitelKgBan(kapacitas, kapacitasEgyseg),
                     vizkapacitasM3: vizkapacitas,
+                    korvonal,
                 }),
             });
             const json = await res.json().catch(() => ({}));
@@ -101,6 +108,7 @@ export function UjVizegysegModal({
             }}
             title="Új vízegység"
             description="Tó, telelő, ivadéknevelő vagy keltető medence."
+            size="xl"
             preventClose={saving}
             footer={
                 <>
@@ -167,6 +175,15 @@ export function UjVizegysegModal({
                         egyseg={kapacitasEgyseg}
                         onChange={(e, egy) => { setKapacitas(e); setKapacitasEgyseg(egy); }}
                         disabled={saving}
+                    />
+
+                    <KorvonalMezo
+                        hid={hid}
+                        ertek={korvonal}
+                        onChange={setKorvonal}
+                        tipus={tipus}
+                        nyitva={open}
+                        onTeruletAtvetel={(ha) => { setTerulet(String(ha)); setTeruletEgyseg("ha"); }}
                     />
 
                     {hiba && (

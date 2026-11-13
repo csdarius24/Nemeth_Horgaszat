@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import {
     Activity,
@@ -10,6 +11,8 @@ import {
     ArrowUpFromLine,
     Fish,
     History,
+    Map as MapIcon,
+    MapPin,
     Pencil,
     RefreshCw,
     Utensils,
@@ -20,6 +23,9 @@ import { cn } from "@/lib/utils";
 import { toTipusCimke } from "@/lib/toak/attekintes";
 import { tomegKgEsTonna, type KapacitasKihasznaltsag } from "@/lib/toak/kapacitas";
 import { teruletSzoveg } from "@/lib/toak/terulet";
+import { rajzoltTeruletSzoveg, type PoligonGeometria } from "@/lib/terkep/geo";
+import { HalaszatTerkep } from "@/components/terkep";
+import { useTerkepAdat } from "@/components/terkep/useTerkepAdat";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Progress } from "@/components/ui/progress";
 import { EsemenyElem } from "@/components/app/EsemenyElem";
@@ -64,6 +70,10 @@ type SummaryResponse = {
         atlagMelysegMeter: number | null;
         kapacitasKg: number | null;
         vizkapacitasM3: number | null;
+        korvonal: PoligonGeometria | null;
+        kozeppontLat: number | null;
+        kozeppontLng: number | null;
+        rajzoltTeruletM2: number | null;
     };
     kapacitas: {
         becsultAllomanyKg: number | null;
@@ -243,6 +253,74 @@ function KapacitasKartya({ to, kapacitas, kezelo, onSzerkeszt }: {
                         </p>
                     )}
                 </div>
+            </CardContent>
+        </Card>
+    );
+}
+
+/** A tó helye a térképen (a többi tó halványan), vagy felhívás a körvonal berajzolására. */
+function ElhelyezkedesKartya({ hid, to, kezelo, onRajzolas, frissites }: {
+    hid: string;
+    to: SummaryResponse["to"];
+    kezelo: boolean;
+    onRajzolas: () => void;
+    /** Változik, ha a tó adatai frissültek → a térkép-adatot is újratöltjük. */
+    frissites: unknown;
+}) {
+    // Az automatikus betöltés ki van kapcsolva — az alábbi effect tölt (frissítéskor is), így nincs dupla kérés.
+    const { adat, hely, betolt } = useTerkepAdat(hid, false);
+    const router = useRouter();
+
+    useEffect(() => {
+        if (to.korvonal != null) void betolt();
+    }, [frissites, to.korvonal, betolt]);
+
+    if (to.korvonal == null) {
+        return (
+            <Alert>
+                <MapPin />
+                <AlertTitle>Ennek a tóegységnek még nincs körvonala a térképen</AlertTitle>
+                <AlertDescription>
+                    <p>A körvonal a térkép-nézet és a későbbi műholdas elemzések alapja.</p>
+                    {kezelo && (
+                        <Button size="sm" className="mt-2" onClick={onRajzolas}>
+                            <MapPin />
+                            Körvonal berajzolása
+                        </Button>
+                    )}
+                </AlertDescription>
+            </Alert>
+        );
+    }
+
+    return (
+        <Card>
+            <CardHeader className="flex flex-row items-start justify-between gap-3">
+                <div className="space-y-1.5">
+                    <CardTitle>Elhelyezkedés</CardTitle>
+                    <CardDescription>
+                        {to.rajzoltTeruletM2 != null ? `Rajzolt terület: ${rajzoltTeruletSzoveg(to.rajzoltTeruletM2)}` : "A tó a halgazdaság térképén."}
+                    </CardDescription>
+                </div>
+                <Button variant="outline" size="sm" asChild>
+                    <Link href={`/halaszatok/${hid}/terkep`}>
+                        <MapIcon />
+                        Teljes térkép
+                    </Link>
+                </Button>
+            </CardHeader>
+            <CardContent>
+                {adat ? (
+                    <HalaszatTerkep
+                        className="h-72"
+                        hely={hely}
+                        toak={adat.toak}
+                        kiemelt={to.azonosito}
+                        onToKattintas={(id) => id !== to.azonosito && router.push(`/halaszatok/${hid}/toak/${id}`)}
+                    />
+                ) : (
+                    <Skeleton className="h-72 w-full rounded-xl" />
+                )}
             </CardContent>
         </Card>
     );
@@ -457,6 +535,8 @@ export default function ToDashboardClient({
                 </StatGrid>
 
                 <KapacitasKartya to={data.to} kapacitas={data.kapacitas} kezelo={kezelo} onSzerkeszt={() => setAdatokNyitva(true)} />
+
+                <ElhelyezkedesKartya hid={hid} to={data.to} kezelo={kezelo} onRajzolas={() => setAdatokNyitva(true)} frissites={data} />
 
                 {/* ── Grafikonok ── */}
                 {nincsAllomany && data.timeline.length === 0 ? (
