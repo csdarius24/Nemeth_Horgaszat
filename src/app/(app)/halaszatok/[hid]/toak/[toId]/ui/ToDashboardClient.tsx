@@ -53,6 +53,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 // Relatív importok: a modálok ugyanabban a mappafában élnek, így a route-group
 // átrendezés (app/(app)/...) nem töri el őket.
 import ToAdatokModal from "./ToAdatokModal";
+import { MadarkarToKartya } from "./MadarkarToKartya";
 import AttelepitesModal from "./actions/AttelepitesModal";
 import EtetesModal from "./actions/EtetesModal";
 import KivetelModal from "./actions/KivetelModal";
@@ -537,6 +538,8 @@ export default function ToDashboardClient({
                 <KapacitasKartya to={data.to} kapacitas={data.kapacitas} kezelo={kezelo} onSzerkeszt={() => setAdatokNyitva(true)} />
 
                 <ElhelyezkedesKartya hid={hid} to={data.to} kezelo={kezelo} onRajzolas={() => setAdatokNyitva(true)} frissites={data} />
+
+                <MadarkarToKartya hid={hid} toId={toId} frissites={data} />
 
                 {/* ── Grafikonok ── */}
                 {nincsAllomany && data.timeline.length === 0 ? (

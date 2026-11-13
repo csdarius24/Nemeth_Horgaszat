@@ -65,17 +65,18 @@ model Felhasznalo {
   frissitve  DateTime @updatedAt
 
   // relációk
-  sessions          Session[]
-  tagsagok          ToTagsag[]
-  halaszatTagsag    HalaszatTagsag[]
-  hibabejelentesek  Hibabejelentes[]
-  naploEsemenyek         NaploEsemeny[]    @relation("NaploRogzito")
-  naploErvenytelenitesek NaploEsemeny[]    @relation("NaploErvenytelenito")
-  naploSzerkesztesek     NaploEsemeny[]    @relation("NaploSzerkeszto")
+  sessions               Session[]
+  tagsagok               ToTagsag[]
+  halaszatTagsag         HalaszatTagsag[]
+  hibabejelentesek       Hibabejelentes[]
+  naploEsemenyek         NaploEsemeny[]      @relation("NaploRogzito")
+  naploErvenytelenitesek NaploEsemeny[]      @relation("NaploErvenytelenito")
+  naploSzerkesztesek     NaploEsemeny[]      @relation("NaploSzerkeszto")
   takarmanyMozgasok      TakarmanyMozgas[]
   halkeltetesCiklusok    HalkeltetesCiklus[]
-  felelosFeladatok       Feladat[]         @relation("FeladatFelelos")
-  letrehozottFeladatok   Feladat[]         @relation("FeladatLetrehozo")
+  felelosFeladatok       Feladat[]           @relation("FeladatFelelos")
+  letrehozottFeladatok   Feladat[]           @relation("FeladatLetrehozo")
+  madarkarEsemenyek      MadarkarEsemeny[]
 
   @@map("felhasznalok")
 }
@@ -104,21 +105,22 @@ model Halaszat {
 
   // Földrajzi elhelyezkedés (WGS84). Az időjárás és a térkép-nézet alapja.
   // Nullable: a régi halászatoknál utólag adható meg.
-  helyLat    Decimal? @db.Decimal(9, 6)
-  helyLng    Decimal? @db.Decimal(9, 6)
+  helyLat Decimal? @db.Decimal(9, 6)
+  helyLng Decimal? @db.Decimal(9, 6)
 
   // relációk
-  toak               To[]
-  tagsagok           HalaszatTagsag[]
-  hibabejelentesek   Hibabejelentes[]
-  halfajok           Halfaj[]
-  naptarBejegyzesek  NaptarBejegyzes[]
-  takarmanyok        Takarmany[]
-  takarmanyMozgasok  TakarmanyMozgas[]
-  naploEsemenyek     NaploEsemeny[]
+  toak                   To[]
+  tagsagok               HalaszatTagsag[]
+  hibabejelentesek       Hibabejelentes[]
+  halfajok               Halfaj[]
+  naptarBejegyzesek      NaptarBejegyzes[]
+  takarmanyok            Takarmany[]
+  takarmanyMozgasok      TakarmanyMozgas[]
+  naploEsemenyek         NaploEsemeny[]
   halkeltetesCiklusok    HalkeltetesCiklus[]
   halkeltetesProtokollok HalkeltetesProtokoll[]
-  feladatok          Feladat[]
+  feladatok              Feladat[]
+  madarkarEsemenyek      MadarkarEsemeny[]
 
   @@map("halaszatok")
 }
@@ -156,22 +158,22 @@ model To {
   // Opcionális műszaki adatok a vízegység-áttekintéshez.
   // Mind nullable: a meglévő tavak érvényesek maradnak, a hiányzó érték "nincs adat".
   // Hektár, 4 tizedes = 1 m² pontosság (kis telelőknél pl. 0,175 ha).
-  teruletHa          Decimal? @db.Decimal(10, 4)
-  atlagMelysegMeter  Decimal? @db.Decimal(5, 2)
+  teruletHa         Decimal? @db.Decimal(10, 4)
+  atlagMelysegMeter Decimal? @db.Decimal(5, 2)
   // Eltartóképesség: a tó maximális TERVEZETT halállománya (kg) — külön a
   // tényleges állománytól. A UI kg-ban és tonnában is bekéri.
-  kapacitasKg        Decimal? @db.Decimal(10, 2)
+  kapacitasKg       Decimal? @db.Decimal(10, 2)
   // Vízkapacitás (m³). Új tóegységnél kötelező (API-szinten), a régi sorok
   // miatt az oszlop nullable.
-  vizkapacitasM3     Decimal? @db.Decimal(12, 2)
+  vizkapacitasM3    Decimal? @db.Decimal(12, 2)
 
   // Térkép: a tó körvonala GeoJSON Polygon geometriaként (WGS84, [lng, lat]).
   // Új tóegységnél kötelező (API-szinten); a műholdas elemzések alapja.
   // A középpont és a rajzolt terület a szerveren számolódik a körvonalból.
-  korvonal           Json?
-  kozeppontLat       Decimal? @db.Decimal(9, 6)
-  kozeppontLng       Decimal? @db.Decimal(9, 6)
-  rajzoltTeruletM2   Decimal? @db.Decimal(12, 2)
+  korvonal         Json?
+  kozeppontLat     Decimal? @db.Decimal(9, 6)
+  kozeppontLng     Decimal? @db.Decimal(9, 6)
+  rajzoltTeruletM2 Decimal? @db.Decimal(12, 2)
 
   // relációk
   tagsagok ToTagsag[]
@@ -183,6 +185,7 @@ model To {
   naploEsemenyek    NaploEsemeny[]
   takarmanyMozgasok TakarmanyMozgas[]
   feladatok         Feladat[]
+  madarkarEsemenyek MadarkarEsemeny[]
 
   @@index([halaszatId])
   @@map("toak")
@@ -218,10 +221,10 @@ model Halfaj {
   halaszat Halaszat @relation(fields: [halaszatId], references: [azonosito], onDelete: Cascade)
 
   // relációk
-  halAllomanyok  HalAllomany[]
-  telepitesek    Telepites[]
-  kivetelek      Kivetel[]
-  naploEsemenyek NaploEsemeny[]
+  halAllomanyok          HalAllomany[]
+  telepitesek            Telepites[]
+  kivetelek              Kivetel[]
+  naploEsemenyek         NaploEsemeny[]
   halkeltetesCiklusok    HalkeltetesCiklus[]
   halkeltetesProtokollok HalkeltetesProtokoll[]
 
@@ -329,10 +332,10 @@ model NaploEsemeny {
   felhasznaloId Int?
 
   // Halászati napló 2.0 — mind nullable, a régi sorok érvényesek maradnak:
-  halaszatId             Int?     // közvetlen tenant-kötés (tó nélküli eseményekhez is)
-  cim                    String?  @db.VarChar(200) // ember-olvasható cím
-  reszletekJson          Json?    // strukturált részletek (pl. takarmány neve, új készlet)
-  kapcsolodoEntitasTipus String?  @db.VarChar(40)  // pl. "Etetes", "Kivetel", "TakarmanyMozgas"
+  halaszatId             Int? // közvetlen tenant-kötés (tó nélküli eseményekhez is)
+  cim                    String? @db.VarChar(200) // ember-olvasható cím
+  reszletekJson          Json? // strukturált részletek (pl. takarmány neve, új készlet)
+  kapcsolodoEntitasTipus String? @db.VarChar(40) // pl. "Etetes", "Kivetel", "TakarmanyMozgas"
   kapcsolodoEntitasId    Int?
 
   // ── Javítás / érvénytelenítés (audit-flow) ────────────────────────────────
@@ -428,16 +431,16 @@ model HalkeltetesCiklus {
 
 /// Egy ciklus egy hala (ikrás vagy tejes sor a munkalapon).
 model HalkeltetesHal {
-  azonosito    Int             @id @default(autoincrement())
-  ciklusId     Int
-  ivar         HalkeltetesIvar
-  sorszam      Int?
-  chipAzonosito String?        @db.VarChar(80)
-  fajtaJeloles String?         @db.VarChar(120)
-  tomegKg      Decimal?        @db.Decimal(7, 2)
-  ikraKg       Decimal?        @db.Decimal(7, 2) // ikrás sornál: kifejt ikra tömege
-  tejMl        Decimal?        @db.Decimal(8, 2) // tejes sornál: tej mennyiség
-  megjegyzes   String?         @db.Text
+  azonosito     Int             @id @default(autoincrement())
+  ciklusId      Int
+  ivar          HalkeltetesIvar
+  sorszam       Int?
+  chipAzonosito String?         @db.VarChar(80)
+  fajtaJeloles  String?         @db.VarChar(120)
+  tomegKg       Decimal?        @db.Decimal(7, 2)
+  ikraKg        Decimal?        @db.Decimal(7, 2) // ikrás sornál: kifejt ikra tömege
+  tejMl         Decimal?        @db.Decimal(8, 2) // tejes sornál: tej mennyiség
+  megjegyzes    String?         @db.Text
 
   letrehozva DateTime @default(now())
   frissitve  DateTime @updatedAt
@@ -507,8 +510,8 @@ model Feladat {
   letrehozva             DateTime         @default(now())
   frissitve              DateTime         @updatedAt
 
-  halaszat          Halaszat     @relation(fields: [halaszatId], references: [azonosito], onDelete: Cascade)
-  to                To?          @relation(fields: [toId], references: [azonosito], onDelete: SetNull)
+  halaszat             Halaszat     @relation(fields: [halaszatId], references: [azonosito], onDelete: Cascade)
+  to                   To?          @relation(fields: [toId], references: [azonosito], onDelete: SetNull)
   felelosFelhasznalo   Felhasznalo? @relation("FeladatFelelos", fields: [felelosFelhasznaloId], references: [azonosito], onDelete: SetNull)
   letrehozoFelhasznalo Felhasznalo? @relation("FeladatLetrehozo", fields: [letrehozoFelhasznaloId], references: [azonosito], onDelete: SetNull)
 
@@ -568,8 +571,8 @@ model TakarmanyMozgas {
 
   // opcionális visszakötés ahhoz, ami a mozgást kiváltotta (nyomon követhetőség).
   // nullable: a kézi (etetéshez nem kötött) mozgások továbbra is érvényesek.
-  toId        Int?
-  etetesId    Int?
+  toId     Int?
+  etetesId Int?
 
   // Actor: ki rögzítette a mozgást (bevétel/felhasználás), sessionből.
   // Nullable: régi sorok + rendszer-generált mozgások megmaradnak.
@@ -610,4 +613,53 @@ model Hibabejelentes {
   @@index([statusz])
   @@index([letrehozva])
   @@map("hibabejelentesek")
+}
+
+// ─── Madárkár-nyilvántartás ──────────────────────────────────────────────────
+// Halevő madarak (kárókatona, gém, kócsag…) okozta károk dokumentálása
+// tóegységenként: faj, becsült egyedszám, becsült halveszteség (kg) és kár (Ft),
+// megjegyzés és fényképek. Minden rögzítés a halászati naplóba is bekerül (MADARKAR).
+
+model MadarkarEsemeny {
+  azonosito            Int      @id @default(autoincrement())
+  halaszatId           Int
+  toId                 Int
+  datum                DateTime
+  madarfaj             String   @db.VarChar(100)
+  egyedszam            Int?
+  halvesztesegKg       Decimal? @db.Decimal(10, 2)
+  karFt                Int?
+  megjegyzes           String?  @db.Text
+  rogzitoFelhasznaloId Int?
+  letrehozva           DateTime @default(now())
+  frissitve            DateTime @updatedAt
+
+  halaszat Halaszat       @relation(fields: [halaszatId], references: [azonosito], onDelete: Cascade)
+  to       To             @relation(fields: [toId], references: [azonosito], onDelete: Cascade)
+  rogzito  Felhasznalo?   @relation(fields: [rogzitoFelhasznaloId], references: [azonosito], onDelete: SetNull)
+  fotok    MadarkarFoto[]
+
+  @@index([halaszatId, datum])
+  @@index([toId, datum])
+  @@map("madarkar_esemenyek")
+}
+
+// Fénykép a madárkár-eseményhez. A kép a böngészőben lekicsinyítve (max. 1600 px,
+// JPEG) érkezik, és az adatbázisban tárolódik (külső tárhely nélkül működik).
+// A tárolás egy modulba zárva (src/lib/madarkar/fotoTarolo.ts), így később
+// Vercel Blobra / S3-ra cserélhető.
+model MadarkarFoto {
+  azonosito  Int      @id @default(autoincrement())
+  esemenyId  Int
+  mime       String   @db.VarChar(40)
+  meretBajt  Int
+  szelesseg  Int?
+  magassag   Int?
+  adat       Bytes    @db.MediumBlob
+  letrehozva DateTime @default(now())
+
+  esemeny MadarkarEsemeny @relation(fields: [esemenyId], references: [azonosito], onDelete: Cascade)
+
+  @@index([esemenyId])
+  @@map("madarkar_fotok")
 }

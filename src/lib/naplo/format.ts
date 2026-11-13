@@ -12,8 +12,8 @@ export const NINCS_ADAT = "nincs adat";
 // ─── Eseménytípusok ──────────────────────────────────────────────────────────
 
 /** Minden ismert eseménytípus címkéje. A ma ténylegesen keletkezők: TELEPITES,
- *  KIVETEL, ETETES, TAKARMANY_BEVETEL, TAKARMANY_FELHASZNALAS. A többi érték a
- *  jövőbeli modulokhoz van előkészítve (nem keletkezik hozzájuk esemény). */
+ *  KIVETEL, ETETES, TAKARMANY_BEVETEL, TAKARMANY_FELHASZNALAS, MADARKAR. A többi
+ *  érték a jövőbeli modulokhoz van előkészítve (nem keletkezik hozzájuk esemény). */
 export const ESEMENY_TIPUS_CIMKE: Record<string, string> = {
     TELEPITES: "Telepítés",
     KIVETEL: "Kivét",
@@ -43,6 +43,7 @@ export const AKTIV_ESEMENY_TIPUSOK = [
     "ETETES",
     "TAKARMANY_BEVETEL",
     "TAKARMANY_FELHASZNALAS",
+    "MADARKAR",
 ] as const;
 
 export function ervenyesEsemenyTipus(t: unknown): t is keyof typeof ESEMENY_TIPUS_CIMKE {

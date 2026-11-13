@@ -1,5 +1,6 @@
 import {
     AlertCircle,
+    Bird,
     Book,
     Calendar,
     CheckSquare,
@@ -38,6 +39,7 @@ export const HALASZAT_NAV: NavCsoport[] = [
             { utvonal: "/takarmanyok", cimke: "Takarmányok", ikon: Wheat },
             { utvonal: "/halfajok", cimke: "Halfajok", ikon: Fish },
             { utvonal: "/halkeltes", cimke: "Halkeltetés", ikon: Droplets },
+            { utvonal: "/madarkar", cimke: "Madárkár", ikon: Bird },
         ],
     },
     {
