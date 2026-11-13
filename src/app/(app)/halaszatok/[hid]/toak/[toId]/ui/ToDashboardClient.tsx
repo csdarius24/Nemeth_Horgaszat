@@ -54,6 +54,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 // átrendezés (app/(app)/...) nem töri el őket.
 import ToAdatokModal from "./ToAdatokModal";
 import { MadarkarToKartya } from "./MadarkarToKartya";
+import { TokezelesToKartya } from "./TokezelesToKartya";
+import type { AktivVarakozas } from "@/lib/tokezeles/tokezeles";
 import AttelepitesModal from "./actions/AttelepitesModal";
 import EtetesModal from "./actions/EtetesModal";
 import KivetelModal from "./actions/KivetelModal";
@@ -347,6 +349,8 @@ export default function ToDashboardClient({
 
     const [nyitott, setNyitott] = useState<Muvelet | null>(null);
     const [adatokNyitva, setAdatokNyitva] = useState(false);
+    // Még tartó élelmezés-egészségügyi várakozási idő (a Tókezelések kártya tölti) → kivételi figyelmeztetés.
+    const [varakozas, setVarakozas] = useState<AktivVarakozas | null>(null);
     const modalProps = (m: Muvelet) => ({
         open: nyitott === m,
         onOpenChange: (open: boolean) => setNyitott(open ? m : null),
@@ -539,6 +543,8 @@ export default function ToDashboardClient({
 
                 <ElhelyezkedesKartya hid={hid} to={data.to} kezelo={kezelo} onRajzolas={() => setAdatokNyitva(true)} frissites={data} />
 
+                <TokezelesToKartya hid={hid} toId={toId} frissites={data} onVarakozas={setVarakozas} />
+
                 <MadarkarToKartya hid={hid} toId={toId} frissites={data} />
 
                 {/* ── Grafikonok ── */}
@@ -692,7 +698,7 @@ export default function ToDashboardClient({
                         onMentve={load}
                     />
                     <TelepitesModal {...modalProps("telepites")} />
-                    <KivetelModal {...modalProps("kivetel")} allomany={allomanyTetelek} />
+                    <KivetelModal {...modalProps("kivetel")} allomany={allomanyTetelek} varakozas={varakozas} />
                     <AttelepitesModal {...modalProps("attelepites")} allomany={allomanyTetelek} forrasNev={data.to.nev} />
                 </>
             )}

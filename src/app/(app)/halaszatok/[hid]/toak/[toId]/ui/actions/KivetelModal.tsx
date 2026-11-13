@@ -12,6 +12,9 @@ import { toast } from "@/components/ui/toast";
 import { HibaAlert, MertekegysegesInput } from "@/components/app/urlap";
 
 import { apiHiba, MuveletLablec, type AllomanyTetel, type MuveletModalProps } from "./kozos";
+import { Clock } from "lucide-react";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { datumIg, TIPUS_META, type AktivVarakozas } from "@/lib/tokezeles/tokezeles";
 
 type HalfajItem = {
     azonosito: number;
@@ -19,8 +22,10 @@ type HalfajItem = {
     aktiv: boolean;
 };
 
-export default function KivetelModal({ open, onOpenChange, hid, toId, onMentve, allomany }: MuveletModalProps & {
+export default function KivetelModal({ open, onOpenChange, hid, toId, onMentve, allomany, varakozas }: MuveletModalProps & {
     allomany: AllomanyTetel[];
+    /** Még tartó élelmezés-egészségügyi várakozási idő a tóban (gyógyszer / antibiotikum). */
+    varakozas?: AktivVarakozas | null;
 }) {
     const [halfajok, setHalfajok] = useState<HalfajItem[]>([]);
     const [loadingHalfajok, setLoadingHalfajok] = useState(false);
@@ -128,6 +133,19 @@ export default function KivetelModal({ open, onOpenChange, hid, toId, onMentve, 
         >
             <form id="kivetel-urlap" onSubmit={submit}>
                 <FieldGroup>
+                    {varakozas && (
+                        // Figyelmeztetés, nem tiltás: a kivét lehet nem élelmiszer-célú is (pl. áttelepítés más gazdaságba, megsemmisítés).
+                        <Alert variant="destructive">
+                            <Clock />
+                            <AlertTitle>
+                                Várakozási idő tart: {datumIg(varakozas.veg)} ({varakozas.hatraNap} nap)
+                            </AlertTitle>
+                            <AlertDescription>
+                                {TIPUS_META[varakozas.tipus].cimke}{varakozas.keszitmeny ? ` (${varakozas.keszitmeny})` : ""} miatt
+                                ebből a tóból kivett hal addig emberi fogyasztásra nem értékesíthető.
+                            </AlertDescription>
+                        </Alert>
+                    )}
                     <div className="grid gap-4 sm:grid-cols-2">
                         <Field>
                             <FieldLabel htmlFor="kivetel-halfaj">Halfaj</FieldLabel>

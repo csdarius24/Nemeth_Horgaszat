@@ -31,10 +31,13 @@ export async function GET(
             tipus: true,
             aktiv: true,
             letrehozva: true,
+            teruletHa: true,
         },
     });
 
-    return NextResponse.json({ toak });
+    return NextResponse.json({
+        toak: toak.map((t) => ({ ...t, teruletHa: t.teruletHa == null ? null : Number(t.teruletHa) })),
+    });
 }
 
 export async function POST(

@@ -22,6 +22,7 @@ enum EsemenyTipus {
   VIZMINOSEG_MERES
   ELHULLAS
   MADARKAR
+  TOKEZELES
   HALKELTES
   FELADAT
   HIBABEJELENTES
@@ -77,6 +78,7 @@ model Felhasznalo {
   felelosFeladatok       Feladat[]           @relation("FeladatFelelos")
   letrehozottFeladatok   Feladat[]           @relation("FeladatLetrehozo")
   madarkarEsemenyek      MadarkarEsemeny[]
+  tokezelesek            Tokezeles[]
 
   @@map("felhasznalok")
 }
@@ -121,6 +123,7 @@ model Halaszat {
   halkeltetesProtokollok HalkeltetesProtokoll[]
   feladatok              Feladat[]
   madarkarEsemenyek      MadarkarEsemeny[]
+  tokezelesek            Tokezeles[]
 
   @@map("halaszatok")
 }
@@ -186,6 +189,7 @@ model To {
   takarmanyMozgasok TakarmanyMozgas[]
   feladatok         Feladat[]
   madarkarEsemenyek MadarkarEsemeny[]
+  tokezelesek       Tokezeles[]
 
   @@index([halaszatId])
   @@map("toak")
@@ -662,4 +666,48 @@ model MadarkarFoto {
 
   @@index([esemenyId])
   @@map("madarkar_fotok")
+}
+
+// ─── Tókezelések ─────────────────────────────────────────────────────────────
+// Tavanként bejuttatott anyagok: szervestrágya, meszezés / klórmész, gyógyszer,
+// antibiotikum, vitamin stb. Mennyiség + mértékegység, opcionális költség (Ft —
+// a későbbi önköltség-számítás alapja) és élelmezés-egészségügyi várakozási idő
+// (gyógyszer / antibiotikum után a hal ennyi napig nem értékesíthető).
+
+enum TokezelesTipus {
+  SZERVESTRAGYA
+  MESZEZES
+  KLORMESZ
+  GYOGYSZER
+  ANTIBIOTIKUM
+  VITAMIN
+  EGYEB
+}
+
+model Tokezeles {
+  azonosito            Int            @id @default(autoincrement())
+  halaszatId           Int
+  toId                 Int
+  datum                DateTime
+  tipus                TokezelesTipus
+  keszitmeny           String?        @db.VarChar(150) // termék / anyag neve
+  hatoanyag            String?        @db.VarChar(150)
+  mennyiseg            Decimal        @db.Decimal(12, 3)
+  egyseg               String         @db.VarChar(10) // kg, t, g, l, ml, db
+  koltsegFt            Int?
+  varakozasiIdoNap     Int?
+  kezelesOka           String?        @db.VarChar(300)
+  megjegyzes           String?        @db.Text
+  rogzitoFelhasznaloId Int?
+  letrehozva           DateTime       @default(now())
+  frissitve            DateTime       @updatedAt
+
+  halaszat Halaszat     @relation(fields: [halaszatId], references: [azonosito], onDelete: Cascade)
+  to       To           @relation(fields: [toId], references: [azonosito], onDelete: Cascade)
+  rogzito  Felhasznalo? @relation(fields: [rogzitoFelhasznaloId], references: [azonosito], onDelete: SetNull)
+
+  @@index([halaszatId, datum])
+  @@index([toId, datum])
+  @@index([toId, tipus])
+  @@map("tokezelesek")
 }
