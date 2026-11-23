@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { requireHalaszatRole } from "@/lib/guards";
 import { szam } from "@/lib/utils/szam";
 import { assertToBelongsToTenant } from "@/lib/tenant/assertToBelongsToTenant";
+import { osszevonTomeg } from "@/lib/allomany/tomeg";
 
 function jsonError(message: string, status = 400) {
     return NextResponse.json({ error: message }, { status });
@@ -45,7 +46,7 @@ export async function POST(
             // 1) Forrás készlet ellenőrzés
             const fromStock = await tx.halAllomany.findUnique({
                 where: { toId_halfajId: { toId: fromTo.azonosito, halfajId } },
-                select: { azonosito: true, darab: true },
+                select: { azonosito: true, darab: true, minTomegKg: true, maxTomegKg: true },
             });
 
             if (!fromStock) {
@@ -68,20 +69,32 @@ export async function POST(
                 },
             });
 
-            // 3) Cél növelés (upsert a unique [toId, halfajId] miatt)
-            await tx.halAllomany.upsert({
+            // 3) Cél növelés. Az áthelyezett hal a forrás tömegadatait viszi magával,
+            //    a célban meglévő azonos fajú állománnyal súlyozottan összevonva.
+            //    (Korábban a cél 0 kg-os tömeggel jött létre → a telelőkben elveszett a súly.)
+            const atvitt = {
+                darab,
+                minTomegKg: Number(fromStock.minTomegKg),
+                maxTomegKg: Number(fromStock.maxTomegKg),
+            };
+            const celStock = await tx.halAllomany.findUnique({
                 where: { toId_halfajId: { toId: toTo.azonosito, halfajId } },
-                create: {
-                    toId: toTo.azonosito,
-                    halfajId,
-                    darab,
-                    minTomegKg: 0,
-                    maxTomegKg: 0,
-                },
-                update: {
-                    darab: { increment: darab },
-                },
+                select: { azonosito: true, darab: true, minTomegKg: true, maxTomegKg: true },
             });
+            if (!celStock) {
+                await tx.halAllomany.create({
+                    data: { toId: toTo.azonosito, halfajId, ...atvitt },
+                });
+            } else {
+                const tomeg = osszevonTomeg(
+                    { darab: celStock.darab, minTomegKg: Number(celStock.minTomegKg), maxTomegKg: Number(celStock.maxTomegKg) },
+                    atvitt
+                );
+                await tx.halAllomany.update({
+                    where: { azonosito: celStock.azonosito },
+                    data: { darab: celStock.darab + darab, ...tomeg },
+                });
+            }
 
             // 4) Napló: két esemény (forrás kivét + cél telepítés)
             const leirasForras = [
@@ -138,7 +151,8 @@ export async function POST(
         });
 
         return NextResponse.json(result, { status: 201 });
-    } catch (err: any) {
-        return jsonError(err?.message ?? "Hiba történt az áttelepítés során.", err?.status ?? 500);
+    } catch (err) {
+        const e = err as { message?: string; status?: number };
+        return jsonError(e?.message ?? "Hiba történt az áttelepítés során.", e?.status ?? 500);
     }
 }

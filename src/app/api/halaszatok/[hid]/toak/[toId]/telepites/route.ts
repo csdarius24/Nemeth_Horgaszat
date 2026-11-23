@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { requireHalaszatRole } from "@/lib/guards";
 import { szam } from "@/lib/utils/szam";
 import { assertToBelongsToTenant } from "@/lib/tenant/assertToBelongsToTenant";
+import { becsultKg, osszevonTomeg } from "@/lib/allomany/tomeg";
 
 function jsonError(message: string, status = 400) {
     return NextResponse.json({ error: message }, { status });
@@ -29,15 +30,34 @@ export async function POST(
     const darab = Math.floor(szam(body?.darab, 0));
     const minTomegKg = Number(body?.minTomegKg ?? 0);
     const maxTomegKg = Number(body?.maxTomegKg ?? 0);
-    const forras = typeof body?.forras === "string" ? body.forras.trim() : null;
+    // Súlyalapú telepítésnél a ténylegesen megadott össztömeg (kg) — a naplóhoz.
+    const osszTomegKgBe = body?.osszTomegKg == null || body.osszTomegKg === "" ? null : Number(body.osszTomegKg);
+    const forras = typeof body?.forras === "string" ? body.forras.trim() || null : null;
     const megjegyzes =
-        typeof body?.megjegyzes === "string" ? body.megjegyzes.trim() : null;
+        typeof body?.megjegyzes === "string" ? body.megjegyzes.trim() || null : null;
 
     if (!halfajId) return jsonError("A halfajId kötelező.", 400);
     if (!darab || darab <= 0) return jsonError("A darab legyen pozitív.", 400);
+    if (!Number.isFinite(minTomegKg) || !Number.isFinite(maxTomegKg) || minTomegKg < 0 || maxTomegKg < 0) {
+        return jsonError("A tömeg nem lehet negatív.", 400);
+    }
+    if (minTomegKg > 0 && maxTomegKg > 0 && minTomegKg > maxTomegKg) {
+        return jsonError("A minimum tömeg nem lehet nagyobb a maximumnál.", 400);
+    }
+    if (osszTomegKgBe != null && (!Number.isFinite(osszTomegKgBe) || osszTomegKgBe <= 0)) {
+        return jsonError("Az össztömeg pozitív szám legyen.", 400);
+    }
+
+    const ujResz = { darab, minTomegKg, maxTomegKg };
+    // A naplóba írt telepített tömeg: a megadott össztömeg, különben a tartományból becsült.
+    const telepitettKg = osszTomegKgBe ?? becsultKg(ujResz);
 
     try {
         const to = await assertToBelongsToTenant(toId, halaszatId);
+
+        // A halfaj is ehhez a halászathoz kell tartozzon (tenant-izoláció).
+        const halfaj = await prisma.halfaj.findFirst({ where: { azonosito: halfajId, halaszatId }, select: { nev: true } });
+        if (!halfaj) return jsonError("A halfaj nem ehhez a halászathoz tartozik.", 404);
 
         const result = await prisma.$transaction(async (tx) => {
             const existing = await tx.halAllomany.findUnique({
@@ -55,14 +75,17 @@ export async function POST(
                     },
                 });
             } else {
-                const ujDarab = existing.darab + darab;
-
+                // A meglévő és az új rész tömegét súlyozottan vonjuk össze — korábban az
+                // új tartomány felülírta az egész állományét (pl. ivadék a piaci hal mellé).
+                const tomeg = osszevonTomeg(
+                    { darab: existing.darab, minTomegKg: Number(existing.minTomegKg), maxTomegKg: Number(existing.maxTomegKg) },
+                    ujResz
+                );
                 await tx.halAllomany.update({
                     where: { azonosito: existing.azonosito },
                     data: {
-                        darab: ujDarab,
-                        minTomegKg,
-                        maxTomegKg,
+                        darab: existing.darab + darab,
+                        ...tomeg,
                     },
                 });
             }
@@ -87,10 +110,13 @@ export async function POST(
                     halaszatId,
                     halfajId,
                     darab,
+                    mennyisegKg: telepitettKg,
                     cim: `Telepítés — ${to.nev}`,
                     leiras: [
                         `Telepítés: ${to.nev}`,
-                        `darab: ${darab}`,
+                        `${halfaj.nev}: ${darab.toLocaleString("hu-HU")} db`,
+                        telepitettKg != null ? `${telepitettKg.toLocaleString("hu-HU", { maximumFractionDigits: 2 })} kg${osszTomegKgBe == null ? " (becsült)" : ""}` : null,
+                        minTomegKg > 0 && minTomegKg === maxTomegKg ? `átlagsúly: ${(minTomegKg * 1000).toLocaleString("hu-HU", { maximumFractionDigits: 1 })} g` : null,
                         forras ? `forrás: ${forras}` : null,
                         megjegyzes ? `megj.: ${megjegyzes}` : null,
                     ].filter(Boolean).join(" • "),
@@ -98,7 +124,7 @@ export async function POST(
                     felhasznaloId: auth.user.azonosito,
                     kapcsolodoEntitasTipus: "Telepites",
                     kapcsolodoEntitasId: telepites.azonosito,
-                    reszletekJson: { minTomegKg, maxTomegKg, forras },
+                    reszletekJson: { minTomegKg, maxTomegKg, osszTomegKg: telepitettKg, forras },
                 },
             });
 
@@ -106,7 +132,8 @@ export async function POST(
         });
 
         return NextResponse.json(result, { status: 201 });
-    } catch (err: any) {
-        return jsonError(err?.message ?? "Telepítés hiba.", err?.status ?? 500);
+    } catch (err) {
+        const e = err as { message?: string; status?: number };
+        return jsonError(e?.message ?? "Telepítés hiba.", e?.status ?? 500);
     }
 }
