@@ -16,14 +16,7 @@ export const MAGYARORSZAG: L.LatLngExpression = [47.16, 19.5];
 export const ORSZAG_ZOOM = 7;
 export const GAZDASAG_ZOOM = 15;
 
-/** Vízegység-típusonkénti szín a térképen. */
-export const TIPUS_SZIN: Record<string, string> = {
-    TO: "#0284c7",
-    TELELO: "#6366f1",
-    IVADEKNEVELO: "#059669",
-    KELTETO_MEDENCE: "#d97706",
-};
-export const tipusSzin = (tipus: string) => TIPUS_SZIN[tipus] ?? TIPUS_SZIN.TO;
+export { TIPUS_SZIN, tipusSzin } from "./szinek";
 
 export type Alapreteg = "terkep" | "muhold";
 

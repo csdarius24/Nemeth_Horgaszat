@@ -85,8 +85,8 @@ export function MobilAlsoNav({
             <MobilLap open={tovabbiNyitva} onOpenChange={setTovabbiNyitva} cim="Továbbiak">
                 <div className="grid gap-4">
                     {tovabbiCsoportok.map((cs) => (
-                        <section key={cs.cim} aria-label={cs.cim}>
-                            <h3 className="mb-2 text-xs font-medium text-muted-foreground">{cs.cim}</h3>
+                        <section key={cs.cim ?? cs.elemek[0].utvonal} aria-label={cs.cim ?? "Egyéb"}>
+                            {cs.cim && <h3 className="mb-2 text-xs font-medium text-muted-foreground">{cs.cim}</h3>}
                             <ul className="grid grid-cols-3 gap-2">
                                 {cs.elemek.map((elem) => {
                                     const aktiv = aktivE(pathname, base, elem.utvonal);

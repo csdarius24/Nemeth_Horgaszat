@@ -5,6 +5,7 @@ import { Calculator, Plus, X } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Field, FieldDescription, FieldGroup, FieldLabel } from "@/components/ui/field";
+import { IconButton } from "@/components/ui/icon-button";
 import { Input } from "@/components/ui/input";
 import { Modal } from "@/components/ui/modal";
 import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
@@ -20,7 +21,7 @@ import {
     type OsszTomegEgyseg,
 } from "@/lib/allomany/tomeg";
 
-import { HibaAlert, MertekegysegesInput } from "@/components/app/urlap";
+import { HibaAlert, MertekegysegesInput, MertekegysegValasztoInput } from "@/components/app/urlap";
 
 import { apiHiba, MuveletLablec, type MuveletModalProps } from "./kozos";
 
@@ -200,9 +201,13 @@ export default function TelepitesModal({ open, onOpenChange, hid, toId, onMentve
                                     Felvétel
                                 </Button>
                                 {halfajok.length > 0 && (
-                                    <Button type="button" variant="ghost" size="icon" onClick={() => setUjHalfajNyitva(false)} aria-label="Mégse" disabled={foglalt}>
-                                        <X />
-                                    </Button>
+                                    <IconButton
+                                        type="button"
+                                        label="Vissza a halfajlistához"
+                                        icon={<X />}
+                                        onClick={() => setUjHalfajNyitva(false)}
+                                        disabled={foglalt}
+                                    />
                                 )}
                             </div>
                         ) : (
@@ -253,41 +258,36 @@ export default function TelepitesModal({ open, onOpenChange, hid, toId, onMentve
                             <div className="grid gap-4 sm:grid-cols-2">
                                 <Field>
                                     <FieldLabel htmlFor="telepites-ossztomeg">Telepített össztömeg</FieldLabel>
-                                    <div className="flex gap-2">
-                                        <Input
-                                            id="telepites-ossztomeg"
-                                            type="number"
-                                            inputMode="decimal"
-                                            step="any"
-                                            min="0"
-                                            value={osszTomeg}
-                                            onChange={(e) => setOsszTomeg(e.target.value)}
-                                            disabled={foglalt}
-                                            required
-                                        />
-                                        <NativeSelect aria-label="Össztömeg mértékegysége" value={osszEgyseg} onChange={(e) => setOsszEgyseg(e.target.value as OsszTomegEgyseg)} disabled={foglalt} className="w-28">
-                                            {OSSZTOMEG_EGYSEGEK.map((e) => <NativeSelectOption key={e} value={e}>{OSSZTOMEG_CIMKE[e]}</NativeSelectOption>)}
-                                        </NativeSelect>
-                                    </div>
+                                    <MertekegysegValasztoInput
+                                        id="telepites-ossztomeg"
+                                        step="any"
+                                        min="0"
+                                        value={osszTomeg}
+                                        onChange={(e) => setOsszTomeg(e.target.value)}
+                                        egyseg={osszEgyseg}
+                                        egysegek={OSSZTOMEG_EGYSEGEK}
+                                        onEgysegChange={setOsszEgyseg}
+                                        egysegCimke={(e) => OSSZTOMEG_CIMKE[e]}
+                                        egysegLabel="Össztömeg mértékegysége"
+                                        disabled={foglalt}
+                                        required
+                                    />
                                 </Field>
                                 <Field>
                                     <FieldLabel htmlFor="telepites-atlagsuly">Átlagsúly (egyedenként)</FieldLabel>
-                                    <div className="flex gap-2">
-                                        <Input
-                                            id="telepites-atlagsuly"
-                                            type="number"
-                                            inputMode="decimal"
-                                            step="any"
-                                            min="0"
-                                            value={atlagSuly}
-                                            onChange={(e) => setAtlagSuly(e.target.value)}
-                                            disabled={foglalt}
-                                            required
-                                        />
-                                        <NativeSelect aria-label="Átlagsúly mértékegysége" value={atlagEgyseg} onChange={(e) => setAtlagEgyseg(e.target.value as AtlagEgyseg)} disabled={foglalt} className="w-24">
-                                            {ATLAG_EGYSEGEK.map((e) => <NativeSelectOption key={e} value={e}>{e}</NativeSelectOption>)}
-                                        </NativeSelect>
-                                    </div>
+                                    <MertekegysegValasztoInput
+                                        id="telepites-atlagsuly"
+                                        step="any"
+                                        min="0"
+                                        value={atlagSuly}
+                                        onChange={(e) => setAtlagSuly(e.target.value)}
+                                        egyseg={atlagEgyseg}
+                                        egysegek={ATLAG_EGYSEGEK}
+                                        onEgysegChange={setAtlagEgyseg}
+                                        egysegLabel="Átlagsúly mértékegysége"
+                                        disabled={foglalt}
+                                        required
+                                    />
                                 </Field>
                             </div>
                             <div className="flex items-center gap-2 rounded-lg bg-muted/60 px-3 py-2.5 text-sm" aria-live="polite">

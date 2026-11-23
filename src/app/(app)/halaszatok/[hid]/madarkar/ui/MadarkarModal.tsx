@@ -280,10 +280,10 @@ export function MadarkarModal({ hid, open, onOpenChange, toak, esemeny, alapToId
                                             type="button"
                                             onClick={() => void meglevoTorlese(f.id)}
                                             disabled={foglalt}
-                                            className="absolute top-1 right-1 rounded-full bg-black/60 p-1 text-white hover:bg-destructive"
+                                            className="absolute top-1 right-1 flex size-8 items-center justify-center rounded-full bg-black/60 text-white hover:bg-destructive outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
                                             aria-label="Kép törlése"
                                         >
-                                            <Trash2 className="size-3.5" />
+                                            <Trash2 className="size-4" />
                                         </button>
                                     )}
                                 </li>
@@ -296,10 +296,10 @@ export function MadarkarModal({ hid, open, onOpenChange, toak, esemeny, alapToId
                                         type="button"
                                         onClick={() => ujFotoEltavolitasa(i)}
                                         disabled={foglalt}
-                                        className="absolute top-1 right-1 rounded-full bg-black/60 p-1 text-white hover:bg-destructive"
+                                        className="absolute top-1 right-1 flex size-8 items-center justify-center rounded-full bg-black/60 text-white hover:bg-destructive outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
                                         aria-label="Kép eltávolítása"
                                     >
-                                        <X className="size-3.5" />
+                                        <X className="size-4" />
                                     </button>
                                 </li>
                             ))}
@@ -309,7 +309,7 @@ export function MadarkarModal({ hid, open, onOpenChange, toak, esemeny, alapToId
                                         type="button"
                                         onClick={() => fajlRef.current?.click()}
                                         disabled={foglalt}
-                                        className="flex aspect-square w-full flex-col items-center justify-center gap-1 rounded-lg border-2 border-dashed text-xs text-muted-foreground hover:border-primary hover:text-primary disabled:opacity-50"
+                                        className="flex aspect-square w-full flex-col items-center justify-center gap-1 rounded-lg border-2 border-dashed text-xs text-muted-foreground hover:border-primary hover:text-primary disabled:opacity-50 outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
                                     >
                                         <ImagePlus className="size-5" aria-hidden="true" />
                                         {feldolgozas ? "Feldolgozás…" : "Kép hozzáadása"}

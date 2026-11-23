@@ -196,7 +196,8 @@ export default function MadarkarClient({ hid, kezdoToId }: { hid: string; kezdoT
 
             <div className="flex flex-wrap items-center gap-2">
                 <Select value={toSzuro} onValueChange={setToSzuro}>
-                    <SelectTrigger size="sm" aria-label="Tóegység szűrő" className="min-w-44">
+                    {/* Mobilon összehúzódik, hogy a frissítés gomb ne csússzon egyedül új sorba. */}
+                    <SelectTrigger size="sm" aria-label="Tóegység szűrő" className="min-w-0 flex-1 sm:min-w-44 sm:flex-none">
                         <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -282,7 +283,7 @@ export default function MadarkarClient({ hid, kezdoToId }: { hid: string; kezdoT
                                                                 <button
                                                                     type="button"
                                                                     onClick={() => setNagyKep({ esemeny: e, index: i })}
-                                                                    className="block size-16 overflow-hidden rounded-md border bg-muted hover:ring-2 hover:ring-primary sm:size-20"
+                                                                    className="block size-16 overflow-hidden rounded-md border bg-muted outline-none hover:ring-2 hover:ring-primary focus-visible:ring-[3px] focus-visible:ring-ring/50 sm:size-20"
                                                                     aria-label={`${i + 1}. fénykép megnyitása`}
                                                                 >
                                                                     {/* eslint-disable-next-line @next/next/no-img-element */}

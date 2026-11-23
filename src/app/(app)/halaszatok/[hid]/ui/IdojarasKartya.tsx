@@ -88,6 +88,30 @@ function napNev(datum: string, ma: string, holnap: string) {
     return napFmt.format(new Date(`${datum}T12:00:00Z`));
 }
 
+type SzelsosegCsoport = {
+    kod: Szelsoseg["kod"];
+    cim: string;
+    magas: boolean;
+    napok: { datum: string; ertek: string }[];
+    /** A jelenség közös tanácsa (a részlet „ — ” utáni része), egyszer kiírva. */
+    tanacs: string | null;
+};
+
+const nagyKezdobetu = (t: string) => t.charAt(0).toLocaleUpperCase("hu-HU") + t.slice(1);
+
+/** Az egymást követő napok azonos jelenségeit (pl. fagy) egy csoportba vonja, az első előfordulás sorrendjében. */
+function csoportositSzelsosegek(lista: Szelsoseg[]): SzelsosegCsoport[] {
+    const csoportok = new Map<Szelsoseg["kod"], SzelsosegCsoport>();
+    for (const s of lista) {
+        const [ertek, ...tobbi] = s.reszlet.split(" — ");
+        const cs = csoportok.get(s.kod) ?? { kod: s.kod, cim: s.cim, magas: false, napok: [], tanacs: nagyKezdobetu(tobbi.join(" — ")) || null };
+        cs.magas ||= s.szint === "magas";
+        cs.napok.push({ datum: s.datum, ertek });
+        csoportok.set(s.kod, cs);
+    }
+    return [...csoportok.values()];
+}
+
 function Reszlet({ ikon: Ikon, cimke, ertek }: { ikon: LucideIcon; cimke: string; ertek: React.ReactNode }) {
     return (
         <div className="flex items-center gap-2.5">
@@ -143,7 +167,10 @@ export default function IdojarasKartya({ hid, viewerRole }: { hid: string; viewe
     const fejlec = (alcim?: React.ReactNode) => (
         <CardHeader className="flex flex-row items-start justify-between gap-3">
             <div className="space-y-1.5">
-                <CardTitle>Időjárás</CardTitle>
+                {/* Valódi h2, hogy a kártya alcímei (h3) helyes címsorrendben legyenek. */}
+                <CardTitle>
+                    <h2>Időjárás</h2>
+                </CardTitle>
                 {alcim && <CardDescription>{alcim}</CardDescription>}
             </div>
             <IconButton
@@ -215,13 +242,14 @@ export default function IdojarasKartya({ hid, viewerRole }: { hid: string; viewe
     const orak = adat.orak.filter((_, i) => i % 3 === 0).slice(0, 8);
     const napok = adat.napok.slice(0, 7);
     const szelIrany = egtaj(a?.szelIranyFok);
+    const szelsosegCsoportok = csoportositSzelsosegek(adat.szelsosegek);
 
     return (
         <Card className={cn("transition-opacity", toltes && "opacity-70")} aria-busy={toltes}>
             {fejlec(
                 <>
                     Frissítve: {oraFmt.format(new Date(adat.lekerve))}
-                    {adat.elavult && <span className="text-amber-600"> · a szolgáltatás most nem elérhető, a legutóbbi adat látszik</span>}
+                    {adat.elavult && <span className="text-warning"> · a szolgáltatás most nem elérhető, a legutóbbi adat látszik</span>}
                 </>
             )}
             <CardContent className="grid gap-6">
@@ -246,8 +274,8 @@ export default function IdojarasKartya({ hid, viewerRole }: { hid: string; viewe
                                 ikon={Wind}
                                 cimke="Szél"
                                 ertek={
-                                    <span className="flex items-center gap-1">
-                                        {a.szelSebessegKmh == null ? "–" : `${a.szelSebessegKmh} km/h`}
+                                    <span className="flex flex-wrap items-center gap-x-1">
+                                        <span className="whitespace-nowrap">{a.szelSebessegKmh == null ? "–" : `${a.szelSebessegKmh} km/h`}</span>
                                         {a.szelIranyFok != null && (
                                             // A nyíl arra mutat, AMERRE fúj a szél (honnan + 180°).
                                             <Navigation
@@ -267,18 +295,31 @@ export default function IdojarasKartya({ hid, viewerRole }: { hid: string; viewe
                 )}
 
                 {/* ── Szélsőséges időjárás ── */}
-                {adat.szelsosegek.length > 0 && (
+                {szelsosegCsoportok.length > 0 && (
                     <div className="grid gap-2">
-                        {adat.szelsosegek.slice(0, 4).map((s, i) => (
-                            <Alert key={`${s.datum}-${s.kod}-${i}`} variant={s.szint === "magas" ? "destructive" : "default"}>
+                        {/* Jelenségenként EGY doboz (pl. 4 fagyos nap ne 4 külön figyelmeztetés legyen). */}
+                        {szelsosegCsoportok.map((cs) => (
+                            <Alert key={cs.kod} variant={cs.magas ? "destructive" : "warning"}>
                                 <TriangleAlert />
                                 <AlertTitle className="flex flex-wrap items-center gap-2">
-                                    {s.cim}
-                                    <Badge variant={s.szint === "magas" ? "danger" : "warning"}>
-                                        {datumFmt.format(new Date(`${s.datum}T12:00:00Z`))}
+                                    {cs.cim}
+                                    <Badge variant={cs.magas ? "danger" : "warning"}>
+                                        {cs.napok.length === 1 ? "1 nap" : `${cs.napok.length} nap`}
                                     </Badge>
                                 </AlertTitle>
-                                <AlertDescription>{s.reszlet}</AlertDescription>
+                                <AlertDescription className="grid gap-1.5">
+                                    <ul className="grid gap-0.5">
+                                        {cs.napok.map((n, i) => (
+                                            <li key={`${n.datum}-${i}`} className="flex flex-wrap gap-x-2">
+                                                <span className="font-medium tabular-nums">
+                                                    {datumFmt.format(new Date(`${n.datum}T12:00:00Z`))}
+                                                </span>
+                                                <span>{n.ertek}</span>
+                                            </li>
+                                        ))}
+                                    </ul>
+                                    {cs.tanacs && <p>{cs.tanacs}</p>}
+                                </AlertDescription>
                             </Alert>
                         ))}
                         <p className="text-xs text-muted-foreground">
@@ -290,14 +331,15 @@ export default function IdojarasKartya({ hid, viewerRole }: { hid: string; viewe
                 {/* ── Következő 24 óra ── */}
                 {orak.length > 0 && (
                     <div className="grid gap-2">
-                        <h3 className="text-sm font-semibold">Következő 24 óra</h3>
-                        <ol className="-mx-1 flex gap-1 overflow-x-auto px-1 pb-1">
+                        <h3 id="idojaras-orak" className="text-sm font-semibold">Következő 24 óra</h3>
+                        {/* Görgethető sáv: billentyűzettel is elérhető (Tab, majd nyilak). */}
+                        <ol tabIndex={0} aria-labelledby="idojaras-orak" className="-mx-1 flex gap-1 overflow-x-auto px-1 pb-1 rounded-md outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50">
                             {orak.map((o) => (
                                 <li key={o.ido} className="flex min-w-16 flex-1 flex-col items-center gap-1 rounded-lg bg-muted/50 px-2 py-2 text-center">
                                     <span className="text-xs text-muted-foreground tabular-nums">{oraFmt.format(new Date(o.ido))}</span>
                                     <IdoIkon kod={o.szimbolum} className="size-6" />
                                     <span className="text-sm font-semibold tabular-nums">{fok(o.homersekletC)}</span>
-                                    <span className={cn("text-xs tabular-nums", (o.csapadekMm ?? 0) > 0 ? "text-sky-600 dark:text-sky-400" : "text-muted-foreground")}>
+                                    <span className={cn("text-xs tabular-nums", (o.csapadekMm ?? 0) > 0 ? "text-info" : "text-muted-foreground")}>
                                         {(o.csapadekMm ?? 0) > 0 ? mm(o.csapadekMm) : `${o.szelSebessegKmh ?? "–"} km/h`}
                                     </span>
                                 </li>
@@ -309,17 +351,18 @@ export default function IdojarasKartya({ hid, viewerRole }: { hid: string; viewe
                 {/* ── Napi előrejelzés ── */}
                 {napok.length > 0 && (
                     <div className="grid gap-2">
-                        <h3 className="text-sm font-semibold">Előrejelzés ({napok.length} nap)</h3>
-                        <ol className="grid grid-cols-[repeat(auto-fit,minmax(5.5rem,1fr))] gap-2">
+                        <h3 id="idojaras-napok" className="text-sm font-semibold">Előrejelzés ({napok.length} nap)</h3>
+                        {/* Egy sor (keskeny kijelzőn görgethető), hogy a 7. nap ne lógjon egyedül új sorban. */}
+                        <ol tabIndex={0} aria-labelledby="idojaras-napok" className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1 rounded-md outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50">
                             {napok.map((n) => (
-                                <li key={n.datum} className="flex flex-col items-center gap-1 rounded-lg border px-2 py-2.5 text-center">
+                                <li key={n.datum} className="flex min-w-[5.5rem] flex-1 flex-col items-center gap-1 rounded-lg border px-2 py-2.5 text-center">
                                     <span className="text-xs font-medium capitalize">{napNev(n.datum, ma, holnap)}</span>
                                     <IdoIkon kod={n.szimbolum} className="size-7" />
                                     <span className="text-sm tabular-nums">
                                         <span className="font-semibold">{fok(n.maxC)}</span>
                                         <span className="text-muted-foreground"> / {fok(n.minC)}</span>
                                     </span>
-                                    <span className={cn("flex items-center gap-1 text-xs tabular-nums", n.csapadekMm > 0 ? "text-sky-600 dark:text-sky-400" : "text-muted-foreground")}>
+                                    <span className={cn("flex items-center gap-1 text-xs tabular-nums", n.csapadekMm > 0 ? "text-info" : "text-muted-foreground")}>
                                         <Droplets className="size-3" aria-hidden="true" />
                                         {mm(n.csapadekMm)}
                                         {n.csapadekValoszinusegSzazalek != null && n.csapadekValoszinusegSzazalek > 0 && ` · ${Math.round(n.csapadekValoszinusegSzazalek)}%`}

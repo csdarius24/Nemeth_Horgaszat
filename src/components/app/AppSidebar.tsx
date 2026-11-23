@@ -53,8 +53,10 @@ export function AppSidebar({
             <SidebarContent>
                 {hid &&
                     HALASZAT_NAV.map((csoport) => (
-                        <SidebarGroup key={csoport.cim}>
-                            <SidebarGroupLabel className="text-muted-foreground">{csoport.cim}</SidebarGroupLabel>
+                        <SidebarGroup key={csoport.cim ?? csoport.elemek[0].utvonal}>
+                            {csoport.cim && (
+                                <SidebarGroupLabel className="text-muted-foreground">{csoport.cim}</SidebarGroupLabel>
+                            )}
                             <SidebarGroupContent>
                                 <SidebarMenu>
                                     {csoport.elemek.map((elem) => {

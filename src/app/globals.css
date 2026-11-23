@@ -222,3 +222,25 @@
 .leaflet-tooltip.terkep-cimke-halvany { opacity: 0.75 !important; font-weight: 400; }
 /* (A Leaflet z-indexeit a konténeren lévő `isolate` osztály zárja be.) */
 .leaflet-container { font-family: var(--font-sans, system-ui, sans-serif); }
+
+/* Leaflet-vezérlők a témához igazítva (nagyítás, rétegváltó, forrásmegjelölés).
+   A térképcsempék és a tó-feliratok szándékosan világosak maradnak.
+   A `.leaflet-container` előtag kell: a leaflet.css később töltődik be, és
+   azonos erősségű szabállyal felülírná. */
+.leaflet-container .leaflet-bar a,
+.leaflet-container .leaflet-control-layers {
+  background: var(--popover);
+  color: var(--popover-foreground);
+  border-color: var(--border);
+}
+.leaflet-container .leaflet-bar a:hover,
+.leaflet-container .leaflet-bar a:focus-visible { background: var(--accent); color: var(--accent-foreground); }
+.leaflet-container .leaflet-bar a.leaflet-disabled { background: var(--muted); color: var(--muted-foreground); }
+.leaflet-container.leaflet-touch .leaflet-bar,
+.leaflet-container.leaflet-touch .leaflet-control-layers { border-color: var(--border); }
+.dark .leaflet-container .leaflet-control-layers-toggle { filter: invert(1) hue-rotate(180deg); }
+.leaflet-container .leaflet-control-attribution {
+  background: color-mix(in oklch, var(--background) 80%, transparent);
+  color: var(--muted-foreground);
+}
+.leaflet-container .leaflet-control-attribution a { color: var(--primary); }

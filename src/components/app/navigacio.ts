@@ -28,20 +28,28 @@ export type NavElem = {
     ikon: LucideIcon;
 };
 
-export type NavCsoport = { cim: string; elemek: NavElem[] };
+/** `cim` nélküli csoport címke nélkül jelenik meg (pl. az Áttekintés legfelül). */
+export type NavCsoport = { cim?: string; elemek: NavElem[] };
 
 export const HALASZAT_NAV: NavCsoport[] = [
     {
-        cim: "Gazdálkodás",
+        elemek: [{ utvonal: "", cimke: "Áttekintés", rovidCimke: "Áttekintés", ikon: LayoutDashboard }],
+    },
+    {
+        cim: "Tavak",
         elemek: [
-            { utvonal: "", cimke: "Áttekintés", rovidCimke: "Áttekintés", ikon: LayoutDashboard },
             { utvonal: "/toak", cimke: "Tavak és telelők", rovidCimke: "Tavak", ikon: Waves },
             { utvonal: "/terkep", cimke: "Térkép", ikon: MapIcon },
+            { utvonal: "/tokezelesek", cimke: "Tókezelések", ikon: FlaskConical },
+            { utvonal: "/madarkar", cimke: "Madárkár", ikon: Bird },
+        ],
+    },
+    {
+        cim: "Állomány",
+        elemek: [
             { utvonal: "/takarmanyok", cimke: "Takarmányok", ikon: Wheat },
             { utvonal: "/halfajok", cimke: "Halfajok", ikon: Fish },
             { utvonal: "/halkeltes", cimke: "Halkeltetés", ikon: Droplets },
-            { utvonal: "/tokezelesek", cimke: "Tókezelések", ikon: FlaskConical },
-            { utvonal: "/madarkar", cimke: "Madárkár", ikon: Bird },
         ],
     },
     {

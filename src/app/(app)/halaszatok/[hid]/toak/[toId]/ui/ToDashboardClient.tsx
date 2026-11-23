@@ -213,7 +213,7 @@ function KapacitasKartya({ to, kapacitas, kezelo, onSzerkeszt }: {
                                 <span className={cn(
                                     "font-heading text-2xl font-bold tabular-nums",
                                     k.szint === "tullepve" && "text-destructive",
-                                    k.szint === "kozel" && "text-amber-600 dark:text-amber-400",
+                                    k.szint === "kozel" && "text-warning",
                                 )}>
                                     {k.szazalek.toLocaleString("hu-HU")}%
                                 </span>
@@ -223,7 +223,7 @@ function KapacitasKartya({ to, kapacitas, kezelo, onSzerkeszt }: {
                                 aria-label="Kapacitás-kihasználtság"
                                 className={cn(
                                     k.szint === "tullepve" && "[&>[data-slot=progress-indicator]]:bg-destructive",
-                                    k.szint === "kozel" && "[&>[data-slot=progress-indicator]]:bg-amber-500",
+                                    k.szint === "kozel" && "[&>[data-slot=progress-indicator]]:bg-warning",
                                 )}
                             />
                             <p className="text-sm text-muted-foreground">
@@ -486,9 +486,10 @@ export default function ToDashboardClient({
                     <h2 className="text-lg font-bold">Összefoglaló</h2>
                     <p className="text-sm text-muted-foreground">Állomány, etetés és a legutóbbi napló-események.</p>
                 </div>
-                <div className="flex flex-wrap items-center gap-2">
+                {/* Mobilon a két választó összehúzódik, így a frissítés gomb velük egy sorban marad. */}
+                <div className="flex w-full items-center gap-2 sm:w-auto">
                     <Select value={String(days)} onValueChange={(v) => setDays(Number(v))}>
-                        <SelectTrigger size="sm" aria-label="Etetési időszak">
+                        <SelectTrigger size="sm" aria-label="Etetési időszak" className="min-w-0 flex-1 sm:flex-none">
                             <SelectValue />
                         </SelectTrigger>
                         <SelectContent align="end">
@@ -496,11 +497,11 @@ export default function ToDashboardClient({
                         </SelectContent>
                     </Select>
                     <Select value={String(events)} onValueChange={(v) => setEvents(Number(v))}>
-                        <SelectTrigger size="sm" aria-label="Események száma">
+                        <SelectTrigger size="sm" aria-label="Megjelenített legutóbbi események száma" className="min-w-0 flex-1 sm:flex-none">
                             <SelectValue />
                         </SelectTrigger>
                         <SelectContent align="end">
-                            {ESEMENY_LIMITEK.map((n) => <SelectItem key={n} value={String(n)}>Utolsó {n} esemény</SelectItem>)}
+                            {ESEMENY_LIMITEK.map((n) => <SelectItem key={n} value={String(n)}>{n} esemény</SelectItem>)}
                         </SelectContent>
                     </Select>
                     <IconButton

@@ -6,6 +6,7 @@ import { useState } from "react";
 import { MapPin, MapPinned, RefreshCw, TriangleAlert } from "lucide-react";
 
 import { HalaszatTerkep, PontValaszto } from "@/components/terkep";
+import { TIPUS_SZIN } from "@/components/terkep/szinek";
 import { useTerkepAdat } from "@/components/terkep/useTerkepAdat";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
@@ -21,12 +22,7 @@ import { rajzoltTeruletSzoveg, type LatLng } from "@/lib/terkep/geo";
 import { toTipusCimke } from "@/lib/toak/attekintes";
 import { cn } from "@/lib/utils";
 
-const TIPUS_JELMAGYARAZAT = [
-    { tipus: "TO", szin: "#0284c7" },
-    { tipus: "TELELO", szin: "#6366f1" },
-    { tipus: "IVADEKNEVELO", szin: "#059669" },
-    { tipus: "KELTETO_MEDENCE", szin: "#d97706" },
-];
+const TIPUS_JELMAGYARAZAT = Object.entries(TIPUS_SZIN).map(([tipus, szin]) => ({ tipus, szin }));
 
 /** Halgazdaság helyének megadása / módosítása (ADMIN+). */
 function HelyModal({ hid, open, onOpenChange, kezdo, onMentve }: {
@@ -205,7 +201,7 @@ export default function TerkepClient({ hid }: { hid: string }) {
                 <Card>
                     <CardHeader>
                         <CardTitle className="flex items-center gap-2">
-                            <MapPinned className="size-5 text-amber-600" aria-hidden="true" />
+                            <MapPinned className="size-5 text-warning" aria-hidden="true" />
                             Körvonal nélküli tóegységek
                         </CardTitle>
                         <CardDescription>
