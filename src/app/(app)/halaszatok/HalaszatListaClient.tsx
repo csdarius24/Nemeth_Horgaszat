@@ -2,13 +2,15 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import { ChevronRight, History, Plus, Search, SearchX, Waves } from "lucide-react";
+import { ChevronRight, History, Plus, Search, SearchX, Trash2, Waves } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import { UTOLSO_HALASZAT_KULCS } from "@/components/app/navigacio";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { IconButton } from "@/components/ui/icon-button";
+import { HalaszatTorlesDialog } from "@/components/app/HalaszatTorlesDialog";
 import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group";
 import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyState, ErrorState } from "@/components/ui/states";
@@ -48,6 +50,7 @@ export default function HalaszatListaClient() {
     const [utolso, setUtolso] = useState<string | null>(null);
     const [q, setQ] = useState("");
     const [ujra, setUjra] = useState(0);
+    const [torlendo, setTorlendo] = useState<{ azonosito: number; nev: string } | null>(null);
 
     useEffect(() => {
         try { setUtolso(localStorage.getItem(UTOLSO_HALASZAT_KULCS)); } catch {}
@@ -189,6 +192,17 @@ export default function HalaszatListaClient() {
                                                 )}
                                             </div>
                                         </div>
+                                        {szerepkor === "OWNER" && (
+                                            // A sor „kifeszített” linkje fölé emelve (relative z-10), hogy ne nyissa meg a halászatot.
+                                            <IconButton
+                                                label={`${h.nev} törlése`}
+                                                icon={<Trash2 />}
+                                                variant="ghost"
+                                                size="icon-sm"
+                                                className="relative z-10 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+                                                onClick={() => setTorlendo({ azonosito: h.azonosito, nev: h.nev })}
+                                            />
+                                        )}
                                         <ChevronRight
                                             className="size-5 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5 group-hover:text-foreground"
                                             aria-hidden="true"
@@ -215,6 +229,23 @@ export default function HalaszatListaClient() {
                 <p className="text-center text-sm text-balance text-muted-foreground">
                     Nem találod a halászatodat? Kérd meg a tulajdonosát, hogy vegyen fel dolgozónak.
                 </p>
+            )}
+
+            {torlendo && (
+                <HalaszatTorlesDialog
+                    halaszatId={torlendo.azonosito}
+                    nev={torlendo.nev}
+                    open={torlendo != null}
+                    onOpenChange={(o) => !o && setTorlendo(null)}
+                    onTorolve={() => {
+                        const id = String(torlendo.azonosito);
+                        // A „legutóbb megnyitott” halászat ne mutasson törölt halászatra.
+                        try { if (localStorage.getItem(UTOLSO_HALASZAT_KULCS) === id) localStorage.removeItem(UTOLSO_HALASZAT_KULCS); } catch {}
+                        if (utolso === id) setUtolso(null);
+                        setItems((r) => r.filter((x) => String(x.halaszat.azonosito) !== id));
+                        setTorlendo(null);
+                    }}
+                />
             )}
         </div>
     );
